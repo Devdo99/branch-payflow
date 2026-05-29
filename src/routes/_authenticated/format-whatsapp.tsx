@@ -9,7 +9,7 @@ export const Route = createFileRoute("/_authenticated/format-whatsapp")({
 function Page() {
   return (
     <>
-      <PageHeader title="format-whatsapp" description="Modul sedang disiapkan." />
+      <PageHeader title="Format WhatsApp" description="Modul sedang disiapkan." />
       <div className="p-6">
         <div className="rounded-md border border-dashed border-border bg-card p-10 text-center">
           <Construction className="h-6 w-6 mx-auto text-muted-foreground" />

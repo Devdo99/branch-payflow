@@ -9,7 +9,7 @@ export const Route = createFileRoute("/_authenticated/tunjangan")({
 function Page() {
   return (
     <>
-      <PageHeader title="tunjangan" description="Modul sedang disiapkan." />
+      <PageHeader title="Tunjangan" description="Modul sedang disiapkan." />
       <div className="p-6">
         <div className="rounded-md border border-dashed border-border bg-card p-10 text-center">
           <Construction className="h-6 w-6 mx-auto text-muted-foreground" />

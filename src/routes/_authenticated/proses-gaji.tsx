@@ -1,8 +1,7 @@
 import { createFileRoute } from '@tanstack/react-router'
-import { useState } from 'react'
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useMemo, useState } from 'react'
+import { useQuery } from '@tanstack/react-query'
 import { supabase } from '@/integrations/supabase/client'
-import { PageHeader } from '@/components/page-header'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import {
@@ -13,1169 +12,637 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from '@/components/ui/dialog'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
-import { Badge } from '@/components/ui/badge'
-import { Textarea } from '@/components/ui/textarea'
-import { Label } from '@/components/ui/label'
-import { toast } from 'sonner'
-import { formatIDR } from '@/lib/format'
-import {
-  Calculator,
-  Loader2,
-  Eye,
-  ArrowLeft,
-  Save,
-  Trash2,
-  Coins,
-  MinusCircle,
-  ClipboardList,
-} from 'lucide-react'
 
 export const Route = createFileRoute('/_authenticated/proses-gaji')({
   component: ProsesGajiPage,
 })
 
-const BULAN_OPTIONS = [
-  { value: 1, label: 'Januari' },
-  { value: 2, label: 'Februari' },
-  { value: 3, label: 'Maret' },
-  { value: 4, label: 'April' },
-  { value: 5, label: 'Mei' },
-  { value: 6, label: 'Juni' },
-  { value: 7, label: 'Juli' },
-  { value: 8, label: 'Agustus' },
-  { value: 9, label: 'September' },
-  { value: 10, label: 'Oktober' },
-  { value: 11, label: 'November' },
-  { value: 12, label: 'Desember' },
-]
+type AnyRow = Record<string, any>
+type ComponentKind = 'allowance' | 'deduction'
 
-type RuleMethod = 'fixed' | 'per_day' | 'manual'
-
-type SalaryRule = {
-  id: string
-  nama: string
-  nominal_default: number
-  metode: RuleMethod
-  aktif: boolean
+const formatRupiah = (value: number) => {
+  return new Intl.NumberFormat('id-ID', {
+    style: 'currency',
+    currency: 'IDR',
+    maximumFractionDigits: 0,
+  }).format(value || 0)
 }
 
-type PayrollRun = {
-  id: string
-  periode: string
-  status: string
-  payroll_items?: {
-    id: string
-    gaji_bersih: number | null
-  }[] | null
+const toNumber = (value: any) => {
+  if (typeof value === 'number') return value
+  if (!value) return 0
+
+  const cleaned = String(value).replace(/[^\d.-]/g, '')
+  return Number(cleaned) || 0
 }
 
-type LocalPayrollItem = {
-  id: string
-  payroll_run_id: string
-  employee_id: string
-  gaji_pokok: number
-  total_tunjangan: number
-  total_potongan: number
-  gaji_bersih: number
-  allowanceQty: Record<string, string>
-  deductionQty: Record<string, string>
-  manualAllowances: Record<string, string>
-  manualDeductions: Record<string, string>
-<<<<<<< HEAD
-=======
-  jumlah_hari: string
-  jumlah_jam_lembur: string
-  jumlah_telat: string
-  jumlah_izin: string
-  jumlah_absen: string
-  kasbon: string
-  bonus_manual: string
->>>>>>> 7c8b8790191eb2911f8c09e97ae5deb0764d81c2
-  catatan: string
-  employees?: {
-    id: string
-    nama: string
-  } | null
+const truthy = (value: any) => {
+  const text = String(value).toLowerCase()
+  return value === true || value === 1 || text === 'true' || text === 'ya' || text === 'yes'
 }
 
-type MasterRules = {
-  allowances: SalaryRule[]
-  deductions: SalaryRule[]
+const normalizeList = (value: any): any[] => {
+  if (!value) return []
+  if (Array.isArray(value)) return value
+
+  if (typeof value === 'string') {
+    try {
+      const parsed = JSON.parse(value)
+      return Array.isArray(parsed) ? parsed : [parsed]
+    } catch {
+      return value
+        .split(',')
+        .map((item) => item.trim())
+        .filter(Boolean)
+    }
+  }
+
+  if (typeof value === 'object') return [value]
+
+  return [value]
+}
+
+const getEmployeeName = (employee: AnyRow) => {
+  return employee.nama || employee.name || employee.employee_name || '-'
+}
+
+const getBaseSalary = (employee: AnyRow) => {
+  return toNumber(
+    employee.gaji_pokok ??
+      employee.base_salary ??
+      employee.salary ??
+      employee.gaji ??
+      0
+  )
+}
+
+const getComponentName = (component: AnyRow) => {
+  return component.nama || component.name || component.label || 'Tanpa nama'
+}
+
+const getComponentAmount = (component: AnyRow) => {
+  return toNumber(
+    component.nominal ??
+      component.amount ??
+      component.nilai ??
+      component.default_amount ??
+      component.jumlah ??
+      0
+  )
+}
+
+const isComponentActive = (component: AnyRow) => {
+  if (
+    component.aktif === false ||
+    component.active === false ||
+    component.is_active === false ||
+    component.status === false
+  ) {
+    return false
+  }
+
+  if (
+    truthy(component.hidden) ||
+    truthy(component.is_hidden) ||
+    truthy(component.deleted) ||
+    truthy(component.is_deleted)
+  ) {
+    return false
+  }
+
+  return true
+}
+
+const isMultiplyComponent = (component: AnyRow) => {
+  const type = String(
+    component.tipe_perhitungan ??
+      component.calculation_type ??
+      component.type ??
+      component.metode ??
+      component.jenis_hitung ??
+      ''
+  ).toLowerCase()
+
+  return (
+    type.includes('kali') ||
+    type.includes('dikali') ||
+    type.includes('multiply') ||
+    type.includes('qty') ||
+    type.includes('quantity') ||
+    type.includes('jumlah') ||
+    type.includes('per_hari') ||
+    type.includes('per hari') ||
+    type.includes('per_jam') ||
+    type.includes('per jam') ||
+    type.includes('per_unit') ||
+    type.includes('per unit')
+  )
+}
+
+const listContainsEmployee = (value: any, employeeId: any) => {
+  const employeeIdText = String(employeeId)
+
+  return normalizeList(value).some((item) => {
+    if (!item) return false
+
+    if (typeof item === 'object') {
+      const candidates = [
+        item.id,
+        item.employee_id,
+        item.karyawan_id,
+        item.user_id,
+      ]
+
+      return candidates.some((candidate) => String(candidate) === employeeIdText)
+    }
+
+    return String(item) === employeeIdText
+  })
+}
+
+const listContainsComponent = (value: any, component: AnyRow) => {
+  const componentId = String(component.id)
+  const componentName = String(getComponentName(component)).toLowerCase()
+
+  return normalizeList(value).some((item) => {
+    if (!item) return false
+
+    if (typeof item === 'object') {
+      const candidates = [
+        item.id,
+        item.type_id,
+        item.allowance_type_id,
+        item.deduction_type_id,
+        item.tunjangan_id,
+        item.potongan_id,
+        item.nama,
+        item.name,
+      ]
+
+      return candidates.some((candidate) => {
+        const text = String(candidate).toLowerCase()
+        return String(candidate) === componentId || text === componentName
+      })
+    }
+
+    const text = String(item).toLowerCase()
+    return String(item) === componentId || text === componentName
+  })
+}
+
+const isComponentApplicable = (
+  component: AnyRow,
+  employee: AnyRow,
+  kind: ComponentKind
+) => {
+  if (!isComponentActive(component)) return false
+
+  const employeeId = employee.id
+
+  if (component.employee_id && String(component.employee_id) === String(employeeId)) {
+    return true
+  }
+
+  if (component.karyawan_id && String(component.karyawan_id) === String(employeeId)) {
+    return true
+  }
+
+  if (listContainsEmployee(component.employee_ids, employeeId)) {
+    return true
+  }
+
+  if (listContainsEmployee(component.karyawan_ids, employeeId)) {
+    return true
+  }
+
+  if (listContainsEmployee(component.employees, employeeId)) {
+    return true
+  }
+
+  const employeeSpecialComponents =
+    kind === 'allowance'
+      ? employee.tunjangan_khusus ?? employee.allowances ?? employee.allowance_types
+      : employee.potongan_khusus ?? employee.deductions ?? employee.deduction_types
+
+  if (listContainsComponent(employeeSpecialComponents, component)) {
+    return true
+  }
+
+  const scope = String(
+    component.scope ??
+      component.applies_to ??
+      component.jenis_berlaku ??
+      component.berlaku ??
+      ''
+  ).toLowerCase()
+
+  const isGlobal =
+    truthy(component.is_global) ||
+    truthy(component.global) ||
+    truthy(component.berlaku_semua) ||
+    scope.includes('global') ||
+    scope.includes('semua') ||
+    scope.includes('all')
+
+  if (isGlobal) return true
+
+  const hasTargetSetting =
+    component.employee_id ||
+    component.karyawan_id ||
+    component.employee_ids ||
+    component.karyawan_ids ||
+    component.employees ||
+    component.scope ||
+    component.applies_to ||
+    component.jenis_berlaku ||
+    component.berlaku
+
+  /**
+   * Kalau komponen tidak punya penanda khusus/global,
+   * anggap sebagai komponen umum agar tetap muncul.
+   */
+  if (!hasTargetSetting) return true
+
+  return false
 }
 
 function ProsesGajiPage() {
-  const queryClient = useQueryClient()
+  const [period, setPeriod] = useState(() => new Date().toISOString().slice(0, 7))
+  const [quantities, setQuantities] = useState<Record<string, string>>({})
 
-  const currentMonth = new Date().getMonth() + 1
-  const currentYear = new Date().getFullYear()
-
-  const [isOpen, setIsOpen] = useState(false)
-  const [selectedBulan, setSelectedBulan] = useState<number>(currentMonth)
-  const [selectedTahun, setSelectedTahun] = useState<number>(currentYear)
-  const [editingRun, setEditingRun] = useState<PayrollRun | null>(null)
-  const [localItems, setLocalItems] = useState<LocalPayrollItem[]>([])
-
-  const normalizeMethod = (value: unknown): RuleMethod => {
-    const raw = String(value ?? '').trim().toLowerCase()
-    if (
-      raw === 'per_day' ||
-      raw === 'harian' ||
-      raw === 'perhari' ||
-      raw === 'per day' ||
-      raw === 'daily'
-    ) {
-      return 'per_day'
-    }
-    if (raw === 'manual') {
-      return 'manual'
-    }
-    return 'fixed'
-  }
-
-  const normalizeRule = (item: any): SalaryRule => {
-    return {
-      id: item.id,
-      nama: item.nama,
-      nominal_default: Number(item.nominal_default) || 0,
-      metode: normalizeMethod(item.metode),
-      aktif: Boolean(item.aktif),
-    }
-  }
-
-  const getMasterRules = async (): Promise<MasterRules> => {
-    const { data: allowances, error: allowanceError } = await supabase
-      .from('allowance_types')
-      .select('id, nama, nominal_default, metode, aktif')
-      .eq('aktif', true)
-      .order('nama')
-
-    if (allowanceError) throw allowanceError
-
-    const { data: deductions, error: deductionError } = await supabase
-      .from('deduction_types')
-      .select('id, nama, nominal_default, metode, aktif')
-      .eq('aktif', true)
-      .order('nama')
-
-    if (deductionError) throw deductionError
-
-    return {
-      allowances: (allowances ?? []).map(normalizeRule),
-      deductions: (deductions ?? []).map(normalizeRule),
-    }
-  }
-
-  const {
-    data: masterRules = { allowances: [], deductions: [] },
-    isLoading: loadingRules,
-  } = useQuery({
-    queryKey: ['payroll_master_rules'],
-    queryFn: getMasterRules,
-  })
-
-  const { data: payrollRuns = [], isLoading } = useQuery({
-    queryKey: ['payroll_runs'],
+  const { data: employees = [], isLoading: employeesLoading } = useQuery({
+    queryKey: ['employees_payroll'],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from('payroll_runs')
-        .select(`
-          id,
-          periode,
-          status,
-          payroll_items (
-            id,
-            gaji_bersih
-          )
-        `)
-        .order('periode', { ascending: false })
-
-      if (error) throw error
-
-      return (data ?? []) as PayrollRun[]
-    },
-  })
-
-  const formatPeriode = (periode: string) => {
-    const [tahun, bulan] = periode.split('-')
-    const namaBulan = BULAN_OPTIONS.find(
-      (item) => item.value === Number(bulan),
-    )?.label
-    return `${namaBulan ?? bulan} ${tahun}`
-  }
-
-  const getGajiHarian = (gajiPokok: number) => {
-    return Math.round((Number(gajiPokok) || 0) / 30)
-  }
-
-  const getAllowanceAmount = (item: LocalPayrollItem, rule: SalaryRule) => {
-    if (rule.metode === 'fixed') return rule.nominal_default
-    if (rule.metode === 'manual') return Number(item.manualAllowances?.[rule.id]) || 0
-    if (rule.metode === 'per_day') {
-      const qty = Number(item.allowanceQty?.[rule.id]) || 0
-      const nominal = rule.nominal_default === 0 ? getGajiHarian(item.gaji_pokok) : rule.nominal_default
-      return nominal * qty
-    }
-    return 0
-  }
-
-  const getDeductionAmount = (item: LocalPayrollItem, rule: SalaryRule) => {
-    if (rule.metode === 'fixed') return rule.nominal_default
-    if (rule.metode === 'manual') return Number(item.manualDeductions?.[rule.id]) || 0
-    if (rule.metode === 'per_day') {
-      const qty = Number(item.deductionQty?.[rule.id]) || 0
-      const nominal = rule.nominal_default === 0 ? getGajiHarian(item.gaji_pokok) : rule.nominal_default
-      return nominal * qty
-    }
-    return 0
-  }
-
-  const calculateItem = (item: LocalPayrollItem, rules: MasterRules) => {
-    // 100% Mengandalkan Aturan Dinamis Master Data
-    const totalTunjangan = rules.allowances.reduce(
-      (total, rule) => total + getAllowanceAmount(item, rule),
-      0
-    )
-    
-    const totalPotongan = rules.deductions.reduce(
-      (total, rule) => total + getDeductionAmount(item, rule),
-      0
-    )
-
-<<<<<<< HEAD
-    const gajiBersih = item.gaji_pokok + totalTunjangan - totalPotongan
-
-    return {
-      total_tunjangan: totalTunjangan,
-      total_potongan: totalPotongan,
-      gaji_bersih: gajiBersih,
-=======
-    const totalPotongan = rules.deductions.reduce((total, rule) => {
-      return total + getDeductionAmount(item, rule)
-    }, 0)
-
-    const gajiPokok = Number(item.gaji_pokok) || 0
-    const bonus = Number(item.bonus_manual) || 0
-    const kasbon = Number(item.kasbon) || 0
-    const gajiBersih = gajiPokok + totalTunjangan + bonus - totalPotongan - kasbon
-
-    return {
-      total_tunjangan: Math.round(totalTunjangan + bonus),
-      total_potongan: Math.round(totalPotongan + kasbon),
-      gaji_bersih: Math.round(gajiBersih),
->>>>>>> 7c8b8790191eb2911f8c09e97ae5deb0764d81c2
-    }
-  }
-
-  const handleUpdateItem = (
-    itemId: string,
-    field: keyof LocalPayrollItem,
-    value: any
-  ) => {
-    setLocalItems((prev) =>
-      prev.map((item) => {
-        if (item.id === itemId) {
-          const updatedItem = { ...item, [field]: value }
-          const calculated = calculateItem(updatedItem, masterRules)
-          return { ...updatedItem, ...calculated }
-        }
-        return item
-      })
-    )
-  }
-
-  const fetchPayrollItems = async (runId: string) => {
-    const { data, error } = await supabase
-      .from('payroll_items')
-      .select(`
-        *,
-        employees (
-          id,
-<<<<<<< HEAD
-          nama
-        )
-      `)
-      .eq('payroll_run_id', runId)
-      .order('id')
-=======
-          gaji_pokok,
-          total_tunjangan,
-          total_potongan,
-          gaji_bersih,
-          jumlah_hari,
-          jumlah_jam_lembur,
-          jumlah_telat,
-          jumlah_izin,
-          jumlah_absen,
-          kasbon,
-          bonus_manual,
-          catatan,
-          employees (
-            id,
-            nama
-          )
-        `)
-        .eq('payroll_run_id', editingRun.id)
-        .order('id', { ascending: true })
->>>>>>> 7c8b8790191eb2911f8c09e97ae5deb0764d81c2
-
-    if (error) {
-      toast.error('Gagal mengambil data detail gaji')
-      return
-    }
-
-<<<<<<< HEAD
-    if (data) {
-      const mapped = data.map((d: any) => {
-        const allowanceQty = d.allowance_qty || {}
-        const deductionQty = d.deduction_qty || {}
-        const manualAllowances = d.manual_allowances || {}
-        const manualDeductions = d.manual_deductions || {}
-
-        return {
-          id: d.id,
-          payroll_run_id: d.payroll_run_id,
-          employee_id: d.employee_id,
-          gaji_pokok: Number(d.gaji_pokok) || 0,
-          total_tunjangan: Number(d.total_tunjangan) || 0,
-          total_potongan: Number(d.total_potongan) || 0,
-          gaji_bersih: Number(d.gaji_bersih) || 0,
-          catatan: d.catatan || '',
-          allowanceQty,
-          deductionQty,
-          manualAllowances,
-          manualDeductions,
-          employees: d.employees,
-        } as LocalPayrollItem
-      })
-      setLocalItems(mapped)
-    }
-  }
-=======
-      const rows = (data ?? []) as any[]
-
-      const mappedRows: LocalPayrollItem[] = rows.map((item) => ({
-        id: item.id,
-        gaji_pokok: Number(item.gaji_pokok) || 0,
-        total_tunjangan: Number(item.total_tunjangan) || 0,
-        total_potongan: Number(item.total_potongan) || 0,
-        gaji_bersih: Number(item.gaji_bersih) || 0,
-        allowanceQty: {},
-        deductionQty: {},
-        manualAllowances: {},
-        manualDeductions: {},
-        jumlah_hari: item.jumlah_hari != null ? String(item.jumlah_hari) : '',
-        jumlah_jam_lembur: item.jumlah_jam_lembur != null ? String(item.jumlah_jam_lembur) : '',
-        jumlah_telat: item.jumlah_telat != null ? String(item.jumlah_telat) : '',
-        jumlah_izin: item.jumlah_izin != null ? String(item.jumlah_izin) : '',
-        jumlah_absen: item.jumlah_absen != null ? String(item.jumlah_absen) : '',
-        kasbon: item.kasbon != null && Number(item.kasbon) !== 0 ? String(item.kasbon) : '',
-        bonus_manual: item.bonus_manual != null && Number(item.bonus_manual) !== 0 ? String(item.bonus_manual) : '',
-        catatan: item.catatan ?? '',
-        employees: item.employees,
-      }))
-
-      setLocalItems(mappedRows)
-
-      return mappedRows
-    },
-    enabled: !!editingRun?.id,
-  })
->>>>>>> 7c8b8790191eb2911f8c09e97ae5deb0764d81c2
-
-  const generateMutation = useMutation({
-    mutationFn: async () => {
-      const periode = `${selectedTahun}-${String(selectedBulan).padStart(2, '0')}`
-      
-      const { data: existing } = await supabase
-        .from('payroll_runs')
-        .select('id')
-        .eq('periode', periode)
-        .maybeSingle()
-
-      if (existing) {
-        throw new Error('Periode gaji ini sudah dibuat!')
-      }
-
-      const { data: run, error: runError } = await supabase
-        .from('payroll_runs')
-        .insert({ periode, status: 'draft' })
-        .select()
-        .single()
-
-      if (runError) throw runError
-
-<<<<<<< HEAD
-      const { data: employees, error: empError } = await supabase
+      const { data, error } = await (supabase as any)
         .from('employees')
-        .select('id, gaji_pokok')
-        .eq('aktif', true)
-=======
-      const payrollItems = employees.map((employee) => {
-        const baseItem: LocalPayrollItem = {
-          id: '',
-          gaji_pokok: Number(employee.gaji_pokok) || 0,
-          total_tunjangan: 0,
-          total_potongan: 0,
-          gaji_bersih: 0,
-          allowanceQty: {},
-          deductionQty: {},
-          manualAllowances: {},
-          manualDeductions: {},
-          jumlah_hari: '',
-          jumlah_jam_lembur: '',
-          jumlah_telat: '',
-          jumlah_izin: '',
-          jumlah_absen: '',
-          kasbon: '',
-          bonus_manual: '',
-          catatan: '',
-        }
->>>>>>> 7c8b8790191eb2911f8c09e97ae5deb0764d81c2
+        .select('*')
 
-      if (empError) throw empError
+      if (error) throw error
+      return (data || []) as AnyRow[]
+    },
+  })
 
-      if (employees && employees.length > 0) {
-        const items = employees.map(emp => {
-          const gajiPokok = Number(emp.gaji_pokok) || 0
-          
-          const defaultTunjanganFixed = masterRules.allowances
-            .filter(r => r.metode === 'fixed')
-            .reduce((sum, r) => sum + r.nominal_default, 0)
-            
-          const defaultPotonganFixed = masterRules.deductions
-            .filter(r => r.metode === 'fixed')
-            .reduce((sum, r) => sum + r.nominal_default, 0)
+  const { data: allowanceTypes = [] } = useQuery({
+    queryKey: ['allowance_types_payroll'],
+    queryFn: async () => {
+      const { data, error } = await (supabase as any)
+        .from('allowance_types')
+        .select('*')
 
-          const gajiBersih = gajiPokok + defaultTunjanganFixed - defaultPotonganFixed
-
-          return {
-            payroll_run_id: run.id,
-            employee_id: emp.id,
-            gaji_pokok: gajiPokok,
-            total_tunjangan: defaultTunjanganFixed,
-            total_potongan: defaultPotonganFixed,
-            gaji_bersih: gajiBersih,
-            // Nilai kolom lama yang di-hardcode diset 0 secara default agar tabel DB tidak error
-            jumlah_hari: 0,
-            jumlah_jam_lembur: 0,
-            jumlah_telat: 0,
-            jumlah_izin: 0,
-            jumlah_absen: 0,
-            kasbon: 0,
-            bonus_manual: 0,
-            allowance_qty: {},
-            deduction_qty: {},
-            manual_allowances: {},
-            manual_deductions: {}
-          }
-        })
-
-        const { error: itemsError } = await supabase
-          .from('payroll_items')
-          .insert(items as any)
-
-        if (itemsError) throw itemsError
+      if (error) {
+        console.error('Gagal mengambil allowance_types:', error)
+        return []
       }
 
-      return run
+      return (data || []) as AnyRow[]
     },
-    onSuccess: () => {
-      toast.success('Periode gaji berhasil dibuat')
-      setIsOpen(false)
-      queryClient.invalidateQueries({ queryKey: ['payroll_runs'] })
-    },
-    onError: (error: Error) => {
-      toast.error(error.message || 'Gagal membuat periode gaji')
-    }
   })
 
-  const saveItemsMutation = useMutation({
-    mutationFn: async () => {
-      const updates = localItems.map((item) => ({
-        id: item.id,
-        payroll_run_id: item.payroll_run_id,
-        employee_id: item.employee_id,
-        gaji_pokok: item.gaji_pokok,
-        total_tunjangan: item.total_tunjangan,
-        total_potongan: item.total_potongan,
-        gaji_bersih: item.gaji_bersih,
-        catatan: item.catatan || null,
-        allowance_qty: item.allowanceQty,
-        deduction_qty: item.deductionQty,
-        manual_allowances: item.manualAllowances,
-        manual_deductions: item.manualDeductions,
-        // Kolom lawas yang tidak lagi dipakai di UI
-        jumlah_hari: 0,
-        jumlah_jam_lembur: 0,
-        jumlah_telat: 0,
-        jumlah_izin: 0,
-        jumlah_absen: 0,
-        kasbon: 0,
-        bonus_manual: 0,
-      }))
+  const { data: deductionTypes = [] } = useQuery({
+    queryKey: ['deduction_types_payroll'],
+    queryFn: async () => {
+      const { data, error } = await (supabase as any)
+        .from('deduction_types')
+        .select('*')
 
-      const { error } = await supabase
-        .from('payroll_items')
-        .upsert(updates as any)
+      if (error) {
+        console.error('Gagal mengambil deduction_types:', error)
+        return []
+      }
 
-      if (error) throw error
+      return (data || []) as AnyRow[]
     },
-    onSuccess: () => {
-      toast.success('Data rincian gaji berhasil disimpan')
-      setEditingRun(null)
-      queryClient.invalidateQueries({ queryKey: ['payroll_runs'] })
-    },
-    onError: (error) => {
-      toast.error('Gagal menyimpan rincian gaji')
-      console.error(error)
-    }
   })
 
-  const deleteMutation = useMutation({
-    mutationFn: async (id: string) => {
-      const { error } = await supabase
-        .from('payroll_runs')
-        .delete()
-        .eq('id', id)
-      if (error) throw error
-    },
-    onSuccess: () => {
-      toast.success('Periode gaji berhasil dihapus')
-      queryClient.invalidateQueries({ queryKey: ['payroll_runs'] })
-    }
-  })
+  const getQuantityKey = (
+    employeeId: string,
+    kind: ComponentKind,
+    componentId: string
+  ) => {
+    return `${employeeId}-${kind}-${componentId}`
+  }
 
-<<<<<<< HEAD
-=======
-  const saveMassMutation = useMutation({
-    mutationFn: async () => {
-      const updates = localItems.map(async (item) => {
-        const calc = calculateItem(item, masterRules)
+  const getQuantityValue = (
+    employeeId: string,
+    kind: ComponentKind,
+    componentId: string
+  ) => {
+    return quantities[getQuantityKey(employeeId, kind, componentId)] ?? ''
+  }
 
-        const { error } = await supabase
-          .from('payroll_items')
-          .update({
-            total_tunjangan: calc.total_tunjangan,
-            total_potongan: calc.total_potongan,
-            gaji_bersih: calc.gaji_bersih,
-            jumlah_hari: Number(item.jumlah_hari) || 0,
-            jumlah_jam_lembur: Number(item.jumlah_jam_lembur) || 0,
-            jumlah_telat: Number(item.jumlah_telat) || 0,
-            jumlah_izin: Number(item.jumlah_izin) || 0,
-            jumlah_absen: Number(item.jumlah_absen) || 0,
-            kasbon: Number(item.kasbon) || 0,
-            bonus_manual: Number(item.bonus_manual) || 0,
-            catatan: item.catatan || null,
-          })
-          .eq('id', item.id)
+  const getQuantityNumber = (
+    employeeId: string,
+    kind: ComponentKind,
+    componentId: string
+  ) => {
+    return toNumber(getQuantityValue(employeeId, kind, componentId))
+  }
 
-        if (error) throw error
+  const setQuantityValue = (
+    employeeId: string,
+    kind: ComponentKind,
+    componentId: string,
+    value: string
+  ) => {
+    setQuantities((prev) => ({
+      ...prev,
+      [getQuantityKey(employeeId, kind, componentId)]: value,
+    }))
+  }
+
+  const payrollRows = useMemo(() => {
+    return employees.map((employee) => {
+      const applicableAllowances = allowanceTypes.filter((item) =>
+        isComponentApplicable(item, employee, 'allowance')
+      )
+
+      const applicableDeductions = deductionTypes.filter((item) =>
+        isComponentApplicable(item, employee, 'deduction')
+      )
+
+      const baseSalary = getBaseSalary(employee)
+
+      const allowanceTotal = applicableAllowances.reduce((total, item) => {
+        const amount = getComponentAmount(item)
+        const isMultiply = isMultiplyComponent(item)
+
+        if (isMultiply) {
+          const qty = getQuantityNumber(employee.id, 'allowance', item.id)
+          return total + amount * qty
+        }
+
+        return total + amount
+      }, 0)
+
+      const deductionTotal = applicableDeductions.reduce((total, item) => {
+        const amount = getComponentAmount(item)
+        const isMultiply = isMultiplyComponent(item)
+
+        if (isMultiply) {
+          const qty = getQuantityNumber(employee.id, 'deduction', item.id)
+          return total + amount * qty
+        }
+
+        return total + amount
+      }, 0)
+
+      const netSalary = baseSalary + allowanceTotal - deductionTotal
+
+      return {
+        employee,
+        baseSalary,
+        applicableAllowances,
+        applicableDeductions,
+        allowanceTotal,
+        deductionTotal,
+        netSalary,
+      }
+    })
+  }, [employees, allowanceTypes, deductionTypes, quantities])
+
+  const grandTotal = payrollRows.reduce((total, row) => total + row.netSalary, 0)
+
+  const summaryText = useMemo(() => {
+    const periodText = period ? period.split('-').reverse().join('/') : '-'
+
+    const detail = payrollRows
+      .map((row, index) => {
+        return `${index + 1}. ${getEmployeeName(row.employee)}
+Gaji Pokok: ${formatRupiah(row.baseSalary)}
+Tunjangan: ${formatRupiah(row.allowanceTotal)}
+Potongan: ${formatRupiah(row.deductionTotal)}
+Gaji Bersih: *${formatRupiah(row.netSalary)}*`
       })
+      .join('\n\n')
 
-      await Promise.all(updates)
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['payroll_runs'] })
-      toast.success('Data gaji berhasil disimpan.')
-      setEditingRun(null)
-    },
-    onError: (error: Error) => {
-      toast.error(error.message || 'Gagal menyimpan data')
-    },
-  })
+    return `*Ringkasan Gaji Bulanan*
+Periode: ${periodText}
 
-  const recalculateLocalItem = (item: LocalPayrollItem) => {
-    const calc = calculateItem(item, masterRules)
+${detail}
 
-    return {
-      ...item,
-      total_tunjangan: calc.total_tunjangan,
-      total_potongan: calc.total_potongan,
-      gaji_bersih: calc.gaji_bersih,
-    }
+*Total Gaji Keseluruhan: ${formatRupiah(grandTotal)}*`
+  }, [payrollRows, period, grandTotal])
+
+  const handleCopySummary = async () => {
+    await navigator.clipboard.writeText(summaryText)
+    alert('Ringkasan gaji berhasil disalin.')
   }
 
-  const handleAllowanceQtyChange = (
-    id: string,
-    ruleId: string,
-    value: string,
+  const renderComponentList = (
+    employee: AnyRow,
+    items: AnyRow[],
+    kind: ComponentKind
   ) => {
-    setLocalItems((prev) =>
-      prev.map((item) => {
-        if (item.id !== id) return item
-
-        const updated = {
-          ...item,
-          allowanceQty: {
-            ...item.allowanceQty,
-            [ruleId]: value,
-          },
-        }
-
-        return recalculateLocalItem(updated)
-      }),
-    )
-  }
-
-  const handleDeductionQtyChange = (
-    id: string,
-    ruleId: string,
-    value: string,
-  ) => {
-    setLocalItems((prev) =>
-      prev.map((item) => {
-        if (item.id !== id) return item
-
-        const updated = {
-          ...item,
-          deductionQty: {
-            ...item.deductionQty,
-            [ruleId]: value,
-          },
-        }
-
-        return recalculateLocalItem(updated)
-      }),
-    )
-  }
-
-  const handleManualAllowanceChange = (
-    id: string,
-    ruleId: string,
-    value: string,
-  ) => {
-    setLocalItems((prev) =>
-      prev.map((item) => {
-        if (item.id !== id) return item
-
-        const updated = {
-          ...item,
-          manualAllowances: {
-            ...item.manualAllowances,
-            [ruleId]: value,
-          },
-        }
-
-        return recalculateLocalItem(updated)
-      }),
-    )
-  }
-
-  const handleManualDeductionChange = (
-    id: string,
-    ruleId: string,
-    value: string,
-  ) => {
-    setLocalItems((prev) =>
-      prev.map((item) => {
-        if (item.id !== id) return item
-
-        const updated = {
-          ...item,
-          manualDeductions: {
-            ...item.manualDeductions,
-            [ruleId]: value,
-          },
-        }
-
-        return recalculateLocalItem(updated)
-      }),
-    )
-  }
-
-  const handleFieldChange = (
-    id: string,
-    field: 'jumlah_hari' | 'jumlah_jam_lembur' | 'jumlah_telat' | 'jumlah_izin' | 'jumlah_absen' | 'kasbon' | 'bonus_manual' | 'catatan',
-    value: string,
-  ) => {
-    setLocalItems((prev) =>
-      prev.map((item) => {
-        if (item.id !== id) return item
-        const updated = { ...item, [field]: value }
-        // kasbon & bonus mempengaruhi gaji bersih, lainnya hanya informasi
-        if (field === 'kasbon' || field === 'bonus_manual') {
-          return recalculateLocalItem(updated)
-        }
-        return updated
-      }),
-    )
-  }
-
-  const renderRuleDescription = (
-    rule: SalaryRule,
-    type: 'allowance' | 'deduction',
-    gajiPokok?: number,
-  ) => {
-    if (rule.metode === 'fixed') {
-      return `Tetap: ${formatIDR(rule.nominal_default)}`
+    if (!items.length) {
+      return <p className="text-sm text-muted-foreground">Tidak ada</p>
     }
 
-    if (rule.metode === 'manual') {
-      return 'Manual: isi nominal saat proses gaji'
-    }
-
-    if (rule.nominal_default === 0) {
-      const harian = getGajiHarian(gajiPokok ?? 0)
-      return `Proporsional: ${formatIDR(harian)} x jumlah`
-    }
-
-    return `${formatIDR(rule.nominal_default)} x jumlah ${
-      type === 'allowance' ? 'hari/qty' : 'hari/kejadian'
-    }`
-  }
-
->>>>>>> 7c8b8790191eb2911f8c09e97ae5deb0764d81c2
-  if (editingRun) {
     return (
-      <div className="flex flex-col gap-6 p-6">
-        <div className="flex items-center gap-4">
-          <Button variant="outline" size="icon" onClick={() => setEditingRun(null)}>
-            <ArrowLeft className="h-4 w-4" />
-          </Button>
-          <div>
-            <h1 className="text-2xl font-bold tracking-tight">Proses Gaji: {formatPeriode(editingRun.periode)}</h1>
-            <p className="text-muted-foreground">Isi rincian tunjangan dan potongan karyawan</p>
-          </div>
-        </div>
+      <div className="space-y-3">
+        {items.map((item) => {
+          const isMultiply = isMultiplyComponent(item)
+          const amount = getComponentAmount(item)
+          const quantity = getQuantityNumber(employee.id, kind, item.id)
+          const total = isMultiply ? amount * quantity : amount
 
-        <div className="flex justify-end sticky top-0 bg-background z-10 py-4 border-b">
-          <Button onClick={() => saveItemsMutation.mutate()} disabled={saveItemsMutation.isPending} className="gap-2">
-            <Save className="h-4 w-4" />
-            {saveItemsMutation.isPending ? 'Menyimpan...' : 'Simpan Perubahan'}
-          </Button>
-        </div>
-
-        <div className="space-y-8">
-          {localItems.length === 0 ? (
-            <div className="p-8 text-center text-muted-foreground border rounded-lg bg-card">
-              Tidak ada data karyawan aktif pada periode ini.
-            </div>
-          ) : (
-            localItems.map((item) => (
-              <div key={item.id} className="border rounded-xl p-6 bg-card shadow-sm space-y-6">
-                <div className="flex justify-between items-center border-b pb-4">
-                  <h3 className="font-bold text-xl flex items-center gap-2">
-                    {item.employees?.nama || 'Unknown'}
-                  </h3>
-                  <div className="text-right">
-                    <div className="text-sm text-muted-foreground">Gaji Pokok</div>
-                    <div className="font-semibold text-lg">{formatIDR(item.gaji_pokok)}</div>
-                  </div>
+          return (
+            <div
+              key={`${employee.id}-${kind}-${item.id}`}
+              className="rounded-lg border p-3 space-y-2"
+            >
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <p className="font-medium">{getComponentName(item)}</p>
+                  <p className="text-xs text-muted-foreground">
+                    Nominal: {formatRupiah(amount)}
+                  </p>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                  {/* KOLOM KIRI: TUNJANGAN */}
-                  <div className="space-y-6">
-                    <div className="p-4 bg-green-50/50 border border-green-100 rounded-lg space-y-4">
-                      <h4 className="font-semibold text-green-700 flex items-center gap-2">
-                        <Coins className="h-4 w-4" /> Daftar Tunjangan
-                      </h4>
-
-<<<<<<< HEAD
-                      {masterRules.allowances.length === 0 && (
-                        <p className="text-sm text-muted-foreground italic">Belum ada aturan tunjangan yang aktif.</p>
-                      )}
-=======
-                <TableHead className="min-w-[340px] font-bold text-red-700">
-                  Potongan
-                </TableHead>
-
-                <TableHead className="min-w-[170px] text-right font-bold">
-                  Gaji Bersih
-                </TableHead>
-              </TableRow>
-            </TableHeader>
-
-            <TableBody>
-              {loadingEdit || loadingRules ? (
-                <TableRow>
-                  <TableCell colSpan={4} className="h-32 text-center">
-                    <Loader2 className="mx-auto animate-spin text-muted-foreground" />
-                  </TableCell>
-                </TableRow>
-              ) : localItems.length === 0 ? (
-                <TableRow>
-                  <TableCell
-                    colSpan={4}
-                    className="h-32 text-center text-muted-foreground"
-                  >
-                    Tidak ada item gaji.
-                  </TableCell>
-                </TableRow>
-              ) : (
-                localItems.map((item) => (
-                  <TableRow key={item.id} className="align-top">
-                    <TableCell className="align-top">
-                      <div className="font-bold text-base">
-                        {item.employees?.nama ?? '-'}
-                      </div>
-
-                      <div className="mt-2 text-xs text-muted-foreground">
-                        Gaji Pokok
-                      </div>
-
-                      <div className="font-semibold">
-                        {formatIDR(item.gaji_pokok)}
-                      </div>
-
-                      <div className="mt-1 text-xs text-muted-foreground">
-                        Harian: {formatIDR(getGajiHarian(item.gaji_pokok))}
-                      </div>
-
-                      <div className="mt-4 space-y-2 rounded-lg border bg-muted/30 p-3">
-                        <div className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
-                          <ClipboardList className="h-3 w-3" /> Kehadiran & Lainnya
-                        </div>
-                        <div className="grid grid-cols-2 gap-2">
-                          {([
-                            ['jumlah_hari', 'Hari Kerja'],
-                            ['jumlah_jam_lembur', 'Lembur (jam)'],
-                            ['jumlah_telat', 'Telat'],
-                            ['jumlah_izin', 'Izin'],
-                            ['jumlah_absen', 'Absen'],
-                          ] as const).map(([field, label]) => (
-                            <div key={field}>
-                              <Label className="text-[10px] text-muted-foreground">{label}</Label>
-                              <Input
-                                type="number"
-                                inputMode="numeric"
-                                value={item[field] ?? ''}
-                                onChange={(e) => handleFieldChange(item.id, field, e.target.value)}
-                                className="h-8"
-                                placeholder="0"
-                              />
-                            </div>
-                          ))}
-                        </div>
-                        <div className="grid grid-cols-2 gap-2">
-                          <div>
-                            <Label className="text-[10px] text-green-700">Bonus (+)</Label>
-                            <Input
-                              type="number"
-                              inputMode="numeric"
-                              value={item.bonus_manual ?? ''}
-                              onChange={(e) => handleFieldChange(item.id, 'bonus_manual', e.target.value)}
-                              className="h-8"
-                              placeholder="0"
-                            />
-                          </div>
-                          <div>
-                            <Label className="text-[10px] text-red-700">Kasbon (-)</Label>
-                            <Input
-                              type="number"
-                              inputMode="numeric"
-                              value={item.kasbon ?? ''}
-                              onChange={(e) => handleFieldChange(item.id, 'kasbon', e.target.value)}
-                              className="h-8"
-                              placeholder="0"
-                            />
-                          </div>
-                        </div>
-                        <div>
-                          <Label className="text-[10px] text-muted-foreground">Catatan</Label>
-                          <Textarea
-                            rows={2}
-                            value={item.catatan ?? ''}
-                            onChange={(e) => handleFieldChange(item.id, 'catatan', e.target.value)}
-                            className="text-xs"
-                            placeholder="Catatan slip..."
-                          />
-                        </div>
-                      </div>
-                    </TableCell>
-
-
-                    <TableCell className="align-top">
-                      <div className="space-y-2">
-                        {masterRules.allowances.length === 0 ? (
-                          <div className="rounded-lg border p-3 text-sm text-muted-foreground">
-                            Tidak ada tunjangan aktif.
-                          </div>
-                        ) : (
-                          masterRules.allowances.map((rule) => {
-                            const amount = getAllowanceAmount(item, rule)
->>>>>>> 7c8b8790191eb2911f8c09e97ae5deb0764d81c2
-
-                      {masterRules.allowances.map((rule) => {
-                        if (rule.metode === 'fixed') {
-                            return (
-                                <div key={rule.id} className="flex justify-between items-center py-2 border-b border-green-100/50">
-                                    <Label className="text-sm text-muted-foreground">{rule.nama} <span className="text-[10px] text-green-600">(Otomatis/Tetap)</span></Label>
-                                    <span className="font-medium text-sm">{formatIDR(rule.nominal_default)}</span>
-                                </div>
-                            )
-                        } 
-
-                        if (rule.metode === 'per_day') {
-                          return (
-                            <div key={rule.id} className="grid grid-cols-3 items-center gap-4">
-                              <Label className="col-span-1 text-sm text-muted-foreground">
-                                {rule.nama} <br/><span className="text-[10px] text-green-600">(Input Jumlah Hari)</span>
-                              </Label>
-                              <Input
-                                className="col-span-2" type="number"
-                                value={item.allowanceQty?.[rule.id] || ''}
-                                onChange={(e) => handleUpdateItem(item.id, 'allowanceQty', {
-                                    ...item.allowanceQty,
-                                    [rule.id]: e.target.value,
-                                })}
-                                placeholder="Jml Hari"
-                              />
-                            </div>
-                          );
-                        }
-
-                        if (rule.metode === 'manual') {
-                          return (
-                            <div key={rule.id} className="grid grid-cols-3 items-center gap-4">
-                              <Label className="col-span-1 text-sm text-muted-foreground">
-                                {rule.nama} <br/><span className="text-[10px] text-green-600">(Input Nominal Rp)</span>
-                              </Label>
-                              <Input
-                                className="col-span-2" type="number"
-                                value={item.manualAllowances?.[rule.id] || ''}
-                                onChange={(e) => handleUpdateItem(item.id, 'manualAllowances', {
-                                    ...item.manualAllowances,
-                                    [rule.id]: e.target.value,
-                                })}
-                                placeholder="Nominal Rp"
-                              />
-                            </div>
-                          );
-                        }
-                        return null;
-                      })}
-                    </div>
-                  </div>
-
-                  {/* KOLOM KANAN: POTONGAN & CATATAN */}
-                  <div className="space-y-6">
-                    <div className="p-4 bg-red-50/50 border border-red-100 rounded-lg space-y-4">
-                      <h4 className="font-semibold text-red-700 flex items-center gap-2">
-                        <MinusCircle className="h-4 w-4" /> Daftar Potongan
-                      </h4>
-
-                      {masterRules.deductions.length === 0 && (
-                        <p className="text-sm text-muted-foreground italic">Belum ada aturan potongan yang aktif.</p>
-                      )}
-
-                      {masterRules.deductions.map((rule) => {
-                        if (rule.metode === 'fixed') {
-                            return (
-                                <div key={rule.id} className="flex justify-between items-center py-2 border-b border-red-100/50">
-                                    <Label className="text-sm text-muted-foreground">{rule.nama} <span className="text-[10px] text-red-600">(Otomatis/Tetap)</span></Label>
-                                    <span className="font-medium text-sm">{formatIDR(rule.nominal_default)}</span>
-                                </div>
-                            )
-                        }
-
-                        if (rule.metode === 'per_day') {
-                          return (
-                            <div key={rule.id} className="grid grid-cols-3 items-center gap-4">
-                              <Label className="col-span-1 text-sm text-muted-foreground">
-                                {rule.nama} <br/><span className="text-[10px] text-red-600">(Input Jml Hari/Kali)</span>
-                              </Label>
-                              <Input
-                                className="col-span-2" type="number"
-                                value={item.deductionQty?.[rule.id] || ''}
-                                onChange={(e) => handleUpdateItem(item.id, 'deductionQty', {
-                                    ...item.deductionQty,
-                                    [rule.id]: e.target.value,
-                                })}
-                                placeholder="Jml Hari/Kali"
-                              />
-                            </div>
-                          );
-                        }
-
-                        if (rule.metode === 'manual') {
-                          return (
-                            <div key={rule.id} className="grid grid-cols-3 items-center gap-4">
-                              <Label className="col-span-1 text-sm text-muted-foreground">
-                                {rule.nama} <br/><span className="text-[10px] text-red-600">(Input Nominal Rp)</span>
-                              </Label>
-                              <Input
-                                className="col-span-2" type="number"
-                                value={item.manualDeductions?.[rule.id] || ''}
-                                onChange={(e) => handleUpdateItem(item.id, 'manualDeductions', {
-                                    ...item.manualDeductions,
-                                    [rule.id]: e.target.value,
-                                })}
-                                placeholder="Nominal Rp"
-                              />
-                            </div>
-                          );
-                        }
-                        return null;
-                      })}
-                    </div>
-                    
-                    {/* CATATAN (Satu-satunya form statis yang disisakan untuk keterangan slip gaji) */}
-                    <div className="space-y-2">
-                      <Label className="text-sm font-semibold">Catatan Khusus (Opsional)</Label>
-                      <Textarea 
-                        placeholder="Tambahkan catatan untuk rincian gaji ini jika diperlukan..."
-                        value={item.catatan}
-                        onChange={(e) => handleUpdateItem(item.id, 'catatan', e.target.value)}
-                        className="resize-none h-20"
-                      />
-                    </div>
-                  </div>
-                </div>
-
-                <div className="mt-6 pt-6 border-t flex flex-col items-end gap-1">
-                  <div className="text-sm flex gap-4 text-muted-foreground">
-                    <span>Total Tunjangan: <span className="text-green-600 font-medium">+{formatIDR(item.total_tunjangan)}</span></span>
-                    <span>Total Potongan: <span className="text-red-600 font-medium">-{formatIDR(item.total_potongan)}</span></span>
-                  </div>
-                  <div className="text-2xl font-bold mt-1 text-slate-800">
-                    Gaji Bersih: {formatIDR(item.gaji_bersih)}
-                  </div>
+                <div className="text-right">
+                  <p className="font-semibold">{formatRupiah(total)}</p>
+                  <p className="text-xs text-muted-foreground">
+                    {isMultiply ? 'Dikali jumlah' : 'Nominal tetap'}
+                  </p>
                 </div>
               </div>
-            ))
-          )}
-        </div>
+
+              {isMultiply && (
+                <div className="flex items-center gap-2">
+                  <span className="text-sm text-muted-foreground min-w-[90px]">
+                    Isi jumlah
+                  </span>
+
+                  <Input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    inputMode="decimal"
+                    placeholder="0"
+                    value={getQuantityValue(employee.id, kind, item.id)}
+                    onChange={(event) =>
+                      setQuantityValue(
+                        employee.id,
+                        kind,
+                        item.id,
+                        event.target.value
+                      )
+                    }
+                    className="h-9 w-28"
+                  />
+
+                  <span className="text-sm text-muted-foreground">
+                    x {formatRupiah(amount)}
+                  </span>
+                </div>
+              )}
+            </div>
+          )
+        })}
+      </div>
+    )
+  }
+
+  if (employeesLoading) {
+    return (
+      <div className="p-6">
+        <p>Memuat data proses gaji...</p>
       </div>
     )
   }
 
   return (
-    <div className="flex flex-col gap-6 p-6">
-      <div className="flex items-center justify-between">
-        <PageHeader
-          title="Proses Gaji"
-          description="Buat dan kelola kalkulasi gaji karyawan per periode."
-        />
-        <Dialog open={isOpen} onOpenChange={setIsOpen}>
-          <DialogTrigger asChild>
-            <Button className="gap-2">
-              <Calculator className="h-4 w-4" /> Generate Gaji Baru
-            </Button>
-          </DialogTrigger>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Generate Periode Gaji</DialogTitle>
-            </DialogHeader>
-            <div className="flex flex-col gap-4 py-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label>Bulan</Label>
-                  <Select
-                    value={selectedBulan.toString()}
-                    onValueChange={(v) => setSelectedBulan(Number(v))}
-                  >
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {BULAN_OPTIONS.map((opt) => (
-                        <SelectItem key={opt.value} value={opt.value.toString()}>
-                          {opt.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-2">
-                  <Label>Tahun</Label>
-                  <Input
-                    type="number"
-                    value={selectedTahun}
-                    onChange={(e) => setSelectedTahun(Number(e.target.value))}
-                  />
-                </div>
-              </div>
-              <Button 
-                onClick={() => generateMutation.mutate()} 
-                disabled={generateMutation.isPending || loadingRules}
-              >
-                {generateMutation.isPending ? 'Memproses...' : 'Generate Gaji Karyawan'}
-              </Button>
-            </div>
-          </DialogContent>
-        </Dialog>
+    <div className="p-6 space-y-6">
+      <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
+        <div>
+          <h2 className="text-2xl font-bold">Proses Gaji Bulanan</h2>
+          <p className="text-sm text-muted-foreground">
+            Isi jumlah hanya untuk tunjangan atau potongan yang menggunakan sistem dikali.
+          </p>
+        </div>
+
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+          <div>
+            <p className="mb-1 text-sm font-medium">Periode Gaji</p>
+            <Input
+              type="month"
+              value={period}
+              onChange={(event) => setPeriod(event.target.value)}
+              className="w-full sm:w-44"
+            />
+          </div>
+
+          <Button onClick={handleCopySummary} className="sm:mt-6">
+            Copy Ringkasan WA
+          </Button>
+        </div>
       </div>
 
-      <div className="rounded-md border bg-card">
+      <div className="grid gap-4 md:grid-cols-4">
+        <div className="rounded-xl border p-4">
+          <p className="text-sm text-muted-foreground">Jumlah Karyawan</p>
+          <p className="text-2xl font-bold">{employees.length}</p>
+        </div>
+
+        <div className="rounded-xl border p-4">
+          <p className="text-sm text-muted-foreground">Total Tunjangan</p>
+          <p className="text-2xl font-bold">
+            {formatRupiah(
+              payrollRows.reduce((total, row) => total + row.allowanceTotal, 0)
+            )}
+          </p>
+        </div>
+
+        <div className="rounded-xl border p-4">
+          <p className="text-sm text-muted-foreground">Total Potongan</p>
+          <p className="text-2xl font-bold">
+            {formatRupiah(
+              payrollRows.reduce((total, row) => total + row.deductionTotal, 0)
+            )}
+          </p>
+        </div>
+
+        <div className="rounded-xl border p-4">
+          <p className="text-sm text-muted-foreground">Total Gaji Bersih</p>
+          <p className="text-2xl font-bold">{formatRupiah(grandTotal)}</p>
+        </div>
+      </div>
+
+      <div className="overflow-x-auto rounded-xl border">
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>Periode</TableHead>
-              <TableHead>Total Karyawan</TableHead>
-              <TableHead>Status</TableHead>
-              <TableHead className="text-right">Aksi</TableHead>
+              <TableHead className="min-w-[180px]">Karyawan</TableHead>
+              <TableHead className="min-w-[140px]">Gaji Pokok</TableHead>
+              <TableHead className="min-w-[320px]">Tunjangan</TableHead>
+              <TableHead className="min-w-[320px]">Potongan</TableHead>
+              <TableHead className="min-w-[150px]">Total Tunjangan</TableHead>
+              <TableHead className="min-w-[150px]">Total Potongan</TableHead>
+              <TableHead className="min-w-[160px]">Gaji Bersih</TableHead>
             </TableRow>
           </TableHeader>
+
           <TableBody>
-            {isLoading ? (
+            {payrollRows.length === 0 && (
               <TableRow>
-                <TableCell colSpan={4} className="text-center h-24">
-                  <Loader2 className="mx-auto animate-spin" />
+                <TableCell colSpan={7} className="py-8 text-center text-muted-foreground">
+                  Belum ada data karyawan.
                 </TableCell>
               </TableRow>
-            ) : payrollRuns.length === 0 ? (
-              <TableRow>
-                <TableCell colSpan={4} className="text-center h-24 text-muted-foreground">
-                  Belum ada data periode gaji.
-                </TableCell>
-              </TableRow>
-            ) : (
-              payrollRuns.map((run) => (
-                <TableRow key={run.id}>
-                  <TableCell className="font-medium">
-                    {formatPeriode(run.periode)}
-                  </TableCell>
-                  <TableCell>
-                    {run.payroll_items?.length || 0} Orang
-                  </TableCell>
-                  <TableCell>
-                    <Badge variant={run.status === 'draft' ? 'secondary' : 'default'}>
-                      {run.status.toUpperCase()}
-                    </Badge>
-                  </TableCell>
-                  <TableCell className="text-right space-x-2">
-                    <Button 
-                      variant="outline" 
-                      size="sm"
-                      onClick={() => {
-                        setEditingRun(run)
-                        fetchPayrollItems(run.id)
-                      }}
-                    >
-                      <Eye className="h-4 w-4 mr-1" /> Edit Rincian
-                    </Button>
-                    <Button 
-                      variant="ghost" 
-                      size="icon"
-                      onClick={() => {
-                        if (window.confirm('Yakin ingin menghapus periode ini?')) {
-                          deleteMutation.mutate(run.id)
-                        }
-                      }}
-                    >
-                      <Trash2 className="h-4 w-4 text-red-500" />
-                    </Button>
-                  </TableCell>
-                </TableRow>
-              ))
             )}
+
+            {payrollRows.map((row) => (
+              <TableRow key={row.employee.id} className="align-top">
+                <TableCell>
+                  <div>
+                    <p className="font-semibold">{getEmployeeName(row.employee)}</p>
+                    <p className="text-xs text-muted-foreground">
+                      ID: {row.employee.id}
+                    </p>
+                  </div>
+                </TableCell>
+
+                <TableCell className="font-medium">
+                  {formatRupiah(row.baseSalary)}
+                </TableCell>
+
+                <TableCell>
+                  {renderComponentList(
+                    row.employee,
+                    row.applicableAllowances,
+                    'allowance'
+                  )}
+                </TableCell>
+
+                <TableCell>
+                  {renderComponentList(
+                    row.employee,
+                    row.applicableDeductions,
+                    'deduction'
+                  )}
+                </TableCell>
+
+                <TableCell className="font-semibold">
+                  {formatRupiah(row.allowanceTotal)}
+                </TableCell>
+
+                <TableCell className="font-semibold">
+                  {formatRupiah(row.deductionTotal)}
+                </TableCell>
+
+                <TableCell className="text-lg font-bold">
+                  {formatRupiah(row.netSalary)}
+                </TableCell>
+              </TableRow>
+            ))}
           </TableBody>
         </Table>
+      </div>
+
+      <div className="rounded-xl border p-4">
+        <p className="mb-2 font-semibold">Preview Ringkasan WA</p>
+        <pre className="whitespace-pre-wrap rounded-lg bg-muted p-4 text-sm">
+          {summaryText}
+        </pre>
       </div>
     </div>
   )

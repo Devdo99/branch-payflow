@@ -46,21 +46,27 @@ export type Database = {
       }
       app_settings: {
         Row: {
+          alamat: string | null
           catatan: string | null
+          footer_slip: string | null
           id: number
           nama_perusahaan: string
           periode_evaluasi_default: Database["public"]["Enums"]["evaluation_period"]
           updated_at: string
         }
         Insert: {
+          alamat?: string | null
           catatan?: string | null
+          footer_slip?: string | null
           id?: number
           nama_perusahaan?: string
           periode_evaluasi_default?: Database["public"]["Enums"]["evaluation_period"]
           updated_at?: string
         }
         Update: {
+          alamat?: string | null
           catatan?: string | null
+          footer_slip?: string | null
           id?: number
           nama_perusahaan?: string
           periode_evaluasi_default?: Database["public"]["Enums"]["evaluation_period"]

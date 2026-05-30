@@ -41,6 +41,7 @@ import {
   Trash2,
   Coins,
   MinusCircle,
+  ClipboardList,
 } from 'lucide-react'
 
 export const Route = createFileRoute('/_authenticated/proses-gaji')({
@@ -94,6 +95,16 @@ type LocalPayrollItem = {
   deductionQty: Record<string, string>
   manualAllowances: Record<string, string>
   manualDeductions: Record<string, string>
+<<<<<<< HEAD
+=======
+  jumlah_hari: string
+  jumlah_jam_lembur: string
+  jumlah_telat: string
+  jumlah_izin: string
+  jumlah_absen: string
+  kasbon: string
+  bonus_manual: string
+>>>>>>> 7c8b8790191eb2911f8c09e97ae5deb0764d81c2
   catatan: string
   employees?: {
     id: string
@@ -244,12 +255,28 @@ function ProsesGajiPage() {
       0
     )
 
+<<<<<<< HEAD
     const gajiBersih = item.gaji_pokok + totalTunjangan - totalPotongan
 
     return {
       total_tunjangan: totalTunjangan,
       total_potongan: totalPotongan,
       gaji_bersih: gajiBersih,
+=======
+    const totalPotongan = rules.deductions.reduce((total, rule) => {
+      return total + getDeductionAmount(item, rule)
+    }, 0)
+
+    const gajiPokok = Number(item.gaji_pokok) || 0
+    const bonus = Number(item.bonus_manual) || 0
+    const kasbon = Number(item.kasbon) || 0
+    const gajiBersih = gajiPokok + totalTunjangan + bonus - totalPotongan - kasbon
+
+    return {
+      total_tunjangan: Math.round(totalTunjangan + bonus),
+      total_potongan: Math.round(totalPotongan + kasbon),
+      gaji_bersih: Math.round(gajiBersih),
+>>>>>>> 7c8b8790191eb2911f8c09e97ae5deb0764d81c2
     }
   }
 
@@ -277,17 +304,40 @@ function ProsesGajiPage() {
         *,
         employees (
           id,
+<<<<<<< HEAD
           nama
         )
       `)
       .eq('payroll_run_id', runId)
       .order('id')
+=======
+          gaji_pokok,
+          total_tunjangan,
+          total_potongan,
+          gaji_bersih,
+          jumlah_hari,
+          jumlah_jam_lembur,
+          jumlah_telat,
+          jumlah_izin,
+          jumlah_absen,
+          kasbon,
+          bonus_manual,
+          catatan,
+          employees (
+            id,
+            nama
+          )
+        `)
+        .eq('payroll_run_id', editingRun.id)
+        .order('id', { ascending: true })
+>>>>>>> 7c8b8790191eb2911f8c09e97ae5deb0764d81c2
 
     if (error) {
       toast.error('Gagal mengambil data detail gaji')
       return
     }
 
+<<<<<<< HEAD
     if (data) {
       const mapped = data.map((d: any) => {
         const allowanceQty = d.allowance_qty || {}
@@ -314,6 +364,37 @@ function ProsesGajiPage() {
       setLocalItems(mapped)
     }
   }
+=======
+      const rows = (data ?? []) as any[]
+
+      const mappedRows: LocalPayrollItem[] = rows.map((item) => ({
+        id: item.id,
+        gaji_pokok: Number(item.gaji_pokok) || 0,
+        total_tunjangan: Number(item.total_tunjangan) || 0,
+        total_potongan: Number(item.total_potongan) || 0,
+        gaji_bersih: Number(item.gaji_bersih) || 0,
+        allowanceQty: {},
+        deductionQty: {},
+        manualAllowances: {},
+        manualDeductions: {},
+        jumlah_hari: item.jumlah_hari != null ? String(item.jumlah_hari) : '',
+        jumlah_jam_lembur: item.jumlah_jam_lembur != null ? String(item.jumlah_jam_lembur) : '',
+        jumlah_telat: item.jumlah_telat != null ? String(item.jumlah_telat) : '',
+        jumlah_izin: item.jumlah_izin != null ? String(item.jumlah_izin) : '',
+        jumlah_absen: item.jumlah_absen != null ? String(item.jumlah_absen) : '',
+        kasbon: item.kasbon != null && Number(item.kasbon) !== 0 ? String(item.kasbon) : '',
+        bonus_manual: item.bonus_manual != null && Number(item.bonus_manual) !== 0 ? String(item.bonus_manual) : '',
+        catatan: item.catatan ?? '',
+        employees: item.employees,
+      }))
+
+      setLocalItems(mappedRows)
+
+      return mappedRows
+    },
+    enabled: !!editingRun?.id,
+  })
+>>>>>>> 7c8b8790191eb2911f8c09e97ae5deb0764d81c2
 
   const generateMutation = useMutation({
     mutationFn: async () => {
@@ -337,10 +418,33 @@ function ProsesGajiPage() {
 
       if (runError) throw runError
 
+<<<<<<< HEAD
       const { data: employees, error: empError } = await supabase
         .from('employees')
         .select('id, gaji_pokok')
         .eq('aktif', true)
+=======
+      const payrollItems = employees.map((employee) => {
+        const baseItem: LocalPayrollItem = {
+          id: '',
+          gaji_pokok: Number(employee.gaji_pokok) || 0,
+          total_tunjangan: 0,
+          total_potongan: 0,
+          gaji_bersih: 0,
+          allowanceQty: {},
+          deductionQty: {},
+          manualAllowances: {},
+          manualDeductions: {},
+          jumlah_hari: '',
+          jumlah_jam_lembur: '',
+          jumlah_telat: '',
+          jumlah_izin: '',
+          jumlah_absen: '',
+          kasbon: '',
+          bonus_manual: '',
+          catatan: '',
+        }
+>>>>>>> 7c8b8790191eb2911f8c09e97ae5deb0764d81c2
 
       if (empError) throw empError
 
@@ -455,6 +559,186 @@ function ProsesGajiPage() {
     }
   })
 
+<<<<<<< HEAD
+=======
+  const saveMassMutation = useMutation({
+    mutationFn: async () => {
+      const updates = localItems.map(async (item) => {
+        const calc = calculateItem(item, masterRules)
+
+        const { error } = await supabase
+          .from('payroll_items')
+          .update({
+            total_tunjangan: calc.total_tunjangan,
+            total_potongan: calc.total_potongan,
+            gaji_bersih: calc.gaji_bersih,
+            jumlah_hari: Number(item.jumlah_hari) || 0,
+            jumlah_jam_lembur: Number(item.jumlah_jam_lembur) || 0,
+            jumlah_telat: Number(item.jumlah_telat) || 0,
+            jumlah_izin: Number(item.jumlah_izin) || 0,
+            jumlah_absen: Number(item.jumlah_absen) || 0,
+            kasbon: Number(item.kasbon) || 0,
+            bonus_manual: Number(item.bonus_manual) || 0,
+            catatan: item.catatan || null,
+          })
+          .eq('id', item.id)
+
+        if (error) throw error
+      })
+
+      await Promise.all(updates)
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['payroll_runs'] })
+      toast.success('Data gaji berhasil disimpan.')
+      setEditingRun(null)
+    },
+    onError: (error: Error) => {
+      toast.error(error.message || 'Gagal menyimpan data')
+    },
+  })
+
+  const recalculateLocalItem = (item: LocalPayrollItem) => {
+    const calc = calculateItem(item, masterRules)
+
+    return {
+      ...item,
+      total_tunjangan: calc.total_tunjangan,
+      total_potongan: calc.total_potongan,
+      gaji_bersih: calc.gaji_bersih,
+    }
+  }
+
+  const handleAllowanceQtyChange = (
+    id: string,
+    ruleId: string,
+    value: string,
+  ) => {
+    setLocalItems((prev) =>
+      prev.map((item) => {
+        if (item.id !== id) return item
+
+        const updated = {
+          ...item,
+          allowanceQty: {
+            ...item.allowanceQty,
+            [ruleId]: value,
+          },
+        }
+
+        return recalculateLocalItem(updated)
+      }),
+    )
+  }
+
+  const handleDeductionQtyChange = (
+    id: string,
+    ruleId: string,
+    value: string,
+  ) => {
+    setLocalItems((prev) =>
+      prev.map((item) => {
+        if (item.id !== id) return item
+
+        const updated = {
+          ...item,
+          deductionQty: {
+            ...item.deductionQty,
+            [ruleId]: value,
+          },
+        }
+
+        return recalculateLocalItem(updated)
+      }),
+    )
+  }
+
+  const handleManualAllowanceChange = (
+    id: string,
+    ruleId: string,
+    value: string,
+  ) => {
+    setLocalItems((prev) =>
+      prev.map((item) => {
+        if (item.id !== id) return item
+
+        const updated = {
+          ...item,
+          manualAllowances: {
+            ...item.manualAllowances,
+            [ruleId]: value,
+          },
+        }
+
+        return recalculateLocalItem(updated)
+      }),
+    )
+  }
+
+  const handleManualDeductionChange = (
+    id: string,
+    ruleId: string,
+    value: string,
+  ) => {
+    setLocalItems((prev) =>
+      prev.map((item) => {
+        if (item.id !== id) return item
+
+        const updated = {
+          ...item,
+          manualDeductions: {
+            ...item.manualDeductions,
+            [ruleId]: value,
+          },
+        }
+
+        return recalculateLocalItem(updated)
+      }),
+    )
+  }
+
+  const handleFieldChange = (
+    id: string,
+    field: 'jumlah_hari' | 'jumlah_jam_lembur' | 'jumlah_telat' | 'jumlah_izin' | 'jumlah_absen' | 'kasbon' | 'bonus_manual' | 'catatan',
+    value: string,
+  ) => {
+    setLocalItems((prev) =>
+      prev.map((item) => {
+        if (item.id !== id) return item
+        const updated = { ...item, [field]: value }
+        // kasbon & bonus mempengaruhi gaji bersih, lainnya hanya informasi
+        if (field === 'kasbon' || field === 'bonus_manual') {
+          return recalculateLocalItem(updated)
+        }
+        return updated
+      }),
+    )
+  }
+
+  const renderRuleDescription = (
+    rule: SalaryRule,
+    type: 'allowance' | 'deduction',
+    gajiPokok?: number,
+  ) => {
+    if (rule.metode === 'fixed') {
+      return `Tetap: ${formatIDR(rule.nominal_default)}`
+    }
+
+    if (rule.metode === 'manual') {
+      return 'Manual: isi nominal saat proses gaji'
+    }
+
+    if (rule.nominal_default === 0) {
+      const harian = getGajiHarian(gajiPokok ?? 0)
+      return `Proporsional: ${formatIDR(harian)} x jumlah`
+    }
+
+    return `${formatIDR(rule.nominal_default)} x jumlah ${
+      type === 'allowance' ? 'hari/qty' : 'hari/kejadian'
+    }`
+  }
+
+>>>>>>> 7c8b8790191eb2911f8c09e97ae5deb0764d81c2
   if (editingRun) {
     return (
       <div className="flex flex-col gap-6 p-6">
@@ -501,9 +785,130 @@ function ProsesGajiPage() {
                         <Coins className="h-4 w-4" /> Daftar Tunjangan
                       </h4>
 
+<<<<<<< HEAD
                       {masterRules.allowances.length === 0 && (
                         <p className="text-sm text-muted-foreground italic">Belum ada aturan tunjangan yang aktif.</p>
                       )}
+=======
+                <TableHead className="min-w-[340px] font-bold text-red-700">
+                  Potongan
+                </TableHead>
+
+                <TableHead className="min-w-[170px] text-right font-bold">
+                  Gaji Bersih
+                </TableHead>
+              </TableRow>
+            </TableHeader>
+
+            <TableBody>
+              {loadingEdit || loadingRules ? (
+                <TableRow>
+                  <TableCell colSpan={4} className="h-32 text-center">
+                    <Loader2 className="mx-auto animate-spin text-muted-foreground" />
+                  </TableCell>
+                </TableRow>
+              ) : localItems.length === 0 ? (
+                <TableRow>
+                  <TableCell
+                    colSpan={4}
+                    className="h-32 text-center text-muted-foreground"
+                  >
+                    Tidak ada item gaji.
+                  </TableCell>
+                </TableRow>
+              ) : (
+                localItems.map((item) => (
+                  <TableRow key={item.id} className="align-top">
+                    <TableCell className="align-top">
+                      <div className="font-bold text-base">
+                        {item.employees?.nama ?? '-'}
+                      </div>
+
+                      <div className="mt-2 text-xs text-muted-foreground">
+                        Gaji Pokok
+                      </div>
+
+                      <div className="font-semibold">
+                        {formatIDR(item.gaji_pokok)}
+                      </div>
+
+                      <div className="mt-1 text-xs text-muted-foreground">
+                        Harian: {formatIDR(getGajiHarian(item.gaji_pokok))}
+                      </div>
+
+                      <div className="mt-4 space-y-2 rounded-lg border bg-muted/30 p-3">
+                        <div className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
+                          <ClipboardList className="h-3 w-3" /> Kehadiran & Lainnya
+                        </div>
+                        <div className="grid grid-cols-2 gap-2">
+                          {([
+                            ['jumlah_hari', 'Hari Kerja'],
+                            ['jumlah_jam_lembur', 'Lembur (jam)'],
+                            ['jumlah_telat', 'Telat'],
+                            ['jumlah_izin', 'Izin'],
+                            ['jumlah_absen', 'Absen'],
+                          ] as const).map(([field, label]) => (
+                            <div key={field}>
+                              <Label className="text-[10px] text-muted-foreground">{label}</Label>
+                              <Input
+                                type="number"
+                                inputMode="numeric"
+                                value={item[field] ?? ''}
+                                onChange={(e) => handleFieldChange(item.id, field, e.target.value)}
+                                className="h-8"
+                                placeholder="0"
+                              />
+                            </div>
+                          ))}
+                        </div>
+                        <div className="grid grid-cols-2 gap-2">
+                          <div>
+                            <Label className="text-[10px] text-green-700">Bonus (+)</Label>
+                            <Input
+                              type="number"
+                              inputMode="numeric"
+                              value={item.bonus_manual ?? ''}
+                              onChange={(e) => handleFieldChange(item.id, 'bonus_manual', e.target.value)}
+                              className="h-8"
+                              placeholder="0"
+                            />
+                          </div>
+                          <div>
+                            <Label className="text-[10px] text-red-700">Kasbon (-)</Label>
+                            <Input
+                              type="number"
+                              inputMode="numeric"
+                              value={item.kasbon ?? ''}
+                              onChange={(e) => handleFieldChange(item.id, 'kasbon', e.target.value)}
+                              className="h-8"
+                              placeholder="0"
+                            />
+                          </div>
+                        </div>
+                        <div>
+                          <Label className="text-[10px] text-muted-foreground">Catatan</Label>
+                          <Textarea
+                            rows={2}
+                            value={item.catatan ?? ''}
+                            onChange={(e) => handleFieldChange(item.id, 'catatan', e.target.value)}
+                            className="text-xs"
+                            placeholder="Catatan slip..."
+                          />
+                        </div>
+                      </div>
+                    </TableCell>
+
+
+                    <TableCell className="align-top">
+                      <div className="space-y-2">
+                        {masterRules.allowances.length === 0 ? (
+                          <div className="rounded-lg border p-3 text-sm text-muted-foreground">
+                            Tidak ada tunjangan aktif.
+                          </div>
+                        ) : (
+                          masterRules.allowances.map((rule) => {
+                            const amount = getAllowanceAmount(item, rule)
+>>>>>>> 7c8b8790191eb2911f8c09e97ae5deb0764d81c2
 
                       {masterRules.allowances.map((rule) => {
                         if (rule.metode === 'fixed') {

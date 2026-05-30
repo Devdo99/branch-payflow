@@ -1,22 +1,184 @@
-import { createFileRoute } from "@tanstack/react-router";
-import { PageHeader } from "@/components/page-header";
-import { Construction } from "lucide-react";
+import { createFileRoute } from '@tanstack/react-router'
+import { useState } from 'react'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { supabase } from '@/integrations/supabase/client'
+import { PageHeader } from '@/components/page-header'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { Switch } from '@/components/ui/switch'
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table'
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from '@/components/ui/dialog'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
+import { Badge } from '@/components/ui/badge'
+import { toast } from 'sonner'
+import { formatIDR } from '@/lib/format'
+import { Plus, Pencil, Trash2, Loader2, Coins } from 'lucide-react'
 
-export const Route = createFileRoute("/_authenticated/tunjangan")({
-  component: Page,
-});
+export const Route = createFileRoute('/_authenticated/tunjangan')({
+  component: TunjanganPage,
+})
 
-function Page() {
+function TunjanganPage() {
+  const queryClient = useQueryClient()
+  const [isOpen, setIsOpen] = useState(false)
+  const [isEditing, setIsEditing] = useState(false)
+  const [editId, setEditId] = useState<string | null>(null)
+
+  // Form State
+  const [nama, setNama] = useState('')
+  const [nominal, setNominal] = useState<number | ''>('')
+  const [metode, setMetode] = useState('fixed') // 'fixed' atau 'per_day'
+  const [aktif, setAktif] = useState(true)
+
+  const { data: allowances, isLoading } = useQuery({
+    queryKey: ['allowance_types'],
+    queryFn: async () => {
+      const { data, error } = await supabase.from('allowance_types').select('*').order('nama')
+      if (error) throw error
+      return data
+    }
+  })
+
+  const saveMutation = useMutation({
+    mutationFn: async (newData: any) => {
+      if (isEditing && editId) {
+        const { error } = await supabase.from('allowance_types').update(newData).eq('id', editId)
+        if (error) throw error
+      } else {
+        const { error } = await supabase.from('allowance_types').insert([newData])
+        if (error) throw error
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['allowance_types'] })
+      queryClient.invalidateQueries({ queryKey: ['allowances_master'] }) // Update state di proses-gaji
+      toast.success('Data tunjangan berhasil disimpan!')
+      resetForm()
+      setIsOpen(false)
+    }
+  })
+
+  const deleteMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.from('allowance_types').delete().eq('id', id)
+      if (error) throw error
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['allowance_types'] })
+      toast.success('Data berhasil dihapus!')
+    }
+  })
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!nama || nominal === '') return toast.error('Lengkapi form!')
+    saveMutation.mutate({ nama, nominal_default: Number(nominal), metode, aktif })
+  }
+
+  const handleEdit = (item: any) => {
+    setNama(item.nama)
+    setNominal(item.nominal_default)
+    setMetode(item.metode)
+    setAktif(item.aktif)
+    setEditId(item.id)
+    setIsEditing(true)
+    setIsOpen(true)
+  }
+
+  const resetForm = () => {
+    setNama(''); setNominal(''); setMetode('fixed'); setAktif(true); setEditId(null); setIsEditing(false)
+  }
+
   return (
-    <>
-      <PageHeader title="Tunjangan" description="Modul sedang disiapkan." />
-      <div className="p-6">
-        <div className="rounded-md border border-dashed border-border bg-card p-10 text-center">
-          <Construction className="h-6 w-6 mx-auto text-muted-foreground" />
-          <p className="mt-3 text-sm font-medium">Modul sedang disiapkan</p>
-          <p className="mt-1 text-xs text-muted-foreground">Akan dibangun pada iterasi berikutnya.</p>
-        </div>
+    <div className="flex flex-col gap-6 p-6">
+      <div className="flex items-center justify-between">
+        <PageHeader title="Master Tunjangan" description="Atur komponen penambah gaji karyawan (tetap atau harian)." />
+        <Dialog open={isOpen} onOpenChange={(open) => { setIsOpen(open); if (!open) resetForm(); }}>
+          <DialogTrigger asChild>
+            <Button className="gap-2"><Plus className="h-4 w-4" /> Tambah Tunjangan</Button>
+          </DialogTrigger>
+          <DialogContent aria-describedby={undefined}>
+            <DialogHeader><DialogTitle>{isEditing ? 'Edit Tunjangan' : 'Tambah Tunjangan Baru'}</DialogTitle></DialogHeader>
+            <form onSubmit={handleSubmit} className="flex flex-col gap-4 py-4">
+              <div className="flex flex-col gap-2">
+                <Label>Nama Tunjangan</Label>
+                <Input placeholder="Contoh: Uang Makan, Uang Transport" value={nama} onChange={e => setNama(e.target.value)} />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="flex flex-col gap-2">
+                  <Label>Nominal (Rp)</Label>
+                  <Input type="number" placeholder="0" value={nominal} onChange={e => setNominal(Number(e.target.value))} />
+                </div>
+                <div className="flex flex-col gap-2">
+                  <Label>Metode Perhitungan</Label>
+                  <Select value={metode} onValueChange={setMetode}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="fixed">Nominal Tetap / Bulan</SelectItem>
+                      <SelectItem value="per_day">Dikalikan Hari Hadir</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+              <div className="flex items-center justify-between rounded-lg border p-3">
+                <Label>Status Aktif</Label>
+                <Switch checked={aktif} onCheckedChange={setAktif} />
+              </div>
+              <Button type="submit" disabled={saveMutation.isPending}>{saveMutation.isPending ? 'Menyimpan...' : 'Simpan Data'}</Button>
+            </form>
+          </DialogContent>
+        </Dialog>
       </div>
-    </>
-  );
+
+      <div className="rounded-md border bg-card">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Nama Tunjangan</TableHead>
+              <TableHead>Metode Hitung</TableHead>
+              <TableHead className="text-right">Nominal</TableHead>
+              <TableHead className="text-center">Status</TableHead>
+              <TableHead className="text-right">Aksi</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {isLoading ? <TableRow><TableCell colSpan={5} className="text-center h-24"><Loader2 className="mx-auto animate-spin" /></TableCell></TableRow> : 
+             allowances?.length === 0 ? <TableRow><TableCell colSpan={5} className="text-center h-24 text-muted-foreground">Belum ada data tunjangan.</TableCell></TableRow> :
+             allowances?.map(item => (
+              <TableRow key={item.id}>
+                <TableCell className="font-medium">{item.nama}</TableCell>
+                <TableCell>{item.metode === 'fixed' ? 'Tetap per Bulan' : 'Dikalikan Kehadiran'}</TableCell>
+                <TableCell className="text-right text-green-600 font-medium">{formatIDR(item.nominal_default)}</TableCell>
+                <TableCell className="text-center"><Badge variant={item.aktif ? 'default' : 'secondary'}>{item.aktif ? 'Aktif' : 'Non-Aktif'}</Badge></TableCell>
+                <TableCell className="text-right">
+                  <Button variant="ghost" size="icon" onClick={() => handleEdit(item)}><Pencil className="h-4 w-4" /></Button>
+                  <Button variant="ghost" size="icon" onClick={() => { if(window.confirm('Hapus tunjangan ini?')) deleteMutation.mutate(item.id) }}><Trash2 className="h-4 w-4 text-red-500" /></Button>
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </div>
+    </div>
+  )
 }

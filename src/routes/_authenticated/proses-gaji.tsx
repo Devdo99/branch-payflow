@@ -284,6 +284,14 @@ const normalizeRule = (item: any): SalaryRule => {
           total_tunjangan,
           total_potongan,
           gaji_bersih,
+          jumlah_hari,
+          jumlah_jam_lembur,
+          jumlah_telat,
+          jumlah_izin,
+          jumlah_absen,
+          kasbon,
+          bonus_manual,
+          catatan,
           employees (
             id,
             nama
@@ -294,10 +302,10 @@ const normalizeRule = (item: any): SalaryRule => {
 
       if (error) throw error
 
-      const rows = (data ?? []) as unknown as LocalPayrollItem[]
+      const rows = (data ?? []) as any[]
 
-      const mappedRows = rows.map((item) => ({
-        ...item,
+      const mappedRows: LocalPayrollItem[] = rows.map((item) => ({
+        id: item.id,
         gaji_pokok: Number(item.gaji_pokok) || 0,
         total_tunjangan: Number(item.total_tunjangan) || 0,
         total_potongan: Number(item.total_potongan) || 0,
@@ -306,6 +314,15 @@ const normalizeRule = (item: any): SalaryRule => {
         deductionQty: {},
         manualAllowances: {},
         manualDeductions: {},
+        jumlah_hari: item.jumlah_hari != null ? String(item.jumlah_hari) : '',
+        jumlah_jam_lembur: item.jumlah_jam_lembur != null ? String(item.jumlah_jam_lembur) : '',
+        jumlah_telat: item.jumlah_telat != null ? String(item.jumlah_telat) : '',
+        jumlah_izin: item.jumlah_izin != null ? String(item.jumlah_izin) : '',
+        jumlah_absen: item.jumlah_absen != null ? String(item.jumlah_absen) : '',
+        kasbon: item.kasbon != null && Number(item.kasbon) !== 0 ? String(item.kasbon) : '',
+        bonus_manual: item.bonus_manual != null && Number(item.bonus_manual) !== 0 ? String(item.bonus_manual) : '',
+        catatan: item.catatan ?? '',
+        employees: item.employees,
       }))
 
       setLocalItems(mappedRows)

@@ -260,11 +260,13 @@ const normalizeRule = (item: any): SalaryRule => {
     }, 0)
 
     const gajiPokok = Number(item.gaji_pokok) || 0
-    const gajiBersih = gajiPokok + totalTunjangan - totalPotongan
+    const bonus = Number(item.bonus_manual) || 0
+    const kasbon = Number(item.kasbon) || 0
+    const gajiBersih = gajiPokok + totalTunjangan + bonus - totalPotongan - kasbon
 
     return {
-      total_tunjangan: Math.round(totalTunjangan),
-      total_potongan: Math.round(totalPotongan),
+      total_tunjangan: Math.round(totalTunjangan + bonus),
+      total_potongan: Math.round(totalPotongan + kasbon),
       gaji_bersih: Math.round(gajiBersih),
     }
   }

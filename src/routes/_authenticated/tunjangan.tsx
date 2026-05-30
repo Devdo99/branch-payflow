@@ -32,7 +32,7 @@ import {
 import { Badge } from '@/components/ui/badge'
 import { toast } from 'sonner'
 import { formatIDR } from '@/lib/format'
-import { Plus, Pencil, Trash2, Loader2, Coins } from 'lucide-react'
+import { Plus, Pencil, Trash2, Loader2, Info } from 'lucide-react'
 
 export const Route = createFileRoute('/_authenticated/tunjangan')({
   component: TunjanganPage,
@@ -44,10 +44,9 @@ function TunjanganPage() {
   const [isEditing, setIsEditing] = useState(false)
   const [editId, setEditId] = useState<string | null>(null)
 
-  // Form State
   const [nama, setNama] = useState('')
   const [nominal, setNominal] = useState<number | ''>('')
-  const [metode, setMetode] = useState('fixed') // 'fixed' atau 'per_day'
+  const [metode, setMetode] = useState<'fixed' | 'per_day' | 'manual'>('fixed')
   const [aktif, setAktif] = useState(true)
 
   const { data: allowances, isLoading } = useQuery({
@@ -71,7 +70,6 @@ function TunjanganPage() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['allowance_types'] })
-      queryClient.invalidateQueries({ queryKey: ['allowances_master'] }) // Update state di proses-gaji
       toast.success('Data tunjangan berhasil disimpan!')
       resetForm()
       setIsOpen(false)
@@ -91,14 +89,14 @@ function TunjanganPage() {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
-    if (!nama || nominal === '') return toast.error('Lengkapi form!')
-    saveMutation.mutate({ nama, nominal_default: Number(nominal), metode, aktif })
+    if (!nama) return toast.error('Isi nama tunjangan!')
+    saveMutation.mutate({ nama, nominal_default: Number(nominal) || 0, metode, aktif })
   }
 
   const handleEdit = (item: any) => {
     setNama(item.nama)
     setNominal(item.nominal_default)
-    setMetode(item.metode)
+    setMetode(item.metode as any || 'fixed')
     setAktif(item.aktif)
     setEditId(item.id)
     setIsEditing(true)
@@ -112,7 +110,7 @@ function TunjanganPage() {
   return (
     <div className="flex flex-col gap-6 p-6">
       <div className="flex items-center justify-between">
-        <PageHeader title="Master Tunjangan" description="Atur komponen penambah gaji karyawan (tetap atau harian)." />
+        <PageHeader title="Master Tunjangan" description="Atur komponen penambah gaji karyawan." />
         <Dialog open={isOpen} onOpenChange={(open) => { setIsOpen(open); if (!open) resetForm(); }}>
           <DialogTrigger asChild>
             <Button className="gap-2"><Plus className="h-4 w-4" /> Tambah Tunjangan</Button>
@@ -122,24 +120,32 @@ function TunjanganPage() {
             <form onSubmit={handleSubmit} className="flex flex-col gap-4 py-4">
               <div className="flex flex-col gap-2">
                 <Label>Nama Tunjangan</Label>
-                <Input placeholder="Contoh: Uang Makan, Uang Transport" value={nama} onChange={e => setNama(e.target.value)} />
+                <Input placeholder="Contoh: Uang Makan, Tunjangan Jabatan" value={nama} onChange={e => setNama(e.target.value)} />
               </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div className="flex flex-col gap-2">
-                  <Label>Nominal (Rp)</Label>
-                  <Input type="number" placeholder="0" value={nominal} onChange={e => setNominal(Number(e.target.value))} />
-                </div>
-                <div className="flex flex-col gap-2">
-                  <Label>Metode Perhitungan</Label>
-                  <Select value={metode} onValueChange={setMetode}>
-                    <SelectTrigger><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="fixed">Nominal Tetap / Bulan</SelectItem>
-                      <SelectItem value="per_day">Dikalikan Hari Hadir</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
+              
+              <div className="flex flex-col gap-2">
+                <Label>Logika / Metode Perhitungan</Label>
+                <Select value={metode} onValueChange={(val: any) => setMetode(val)}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="fixed">Nominal Tetap Bulanan</SelectItem>
+                    <SelectItem value="per_day">Dikalikan Jumlah Hari Hadir</SelectItem>
+                    <SelectItem value="manual">Manual (Isi Sendiri Saat Proses Gaji)</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
+
+              <div className="flex flex-col gap-2">
+                <Label>Nominal Dasar (Rp)</Label>
+                <Input type="number" placeholder="0" value={nominal} onChange={e => setNominal(Number(e.target.value))} />
+                {metode === 'per_day' && (
+                  <p className="text-xs text-blue-600 bg-blue-50 p-2 rounded flex gap-1 items-start mt-1">
+                    <Info className="h-4 w-4 shrink-0" />
+                    Tip: Jika diisi "0", sistem akan menghitung proporsional dari Gaji Pokok Harian karyawan.
+                  </p>
+                )}
+              </div>
+
               <div className="flex items-center justify-between rounded-lg border p-3">
                 <Label>Status Aktif</Label>
                 <Switch checked={aktif} onCheckedChange={setAktif} />
@@ -155,7 +161,7 @@ function TunjanganPage() {
           <TableHeader>
             <TableRow>
               <TableHead>Nama Tunjangan</TableHead>
-              <TableHead>Metode Hitung</TableHead>
+              <TableHead>Metode</TableHead>
               <TableHead className="text-right">Nominal</TableHead>
               <TableHead className="text-center">Status</TableHead>
               <TableHead className="text-right">Aksi</TableHead>
@@ -167,8 +173,12 @@ function TunjanganPage() {
              allowances?.map(item => (
               <TableRow key={item.id}>
                 <TableCell className="font-medium">{item.nama}</TableCell>
-                <TableCell>{item.metode === 'fixed' ? 'Tetap per Bulan' : 'Dikalikan Kehadiran'}</TableCell>
-                <TableCell className="text-right text-green-600 font-medium">{formatIDR(item.nominal_default)}</TableCell>
+                <TableCell className="text-xs text-muted-foreground">
+                  {item.metode === 'fixed' ? 'Tetap' : item.metode === 'per_day' ? 'Harian (x Hadir)' : 'Manual'}
+                </TableCell>
+                <TableCell className="text-right text-green-600 font-medium">
+                  {item.metode === 'per_day' && item.nominal_default === 0 ? 'Proporsional Gaji' : formatIDR(item.nominal_default)}
+                </TableCell>
                 <TableCell className="text-center"><Badge variant={item.aktif ? 'default' : 'secondary'}>{item.aktif ? 'Aktif' : 'Non-Aktif'}</Badge></TableCell>
                 <TableCell className="text-right">
                   <Button variant="ghost" size="icon" onClick={() => handleEdit(item)}><Pencil className="h-4 w-4" /></Button>

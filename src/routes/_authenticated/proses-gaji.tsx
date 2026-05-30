@@ -724,7 +724,69 @@ const normalizeRule = (item: any): SalaryRule => {
                       <div className="mt-1 text-xs text-muted-foreground">
                         Harian: {formatIDR(getGajiHarian(item.gaji_pokok))}
                       </div>
+
+                      <div className="mt-4 space-y-2 rounded-lg border bg-muted/30 p-3">
+                        <div className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
+                          <ClipboardList className="h-3 w-3" /> Kehadiran & Lainnya
+                        </div>
+                        <div className="grid grid-cols-2 gap-2">
+                          {([
+                            ['jumlah_hari', 'Hari Kerja'],
+                            ['jumlah_jam_lembur', 'Lembur (jam)'],
+                            ['jumlah_telat', 'Telat'],
+                            ['jumlah_izin', 'Izin'],
+                            ['jumlah_absen', 'Absen'],
+                          ] as const).map(([field, label]) => (
+                            <div key={field}>
+                              <Label className="text-[10px] text-muted-foreground">{label}</Label>
+                              <Input
+                                type="number"
+                                inputMode="numeric"
+                                value={item[field] ?? ''}
+                                onChange={(e) => handleFieldChange(item.id, field, e.target.value)}
+                                className="h-8"
+                                placeholder="0"
+                              />
+                            </div>
+                          ))}
+                        </div>
+                        <div className="grid grid-cols-2 gap-2">
+                          <div>
+                            <Label className="text-[10px] text-green-700">Bonus (+)</Label>
+                            <Input
+                              type="number"
+                              inputMode="numeric"
+                              value={item.bonus_manual ?? ''}
+                              onChange={(e) => handleFieldChange(item.id, 'bonus_manual', e.target.value)}
+                              className="h-8"
+                              placeholder="0"
+                            />
+                          </div>
+                          <div>
+                            <Label className="text-[10px] text-red-700">Kasbon (-)</Label>
+                            <Input
+                              type="number"
+                              inputMode="numeric"
+                              value={item.kasbon ?? ''}
+                              onChange={(e) => handleFieldChange(item.id, 'kasbon', e.target.value)}
+                              className="h-8"
+                              placeholder="0"
+                            />
+                          </div>
+                        </div>
+                        <div>
+                          <Label className="text-[10px] text-muted-foreground">Catatan</Label>
+                          <Textarea
+                            rows={2}
+                            value={item.catatan ?? ''}
+                            onChange={(e) => handleFieldChange(item.id, 'catatan', e.target.value)}
+                            className="text-xs"
+                            placeholder="Catatan slip..."
+                          />
+                        </div>
+                      </div>
                     </TableCell>
+
 
                     <TableCell className="align-top">
                       <div className="space-y-2">

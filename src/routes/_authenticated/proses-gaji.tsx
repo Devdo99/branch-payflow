@@ -457,6 +457,14 @@ const normalizeRule = (item: any): SalaryRule => {
             total_tunjangan: calc.total_tunjangan,
             total_potongan: calc.total_potongan,
             gaji_bersih: calc.gaji_bersih,
+            jumlah_hari: Number(item.jumlah_hari) || 0,
+            jumlah_jam_lembur: Number(item.jumlah_jam_lembur) || 0,
+            jumlah_telat: Number(item.jumlah_telat) || 0,
+            jumlah_izin: Number(item.jumlah_izin) || 0,
+            jumlah_absen: Number(item.jumlah_absen) || 0,
+            kasbon: Number(item.kasbon) || 0,
+            bonus_manual: Number(item.bonus_manual) || 0,
+            catatan: item.catatan || null,
           })
           .eq('id', item.id)
 

@@ -382,6 +382,14 @@ const normalizeRule = (item: any): SalaryRule => {
           deductionQty: {},
           manualAllowances: {},
           manualDeductions: {},
+          jumlah_hari: '',
+          jumlah_jam_lembur: '',
+          jumlah_telat: '',
+          jumlah_izin: '',
+          jumlah_absen: '',
+          kasbon: '',
+          bonus_manual: '',
+          catatan: '',
         }
 
         const calc = calculateItem(baseItem, freshRules)

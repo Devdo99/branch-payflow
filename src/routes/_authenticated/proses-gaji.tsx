@@ -28,6 +28,8 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { Badge } from '@/components/ui/badge'
+import { Textarea } from '@/components/ui/textarea'
+import { Label } from '@/components/ui/label'
 import { toast } from 'sonner'
 import { formatIDR } from '@/lib/format'
 import {
@@ -39,6 +41,7 @@ import {
   Trash2,
   Coins,
   MinusCircle,
+  ClipboardList,
 } from 'lucide-react'
 
 export const Route = createFileRoute('/_authenticated/proses-gaji')({
@@ -90,6 +93,14 @@ type LocalPayrollItem = {
   deductionQty: Record<string, string>
   manualAllowances: Record<string, string>
   manualDeductions: Record<string, string>
+  jumlah_hari: string
+  jumlah_jam_lembur: string
+  jumlah_telat: string
+  jumlah_izin: string
+  jumlah_absen: string
+  kasbon: string
+  bonus_manual: string
+  catatan: string
   employees?: {
     id: string
     nama: string
@@ -249,11 +260,13 @@ const normalizeRule = (item: any): SalaryRule => {
     }, 0)
 
     const gajiPokok = Number(item.gaji_pokok) || 0
-    const gajiBersih = gajiPokok + totalTunjangan - totalPotongan
+    const bonus = Number(item.bonus_manual) || 0
+    const kasbon = Number(item.kasbon) || 0
+    const gajiBersih = gajiPokok + totalTunjangan + bonus - totalPotongan - kasbon
 
     return {
-      total_tunjangan: Math.round(totalTunjangan),
-      total_potongan: Math.round(totalPotongan),
+      total_tunjangan: Math.round(totalTunjangan + bonus),
+      total_potongan: Math.round(totalPotongan + kasbon),
       gaji_bersih: Math.round(gajiBersih),
     }
   }
@@ -271,6 +284,14 @@ const normalizeRule = (item: any): SalaryRule => {
           total_tunjangan,
           total_potongan,
           gaji_bersih,
+          jumlah_hari,
+          jumlah_jam_lembur,
+          jumlah_telat,
+          jumlah_izin,
+          jumlah_absen,
+          kasbon,
+          bonus_manual,
+          catatan,
           employees (
             id,
             nama
@@ -281,10 +302,10 @@ const normalizeRule = (item: any): SalaryRule => {
 
       if (error) throw error
 
-      const rows = (data ?? []) as unknown as LocalPayrollItem[]
+      const rows = (data ?? []) as any[]
 
-      const mappedRows = rows.map((item) => ({
-        ...item,
+      const mappedRows: LocalPayrollItem[] = rows.map((item) => ({
+        id: item.id,
         gaji_pokok: Number(item.gaji_pokok) || 0,
         total_tunjangan: Number(item.total_tunjangan) || 0,
         total_potongan: Number(item.total_potongan) || 0,
@@ -293,6 +314,15 @@ const normalizeRule = (item: any): SalaryRule => {
         deductionQty: {},
         manualAllowances: {},
         manualDeductions: {},
+        jumlah_hari: item.jumlah_hari != null ? String(item.jumlah_hari) : '',
+        jumlah_jam_lembur: item.jumlah_jam_lembur != null ? String(item.jumlah_jam_lembur) : '',
+        jumlah_telat: item.jumlah_telat != null ? String(item.jumlah_telat) : '',
+        jumlah_izin: item.jumlah_izin != null ? String(item.jumlah_izin) : '',
+        jumlah_absen: item.jumlah_absen != null ? String(item.jumlah_absen) : '',
+        kasbon: item.kasbon != null && Number(item.kasbon) !== 0 ? String(item.kasbon) : '',
+        bonus_manual: item.bonus_manual != null && Number(item.bonus_manual) !== 0 ? String(item.bonus_manual) : '',
+        catatan: item.catatan ?? '',
+        employees: item.employees,
       }))
 
       setLocalItems(mappedRows)
@@ -352,6 +382,14 @@ const normalizeRule = (item: any): SalaryRule => {
           deductionQty: {},
           manualAllowances: {},
           manualDeductions: {},
+          jumlah_hari: '',
+          jumlah_jam_lembur: '',
+          jumlah_telat: '',
+          jumlah_izin: '',
+          jumlah_absen: '',
+          kasbon: '',
+          bonus_manual: '',
+          catatan: '',
         }
 
         const calc = calculateItem(baseItem, freshRules)
@@ -419,6 +457,14 @@ const normalizeRule = (item: any): SalaryRule => {
             total_tunjangan: calc.total_tunjangan,
             total_potongan: calc.total_potongan,
             gaji_bersih: calc.gaji_bersih,
+            jumlah_hari: Number(item.jumlah_hari) || 0,
+            jumlah_jam_lembur: Number(item.jumlah_jam_lembur) || 0,
+            jumlah_telat: Number(item.jumlah_telat) || 0,
+            jumlah_izin: Number(item.jumlah_izin) || 0,
+            jumlah_absen: Number(item.jumlah_absen) || 0,
+            kasbon: Number(item.kasbon) || 0,
+            bonus_manual: Number(item.bonus_manual) || 0,
+            catatan: item.catatan || null,
           })
           .eq('id', item.id)
 
@@ -532,6 +578,24 @@ const normalizeRule = (item: any): SalaryRule => {
         }
 
         return recalculateLocalItem(updated)
+      }),
+    )
+  }
+
+  const handleFieldChange = (
+    id: string,
+    field: 'jumlah_hari' | 'jumlah_jam_lembur' | 'jumlah_telat' | 'jumlah_izin' | 'jumlah_absen' | 'kasbon' | 'bonus_manual' | 'catatan',
+    value: string,
+  ) => {
+    setLocalItems((prev) =>
+      prev.map((item) => {
+        if (item.id !== id) return item
+        const updated = { ...item, [field]: value }
+        // kasbon & bonus mempengaruhi gaji bersih, lainnya hanya informasi
+        if (field === 'kasbon' || field === 'bonus_manual') {
+          return recalculateLocalItem(updated)
+        }
+        return updated
       }),
     )
   }
@@ -660,7 +724,69 @@ const normalizeRule = (item: any): SalaryRule => {
                       <div className="mt-1 text-xs text-muted-foreground">
                         Harian: {formatIDR(getGajiHarian(item.gaji_pokok))}
                       </div>
+
+                      <div className="mt-4 space-y-2 rounded-lg border bg-muted/30 p-3">
+                        <div className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
+                          <ClipboardList className="h-3 w-3" /> Kehadiran & Lainnya
+                        </div>
+                        <div className="grid grid-cols-2 gap-2">
+                          {([
+                            ['jumlah_hari', 'Hari Kerja'],
+                            ['jumlah_jam_lembur', 'Lembur (jam)'],
+                            ['jumlah_telat', 'Telat'],
+                            ['jumlah_izin', 'Izin'],
+                            ['jumlah_absen', 'Absen'],
+                          ] as const).map(([field, label]) => (
+                            <div key={field}>
+                              <Label className="text-[10px] text-muted-foreground">{label}</Label>
+                              <Input
+                                type="number"
+                                inputMode="numeric"
+                                value={item[field] ?? ''}
+                                onChange={(e) => handleFieldChange(item.id, field, e.target.value)}
+                                className="h-8"
+                                placeholder="0"
+                              />
+                            </div>
+                          ))}
+                        </div>
+                        <div className="grid grid-cols-2 gap-2">
+                          <div>
+                            <Label className="text-[10px] text-green-700">Bonus (+)</Label>
+                            <Input
+                              type="number"
+                              inputMode="numeric"
+                              value={item.bonus_manual ?? ''}
+                              onChange={(e) => handleFieldChange(item.id, 'bonus_manual', e.target.value)}
+                              className="h-8"
+                              placeholder="0"
+                            />
+                          </div>
+                          <div>
+                            <Label className="text-[10px] text-red-700">Kasbon (-)</Label>
+                            <Input
+                              type="number"
+                              inputMode="numeric"
+                              value={item.kasbon ?? ''}
+                              onChange={(e) => handleFieldChange(item.id, 'kasbon', e.target.value)}
+                              className="h-8"
+                              placeholder="0"
+                            />
+                          </div>
+                        </div>
+                        <div>
+                          <Label className="text-[10px] text-muted-foreground">Catatan</Label>
+                          <Textarea
+                            rows={2}
+                            value={item.catatan ?? ''}
+                            onChange={(e) => handleFieldChange(item.id, 'catatan', e.target.value)}
+                            className="text-xs"
+                            placeholder="Catatan slip..."
+                          />
+                        </div>
+                      </div>
                     </TableCell>
+
 
                     <TableCell className="align-top">
                       <div className="space-y-2">

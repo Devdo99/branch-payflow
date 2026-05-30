@@ -32,7 +32,7 @@ import {
 import { Badge } from '@/components/ui/badge'
 import { toast } from 'sonner'
 import { formatIDR } from '@/lib/format'
-import { Plus, Pencil, Trash2, Loader2, Info } from 'lucide-react'
+import { Plus, Pencil, Trash2, Loader2, Info, Users, UserCog } from 'lucide-react'
 
 export const Route = createFileRoute('/_authenticated/tunjangan')({
   component: TunjanganPage,
@@ -48,6 +48,7 @@ function TunjanganPage() {
   const [nominal, setNominal] = useState<number | ''>('')
   const [metode, setMetode] = useState<'fixed' | 'per_day' | 'manual'>('fixed')
   const [aktif, setAktif] = useState(true)
+  const [isGlobal, setIsGlobal] = useState(true) // STATE BARU: Untuk Tunjangan Global/Khusus
 
   const { data: allowances, isLoading } = useQuery({
     queryKey: ['allowance_types'],
@@ -90,7 +91,8 @@ function TunjanganPage() {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
     if (!nama) return toast.error('Isi nama tunjangan!')
-    saveMutation.mutate({ nama, nominal_default: Number(nominal) || 0, metode, aktif })
+    // Payload menyertakan is_global
+    saveMutation.mutate({ nama, nominal_default: Number(nominal) || 0, metode, aktif, is_global: isGlobal })
   }
 
   const handleEdit = (item: any) => {
@@ -98,13 +100,15 @@ function TunjanganPage() {
     setNominal(item.nominal_default)
     setMetode(item.metode as any || 'fixed')
     setAktif(item.aktif)
+    // Menangkap nilai is_global dari database, jika null maka default true
+    setIsGlobal(item.is_global === undefined ? true : item.is_global) 
     setEditId(item.id)
     setIsEditing(true)
     setIsOpen(true)
   }
 
   const resetForm = () => {
-    setNama(''); setNominal(''); setMetode('fixed'); setAktif(true); setEditId(null); setIsEditing(false)
+    setNama(''); setNominal(''); setMetode('fixed'); setAktif(true); setIsGlobal(true); setEditId(null); setIsEditing(false)
   }
 
   return (
@@ -146,11 +150,31 @@ function TunjanganPage() {
                 )}
               </div>
 
-              <div className="flex items-center justify-between rounded-lg border p-3">
-                <Label>Status Aktif</Label>
-                <Switch checked={aktif} onCheckedChange={setAktif} />
+              <div className="grid grid-cols-2 gap-4">
+                <div className="flex flex-col justify-center rounded-lg border p-3 gap-2">
+                  <div className="flex items-center justify-between">
+                    <Label className="text-sm font-semibold">Berlaku Global?</Label>
+                    <Switch checked={isGlobal} onCheckedChange={setIsGlobal} />
+                  </div>
+                  <p className="text-[10px] text-muted-foreground leading-tight">
+                    {isGlobal 
+                      ? 'Tunjangan ini otomatis muncul untuk SEMUA karyawan.' 
+                      : 'Tunjangan khusus. Hanya muncul pada karyawan yang ditunjuk.'}
+                  </p>
+                </div>
+
+                <div className="flex flex-col justify-center rounded-lg border p-3 gap-2 bg-slate-50">
+                  <div className="flex items-center justify-between">
+                    <Label className="text-sm font-semibold">Status Aktif</Label>
+                    <Switch checked={aktif} onCheckedChange={setAktif} />
+                  </div>
+                  <p className="text-[10px] text-muted-foreground leading-tight">
+                    {aktif ? 'Tunjangan bisa digunakan.' : 'Tunjangan dinonaktifkan sementara.'}
+                  </p>
+                </div>
               </div>
-              <Button type="submit" disabled={saveMutation.isPending}>{saveMutation.isPending ? 'Menyimpan...' : 'Simpan Data'}</Button>
+
+              <Button type="submit" className="mt-2" disabled={saveMutation.isPending}>{saveMutation.isPending ? 'Menyimpan...' : 'Simpan Data'}</Button>
             </form>
           </DialogContent>
         </Dialog>
@@ -161,6 +185,7 @@ function TunjanganPage() {
           <TableHeader>
             <TableRow>
               <TableHead>Nama Tunjangan</TableHead>
+              <TableHead>Target</TableHead>
               <TableHead>Metode</TableHead>
               <TableHead className="text-right">Nominal</TableHead>
               <TableHead className="text-center">Status</TableHead>
@@ -168,11 +193,20 @@ function TunjanganPage() {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {isLoading ? <TableRow><TableCell colSpan={5} className="text-center h-24"><Loader2 className="mx-auto animate-spin" /></TableCell></TableRow> : 
-             allowances?.length === 0 ? <TableRow><TableCell colSpan={5} className="text-center h-24 text-muted-foreground">Belum ada data tunjangan.</TableCell></TableRow> :
+            {isLoading ? <TableRow><TableCell colSpan={6} className="text-center h-24"><Loader2 className="mx-auto animate-spin" /></TableCell></TableRow> : 
+             allowances?.length === 0 ? <TableRow><TableCell colSpan={6} className="text-center h-24 text-muted-foreground">Belum ada data tunjangan.</TableCell></TableRow> :
              allowances?.map(item => (
               <TableRow key={item.id}>
                 <TableCell className="font-medium">{item.nama}</TableCell>
+                <TableCell>
+                  <div className="flex items-center gap-1.5">
+                    {(item as any).is_global === undefined ? true : (item as any).is_global ? (
+                      <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200"><Users className="w-3 h-3 mr-1"/> Semua</Badge>
+                    ) : (
+                      <Badge variant="outline" className="bg-orange-50 text-orange-700 border-orange-200"><UserCog className="w-3 h-3 mr-1"/> Khusus</Badge>
+                    )}
+                  </div>
+                </TableCell>
                 <TableCell className="text-xs text-muted-foreground">
                   {item.metode === 'fixed' ? 'Tetap' : item.metode === 'per_day' ? 'Harian (x Hadir)' : 'Manual'}
                 </TableCell>

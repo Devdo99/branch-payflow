@@ -28,6 +28,8 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { Badge } from '@/components/ui/badge'
+import { Textarea } from '@/components/ui/textarea'
+import { Label } from '@/components/ui/label'
 import { toast } from 'sonner'
 import { formatIDR } from '@/lib/format'
 import {
@@ -39,6 +41,7 @@ import {
   Trash2,
   Coins,
   MinusCircle,
+  ClipboardList,
 } from 'lucide-react'
 
 export const Route = createFileRoute('/_authenticated/proses-gaji')({

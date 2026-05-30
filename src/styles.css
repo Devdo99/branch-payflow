@@ -99,21 +99,20 @@
   --chart-5: oklch(0.45 0.08 290);
 
   /* Sidebar — putih bersih, item aktif hijau */
-  /* Sidebar — Latar Hijau Tua, Teks Putih */
-  --sidebar: oklch(0.35 0.1 150); /* Hijau tua profesional */
-  --sidebar-foreground: oklch(0.98 0 0); /* Putih bersih untuk teks biasa */
+  /* Sidebar — Latar Hijau Tua, Teks Putih (Versi HSL yang lebih kompatibel) */
+  --sidebar: 150 100% 19%;       /* Forest Green (Hijau Tua) */
+  --sidebar-foreground: 0 0% 100%; /* Putih bersih */
   
-  /* Warna tombol saat diklik/aktif (misal hijau yang sedikit lebih terang) */
-  --sidebar-primary: oklch(0.45 0.12 150); 
-  --sidebar-primary-foreground: oklch(0.99 0 0);
+  /* Warna tombol saat diklik/aktif */
+  --sidebar-primary: 150 100% 25%; 
+  --sidebar-primary-foreground: 0 0% 100%;
   
-  /* Warna saat di-hover/disorot mouse (hijau transparan/gelap) */
-  --sidebar-accent: oklch(0.4 0.11 150); 
-  --sidebar-accent-foreground: oklch(0.99 0 0); /* Teks putih saat di-hover */
+  /* Warna saat di-hover/disorot mouse */
+  --sidebar-accent: 150 100% 22%; 
+  --sidebar-accent-foreground: 0 0% 100%;
   
-  --sidebar-border: oklch(0.3 0.1 150); /* Border hijau sangat tua agar menyatu */
-  --sidebar-ring: oklch(0.5 0.12 150);
-}
+  --sidebar-border: 150 100% 15%; /* Border hijau sangat gelap */
+  --sidebar-ring: 150 100% 30%;}
 
 .dark {
   --background: oklch(0.18 0.01 150);

@@ -7,55 +7,42 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Switch } from '@/components/ui/switch'
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table'
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from '@/components/ui/dialog'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
+import { Checkbox } from '@/components/ui/checkbox'
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Badge } from '@/components/ui/badge'
 import { toast } from 'sonner'
 import { formatIDR } from '@/lib/format'
-import { Plus, Pencil, Trash2, Loader2, Info, Users, UserCog } from 'lucide-react'
+import { Plus, Pencil, Trash2, Loader2, Users, UserCog } from 'lucide-react'
 
 export const Route = createFileRoute('/_authenticated/tunjangan')({
   component: TunjanganPage,
 })
+
+const LIST_JOBDESK = ['Kasir', 'Cook / Dapur', 'Server / Pelayan', 'Barista', 'Piket Kebersihan', 'Staf Inti']
 
 function TunjanganPage() {
   const queryClient = useQueryClient()
   const [isOpen, setIsOpen] = useState(false)
   const [isEditing, setIsEditing] = useState(false)
   const [editId, setEditId] = useState<string | null>(null)
-
+  
   const [nama, setNama] = useState('')
   const [nominal, setNominal] = useState<number | ''>('')
-  const [metode, setMetode] = useState<'fixed' | 'per_day' | 'manual'>('fixed')
+  const [metode, setMetode] = useState<string>('fixed')
   const [aktif, setAktif] = useState(true)
-  const [isGlobal, setIsGlobal] = useState(true) // STATE BARU: Untuk Tunjangan Global/Khusus
+  
+  // Relasi Jobdesk Explicit
+  const [isGlobal, setIsGlobal] = useState(true)
+  const [targetJobdesks, setTargetJobdesks] = useState<string[]>([])
 
   const { data: allowances, isLoading } = useQuery({
-    queryKey: ['allowance_types'],
+    queryKey: ['allowance_types_v6'],
     queryFn: async () => {
       const { data, error } = await supabase.from('allowance_types').select('*').order('nama')
       if (error) throw error
-      return data
+      return data || []
     }
   })
 
@@ -70,11 +57,12 @@ function TunjanganPage() {
       }
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['allowance_types'] })
-      toast.success('Data tunjangan berhasil disimpan!')
-      resetForm()
-      setIsOpen(false)
-    }
+      queryClient.invalidateQueries({ queryKey: ['allowance_types_v6'] })
+      queryClient.invalidateQueries({ queryKey: ['employees_payroll_v6'] }) 
+      toast.success(isEditing ? 'Tunjangan diperbarui!' : 'Tunjangan ditambahkan!')
+      handleClose()
+    },
+    onError: (error: any) => toast.error(`Gagal: ${error.message}`)
   })
 
   const deleteMutation = useMutation({
@@ -83,142 +71,181 @@ function TunjanganPage() {
       if (error) throw error
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['allowance_types'] })
-      toast.success('Data berhasil dihapus!')
+      queryClient.invalidateQueries({ queryKey: ['allowance_types_v6'] })
+      toast.success('Dihapus!')
     }
   })
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
-    if (!nama) return toast.error('Isi nama tunjangan!')
-    // Payload menyertakan is_global
-    saveMutation.mutate({ nama, nominal_default: Number(nominal) || 0, metode, aktif, is_global: isGlobal })
+    if (!nama) return toast.error('Nama wajib diisi!')
+    
+    // Menyimpan target relasi ke dalam kolom 'catatan' sebagai string comma-separated
+    const catatanRelasi = isGlobal ? 'GLOBAL' : targetJobdesks.join(',')
+
+    saveMutation.mutate({
+      nama,
+      nominal_default: Number(nominal) || 0,
+      metode,
+      aktif,
+      catatan: catatanRelasi
+    })
   }
 
   const handleEdit = (item: any) => {
+    setIsEditing(true)
+    setEditId(item.id)
     setNama(item.nama)
     setNominal(item.nominal_default)
-    setMetode(item.metode as any || 'fixed')
+    setMetode(item.metode || 'fixed')
     setAktif(item.aktif)
-    // Menangkap nilai is_global dari database, jika null maka default true
-    setIsGlobal(item.is_global === undefined ? true : item.is_global) 
-    setEditId(item.id)
-    setIsEditing(true)
+    
+    if (!item.catatan || item.catatan === 'GLOBAL') {
+      setIsGlobal(true)
+      setTargetJobdesks([])
+    } else {
+      setIsGlobal(false)
+      setTargetJobdesks(item.catatan.split(','))
+    }
+    
     setIsOpen(true)
   }
 
-  const resetForm = () => {
-    setNama(''); setNominal(''); setMetode('fixed'); setAktif(true); setIsGlobal(true); setEditId(null); setIsEditing(false)
+  const handleClose = () => {
+    setIsOpen(false)
+    setIsEditing(false)
+    setEditId(null)
+    setNama('')
+    setNominal('')
+    setMetode('fixed')
+    setAktif(true)
+    setIsGlobal(true)
+    setTargetJobdesks([])
+  }
+
+  const getMetodeLabel = (m: string) => {
+    if (m === 'manual') return 'Input Manual (Rp)'
+    if (m === 'per_day') return 'Faktor Kali (Hari)'
+    if (m === 'per_hour') return 'Faktor Kali (Jam)'
+    return 'Nominal Tetap'
   }
 
   return (
-    <div className="flex flex-col gap-6 p-6">
-      <div className="flex items-center justify-between">
-        <PageHeader title="Master Tunjangan" description="Atur komponen penambah gaji karyawan." />
-        <Dialog open={isOpen} onOpenChange={(open) => { setIsOpen(open); if (!open) resetForm(); }}>
+    <div className="space-y-6">
+      <PageHeader title="Master Tunjangan" description="Atur komponen tunjangan dan hubungkan dengan spesifik Jobdesk." />
+      
+      <div className="flex justify-end">
+        <Dialog open={isOpen} onOpenChange={(open) => !open ? handleClose() : setIsOpen(true)}>
           <DialogTrigger asChild>
-            <Button className="gap-2"><Plus className="h-4 w-4" /> Tambah Tunjangan</Button>
+            <Button><Plus className="w-4 h-4 mr-2" /> Tambah Tunjangan</Button>
           </DialogTrigger>
-          <DialogContent aria-describedby={undefined}>
-            <DialogHeader><DialogTitle>{isEditing ? 'Edit Tunjangan' : 'Tambah Tunjangan Baru'}</DialogTitle></DialogHeader>
-            <form onSubmit={handleSubmit} className="flex flex-col gap-4 py-4">
-              <div className="flex flex-col gap-2">
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>{isEditing ? 'Edit Tunjangan' : 'Tambah Tunjangan'}</DialogTitle>
+            </DialogHeader>
+            <form onSubmit={handleSubmit} className="space-y-4 pt-4">
+              <div className="space-y-2">
                 <Label>Nama Tunjangan</Label>
-                <Input placeholder="Contoh: Uang Makan, Tunjangan Jabatan" value={nama} onChange={e => setNama(e.target.value)} />
+                <Input placeholder="Contoh: Tunjangan Dapur" value={nama} onChange={(e) => setNama(e.target.value)} />
               </div>
-              
-              <div className="flex flex-col gap-2">
-                <Label>Logika / Metode Perhitungan</Label>
-                <Select value={metode} onValueChange={(val: any) => setMetode(val)}>
+
+              <div className="space-y-2">
+                <Label>Model Perhitungan</Label>
+                <Select value={metode} onValueChange={setMetode}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="fixed">Nominal Tetap Bulanan</SelectItem>
-                    <SelectItem value="per_day">Dikalikan Jumlah Hari Hadir</SelectItem>
-                    <SelectItem value="manual">Manual (Isi Sendiri Saat Proses Gaji)</SelectItem>
+                    <SelectItem value="fixed">Nominal Tetap (Otomatis)</SelectItem>
+                    <SelectItem value="per_day">Dikali Jumlah Hari Kerja</SelectItem>
+                    <SelectItem value="per_hour">Dikali Jumlah Jam (Mis: Lembur)</SelectItem>
+                    <SelectItem value="manual">Input Bebas Nominal di Proses Gaji</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
 
-              <div className="flex flex-col gap-2">
-                <Label>Nominal Dasar (Rp)</Label>
-                <Input type="number" placeholder="0" value={nominal} onChange={e => setNominal(Number(e.target.value))} />
-                {metode === 'per_day' && (
-                  <p className="text-xs text-blue-600 bg-blue-50 p-2 rounded flex gap-1 items-start mt-1">
-                    <Info className="h-4 w-4 shrink-0" />
-                    Tip: Jika diisi "0", sistem akan menghitung proporsional dari Gaji Pokok Harian karyawan.
-                  </p>
-                )}
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div className="flex flex-col justify-center rounded-lg border p-3 gap-2">
-                  <div className="flex items-center justify-between">
-                    <Label className="text-sm font-semibold">Berlaku Global?</Label>
-                    <Switch checked={isGlobal} onCheckedChange={setIsGlobal} />
-                  </div>
-                  <p className="text-[10px] text-muted-foreground leading-tight">
-                    {isGlobal 
-                      ? 'Tunjangan ini otomatis muncul untuk SEMUA karyawan.' 
-                      : 'Tunjangan khusus. Hanya muncul pada karyawan yang ditunjuk.'}
-                  </p>
+              {metode !== 'manual' && (
+                <div className="space-y-2">
+                  <Label>Nominal Default (Rp)</Label>
+                  <Input type="number" value={nominal} onChange={(e) => setNominal(Number(e.target.value) || '')} />
                 </div>
+              )}
 
-                <div className="flex flex-col justify-center rounded-lg border p-3 gap-2 bg-slate-50">
-                  <div className="flex items-center justify-between">
-                    <Label className="text-sm font-semibold">Status Aktif</Label>
-                    <Switch checked={aktif} onCheckedChange={setAktif} />
-                  </div>
-                  <p className="text-[10px] text-muted-foreground leading-tight">
-                    {aktif ? 'Tunjangan bisa digunakan.' : 'Tunjangan dinonaktifkan sementara.'}
-                  </p>
+              {/* RELASI JOBDESK EXPLICIT */}
+              <div className="flex items-center justify-between border rounded-lg p-3">
+                <div className="space-y-0.5">
+                  <Label>Berlaku Global</Label>
+                  <p className="text-[11px] text-muted-foreground">Aktif = Semua karyawan dapat.</p>
                 </div>
+                <Switch checked={isGlobal} onCheckedChange={setIsGlobal} />
               </div>
+              
+              {!isGlobal && (
+                <div className="space-y-2 border rounded-lg p-3 bg-slate-50/50">
+                  <Label className="text-xs text-slate-700">Pilih Jobdesk Penerima Tunjangan Ini:</Label>
+                  <div className="grid grid-cols-2 gap-2 mt-2">
+                    {LIST_JOBDESK.map(job => (
+                      <div key={job} className="flex items-center space-x-2 bg-white border px-2 py-1.5 rounded">
+                        <Checkbox 
+                          id={`job-${job}`} 
+                          checked={targetJobdesks.includes(job)}
+                          onCheckedChange={(checked) => {
+                            if (checked) setTargetJobdesks(prev => [...prev, job])
+                            else setTargetJobdesks(prev => prev.filter(j => j !== job))
+                          }}
+                        />
+                        <label htmlFor={`job-${job}`} className="text-[11px] font-medium cursor-pointer flex-1">{job}</label>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
 
-              <Button type="submit" className="mt-2" disabled={saveMutation.isPending}>{saveMutation.isPending ? 'Menyimpan...' : 'Simpan Data'}</Button>
+              <div className="flex items-center justify-between border rounded-lg p-3 mt-2">
+                <Label>Status Aktif</Label>
+                <Switch checked={aktif} onCheckedChange={setAktif} />
+              </div>
+              
+              <Button type="submit" className="w-full" disabled={saveMutation.isPending}>
+                {saveMutation.isPending ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : 'Simpan Tunjangan'}
+              </Button>
             </form>
           </DialogContent>
         </Dialog>
       </div>
 
-      <div className="rounded-md border bg-card">
+      <div className="rounded-md border">
         <Table>
           <TableHeader>
             <TableRow>
               <TableHead>Nama Tunjangan</TableHead>
-              <TableHead>Target</TableHead>
-              <TableHead>Metode</TableHead>
-              <TableHead className="text-right">Nominal</TableHead>
-              <TableHead className="text-center">Status</TableHead>
+              <TableHead>Target Penerima</TableHead>
+              <TableHead>Model</TableHead>
+              <TableHead>Nominal</TableHead>
               <TableHead className="text-right">Aksi</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
-            {isLoading ? <TableRow><TableCell colSpan={6} className="text-center h-24"><Loader2 className="mx-auto animate-spin" /></TableCell></TableRow> : 
-             allowances?.length === 0 ? <TableRow><TableCell colSpan={6} className="text-center h-24 text-muted-foreground">Belum ada data tunjangan.</TableCell></TableRow> :
-             allowances?.map(item => (
-              <TableRow key={item.id}>
-                <TableCell className="font-medium">{item.nama}</TableCell>
-                <TableCell>
-                  <div className="flex items-center gap-1.5">
-                    {(item as any).is_global === undefined ? true : (item as any).is_global ? (
-                      <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200"><Users className="w-3 h-3 mr-1"/> Semua</Badge>
+            {isLoading ? (
+              <TableRow><TableCell colSpan={5} className="h-24 text-center"><Loader2 className="mx-auto h-6 w-6 animate-spin text-muted-foreground" /></TableCell></TableRow>
+            ) : allowances?.map((item) => (
+                <TableRow key={item.id}>
+                  <TableCell className="font-medium">{item.nama}</TableCell>
+                  <TableCell>
+                    {!item.catatan || item.catatan === 'GLOBAL' ? (
+                      <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200"><Users className="w-3 h-3 mr-1" /> Global</Badge>
                     ) : (
-                      <Badge variant="outline" className="bg-orange-50 text-orange-700 border-orange-200"><UserCog className="w-3 h-3 mr-1"/> Khusus</Badge>
+                      <div className="flex flex-col gap-1 items-start">
+                        <Badge variant="outline" className="bg-slate-50 text-slate-700"><UserCog className="w-3 h-3 mr-1" /> Khusus</Badge>
+                        <span className="text-[9px] text-muted-foreground break-words max-w-[150px]">{item.catatan}</span>
+                      </div>
                     )}
-                  </div>
-                </TableCell>
-                <TableCell className="text-xs text-muted-foreground">
-                  {item.metode === 'fixed' ? 'Tetap' : item.metode === 'per_day' ? 'Harian (x Hadir)' : 'Manual'}
-                </TableCell>
-                <TableCell className="text-right text-green-600 font-medium">
-                  {item.metode === 'per_day' && item.nominal_default === 0 ? 'Proporsional Gaji' : formatIDR(item.nominal_default)}
-                </TableCell>
-                <TableCell className="text-center"><Badge variant={item.aktif ? 'default' : 'secondary'}>{item.aktif ? 'Aktif' : 'Non-Aktif'}</Badge></TableCell>
-                <TableCell className="text-right">
-                  <Button variant="ghost" size="icon" onClick={() => handleEdit(item)}><Pencil className="h-4 w-4" /></Button>
-                  <Button variant="ghost" size="icon" onClick={() => { if(window.confirm('Hapus tunjangan ini?')) deleteMutation.mutate(item.id) }}><Trash2 className="h-4 w-4 text-red-500" /></Button>
-                </TableCell>
-              </TableRow>
+                  </TableCell>
+                  <TableCell><Badge variant="secondary">{getMetodeLabel(item.metode)}</Badge></TableCell>
+                  <TableCell>{item.metode === 'manual' ? '-' : formatIDR(item.nominal_default)}</TableCell>
+                  <TableCell className="text-right space-x-2">
+                    <Button variant="ghost" size="icon" onClick={() => handleEdit(item)}><Pencil className="w-4 h-4 text-blue-600" /></Button>
+                    <Button variant="ghost" size="icon" onClick={() => { if (window.confirm('Hapus tunjangan?')) deleteMutation.mutate(item.id) }}><Trash2 className="w-4 h-4 text-red-600" /></Button>
+                  </TableCell>
+                </TableRow>
             ))}
           </TableBody>
         </Table>

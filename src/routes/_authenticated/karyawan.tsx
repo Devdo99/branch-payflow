@@ -6,53 +6,51 @@ import { PageHeader } from '@/components/page-header'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Checkbox } from '@/components/ui/checkbox'
+import { Switch } from '@/components/ui/switch'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
+import { Badge } from '@/components/ui/badge'
 import { toast } from 'sonner'
-import { Plus, Pencil, Trash2, Loader2, UserCog } from 'lucide-react'
+import { Plus, Pencil, Trash2, Loader2, Mail, Phone } from 'lucide-react'
 
 export const Route = createFileRoute('/_authenticated/karyawan')({
   component: KaryawanPage,
 })
 
+const LIST_JOBDESK = ['Kasir', 'Cook / Dapur', 'Server / Pelayan', 'Barista', 'Piket Kebersihan', 'Staf Inti']
+
 function KaryawanPage() {
   const queryClient = useQueryClient()
   const [isOpen, setIsOpen] = useState(false)
+  const [isEditing, setIsEditing] = useState(false)
   const [editId, setEditId] = useState<string | null>(null)
 
-  // Form State
+  // State Form data diri & kontak fokus utama
+  const [kodeKaryawan, setKodeKaryawan] = useState('')
   const [nama, setNama] = useState('')
-  const [tunjanganKhusus, setTunjanganKhusus] = useState<string[]>([])
+  const [jabatan, setJabatan] = useState('')
+  const [telepon, setTelepon] = useState('')
+  const [email, setEmail] = useState('')
+  const [aktif, setAktif] = useState(true)
 
-  // Fetch Data
+  // Ambil data karyawan dari database
   const { data: employees, isLoading } = useQuery({
-    queryKey: ['employees'],
+    queryKey: ['employees_list'],
     queryFn: async () => {
-      const { data, error } = await supabase.from('employees').select('*')
-      if (error) throw error
-      return data
-    }
-  })
-
-  const { data: allAllowances } = useQuery({
-    queryKey: ['allowance_types'],
-    queryFn: async () => {
-      // Kita gunakan casting 'as any' untuk menghindari error TypeScript 
-      // yang belum mendeteksi kolom 'is_global' di types.ts
       const { data, error } = await supabase
-        .from('allowance_types')
+        .from('employees')
         .select('*')
-        .eq('is_global' as any, false)
-      
+        .order('nama', { ascending: true })
       if (error) throw error
-      return data
+      return data || []
     }
   })
 
+  // Operasi Tambah / Edit Karyawan
   const saveMutation = useMutation({
     mutationFn: async (newData: any) => {
-      if (editId) {
+      if (isEditing && editId) {
         const { error } = await supabase.from('employees').update(newData).eq('id', editId)
         if (error) throw error
       } else {
@@ -61,86 +59,202 @@ function KaryawanPage() {
       }
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['employees'] })
-      toast.success('Data karyawan disimpan!')
-      setIsOpen(false)
-      resetForm()
+      queryClient.invalidateQueries({ queryKey: ['employees_list'] })
+      queryClient.invalidateQueries({ queryKey: ['employees_payroll_v6'] })
+      toast.success(isEditing ? 'Data karyawan berhasil diperbarui!' : 'Karyawan baru berhasil ditambahkan!')
+      handleClose()
+    },
+    onError: (error: any) => {
+      toast.error(`Gagal menyimpan data: ${error.message}`)
+    }
+  })
+
+  // Operasi Hapus Karyawan
+  const deleteMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.from('employees').delete().eq('id', id)
+      if (error) throw error
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['employees_list'] })
+      toast.success('Data karyawan berhasil dihapus!')
+    },
+    onError: (error: any) => {
+      toast.error(`Gagal menghapus data: ${error.message}`)
     }
   })
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
-    saveMutation.mutate({ nama, tunjangan_khusus: JSON.stringify(tunjanganKhusus) })
+    if (!nama) return toast.error('Nama karyawan wajib diisi!')
+    if (!telepon) return toast.error('Nomor WhatsApp wajib diisi untuk pengiriman slip gaji!')
+
+    saveMutation.mutate({
+      kode_karyawan: kodeKaryawan || null,
+      nama,
+      jabatan: jabatan || null,
+      telepon,
+      no_hp: telepon, // Diisi ke kedua kolom agar aman dengan skema database
+      email: email || null,
+      aktif
+    })
   }
 
-  const handleEdit = (emp: any) => {
-    setNama(emp.nama)
-    setTunjanganKhusus(emp.tunjangan_khusus || [])
-    setEditId(emp.id)
+  const handleEdit = (item: any) => {
+    setIsEditing(true)
+    setEditId(item.id)
+    setKodeKaryawan(item.kode_karyawan || '')
+    setNama(item.nama || '')
+    setJabatan(item.jabatan || '')
+    setTelepon(item.telepon || item.no_hp || '')
+    setEmail(item.email || '')
+    setAktif(item.aktif ?? true)
     setIsOpen(true)
   }
 
-  const resetForm = () => {
-    setNama(''); setTunjanganKhusus([]); setEditId(null)
+  const handleClose = () => {
+    setIsOpen(false)
+    setIsEditing(false)
+    setEditId(null)
+    setKodeKaryawan('')
+    setNama('')
+    setJabatan('')
+    setTelepon('')
+    setEmail('')
+    setAktif(true)
   }
 
   return (
-    <div className="p-6 space-y-6">
-      <div className="flex justify-between items-center">
-        <PageHeader title="Manajemen Karyawan" description="Data karyawan dan pengaturan hak tunjangan khusus." />
-        <Button onClick={() => { resetForm(); setIsOpen(true); }}><Plus className="h-4 w-4 mr-2"/> Tambah Karyawan</Button>
+    <div className="space-y-6">
+      <PageHeader 
+        title="Manajemen Karyawan" 
+        description="Kelola data diri dan kontak utama karyawan untuk keperluan distribusi slip gaji via WhatsApp atau Email." 
+      />
+
+      <div className="flex justify-end">
+        <Dialog open={isOpen} onOpenChange={(open) => !open ? handleClose() : setIsOpen(true)}>
+          <DialogTrigger asChild>
+            <Button><Plus className="w-4 h-4 mr-2" /> Tambah Karyawan</Button>
+          </DialogTrigger>
+          <DialogContent className="sm:max-w-[425px]">
+            <DialogHeader>
+              <DialogTitle>{isEditing ? 'Edit Data Karyawan' : 'Tambah Karyawan Baru'}</DialogTitle>
+            </DialogHeader>
+            <form onSubmit={handleSubmit} className="space-y-4 pt-4">
+              <div className="space-y-1">
+                <Label htmlFor="kode">ID / Kode Karyawan</Label>
+                <Input id="kode" placeholder="Misal: K001" value={kodeKaryawan} onChange={(e) => setKodeKaryawan(e.target.value)} />
+              </div>
+
+              <div className="space-y-1">
+                <Label htmlFor="nama">Nama Lengkap</Label>
+                <Input id="nama" placeholder="Masukkan nama lengkap" value={nama} onChange={(e) => setNama(e.target.value)} />
+              </div>
+
+              <div className="space-y-1">
+                <Label htmlFor="jabatan">Jabatan / Peran Utama</Label>
+                <Select value={jabatan} onValueChange={setJabatan}>
+                  <SelectTrigger id="jabatan">
+                    <SelectValue placeholder="Pilih jabatan" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {LIST_JOBDESK.map(job => (
+                      <SelectItem key={job} value={job}>{job}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-1">
+                <Label htmlFor="telepon">No. WhatsApp (Kontak Slip Gaji)</Label>
+                <Input id="telepon" type="tel" placeholder="Contoh: 08123456789" value={telepon} onChange={(e) => setTelepon(e.target.value)} />
+                <p className="text-[10px] text-muted-foreground">Pastikan nomor aktif untuk mempermudah fitur Kirim WA.</p>
+              </div>
+
+              <div className="space-y-1">
+                <Label htmlFor="email">Alamat Email (Opsional)</Label>
+                <Input id="email" type="email" placeholder="contoh@email.com" value={email} onChange={(e) => setEmail(e.target.value)} />
+              </div>
+
+              <div className="flex items-center justify-between border rounded-lg p-3">
+                <div className="space-y-0.5">
+                  <Label htmlFor="status">Status Karyawan Aktif</Label>
+                  <p className="text-[11px] text-muted-foreground">Karyawan nonaktif otomatis disembunyikan dari halaman proses gaji.</p>
+                </div>
+                <Switch id="status" checked={aktif} onCheckedChange={setAktif} />
+              </div>
+
+              <Button type="submit" className="w-full" disabled={saveMutation.isPending}>
+                {saveMutation.isPending ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : 'Simpan Data Karyawan'}
+              </Button>
+            </form>
+          </DialogContent>
+        </Dialog>
       </div>
 
-      <Dialog open={isOpen} onOpenChange={setIsOpen}>
-        <DialogContent className="max-w-md">
-          <DialogHeader><DialogTitle>{editId ? 'Edit Karyawan' : 'Tambah Karyawan'}</DialogTitle></DialogHeader>
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div>
-              <Label>Nama Lengkap</Label>
-              <Input value={nama} onChange={e => setNama(e.target.value)} required />
-            </div>
-
-            {/* Bagian Tunjangan Khusus */}
-            <div className="border p-4 rounded-lg space-y-2">
-              <Label className="font-semibold flex items-center gap-2"><UserCog className="w-4 h-4" /> Hak Tunjangan Khusus</Label>
-              <p className="text-xs text-muted-foreground">Pilih tunjangan yang berhak diterima karyawan ini (Jabatan, Keahlian, dll):</p>
-              <div className="grid gap-2 mt-2">
-                {allAllowances?.map((item) => (
-                  <div key={item.id} className="flex items-center space-x-2">
-                    <Checkbox 
-                      id={item.id}
-                      checked={tunjanganKhusus.includes(item.id)}
-                      onCheckedChange={(checked) => {
-                        setTunjanganKhusus(prev => 
-                          checked ? [...prev, item.id] : prev.filter(id => id !== item.id)
-                        )
-                      }}
-                    />
-                    <label htmlFor={item.id} className="text-sm">{item.nama}</label>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            <Button type="submit" className="w-full">Simpan</Button>
-          </form>
-        </DialogContent>
-      </Dialog>
-
-      <Table className="border rounded-md">
-        <TableHeader><TableRow><TableHead>Nama</TableHead><TableHead>Tunjangan Khusus</TableHead><TableHead>Aksi</TableHead></TableRow></TableHeader>
-        <TableBody>
-          {employees?.map(emp => (
-            <TableRow key={emp.id}>
-              <TableCell className="font-medium">{emp.nama}</TableCell>
-              <TableCell className="text-xs text-muted-foreground">
-                {(emp as any).tunjangan_khusus?.length > 0 ? 'Aktif' : '-'}
-              </TableCell>
-              <TableCell><Button variant="ghost" size="icon" onClick={() => handleEdit(emp)}><Pencil className="h-4 w-4" /></Button></TableCell>
+      <div className="rounded-md border">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>ID Karyawan</TableHead>
+              <TableHead>Nama Karyawan</TableHead>
+              <TableHead>Jabatan Utama</TableHead>
+              <TableHead>No. WhatsApp</TableHead>
+              <TableHead>Email</TableHead>
+              <TableHead>Status</TableHead>
+              <TableHead className="text-right">Aksi</TableHead>
             </TableRow>
-          ))}
-        </TableBody>
-      </Table>
+          </TableHeader>
+          <TableBody>
+            {isLoading ? (
+              <TableRow>
+                <TableCell colSpan={7} className="h-24 text-center">
+                  <Loader2 className="mx-auto h-6 w-6 animate-spin text-muted-foreground" />
+                </TableCell>
+              </TableRow>
+            ) : employees?.length === 0 ? (
+              <TableRow>
+                <TableCell colSpan={7} className="text-center text-muted-foreground h-24">
+                  Belum ada data karyawan yang terdaftar.
+                </TableCell>
+              </TableRow>
+            ) : (
+              employees?.map((item) => (
+                <TableRow key={item.id}>
+                  <TableCell className="font-mono text-xs">{item.kode_karyawan || '-'}</TableCell>
+                  <TableCell className="font-medium">{item.nama}</TableCell>
+                  <TableCell><Badge variant="secondary">{item.jabatan || '-'}</Badge></TableCell>
+                  <TableCell>
+                    <div className="flex items-center gap-1.5 text-slate-600 text-sm">
+                      <Phone className="w-3.5 h-3.5 text-slate-400" />
+                      {item.telepon || item.no_hp || '-'}
+                    </div>
+                  </TableCell>
+                  <TableCell>
+                    <div className="flex items-center gap-1.5 text-slate-600 text-sm">
+                      <Mail className="w-3.5 h-3.5 text-slate-400" />
+                      {item.email || '-'}
+                    </div>
+                  </TableCell>
+                  <TableCell>
+                    <Badge variant={item.aktif ? 'default' : 'secondary'}>
+                      {item.aktif ? 'Aktif' : 'Nonaktif'}
+                    </Badge>
+                  </TableCell>
+                  <TableCell className="text-right space-x-2">
+                    <Button variant="ghost" size="icon" onClick={() => handleEdit(item)}>
+                      <Pencil className="w-4 h-4 text-blue-600" />
+                    </Button>
+                    <Button variant="ghost" size="icon" onClick={() => { if (window.confirm(`Hapus data karyawan ${item.nama}?`)) deleteMutation.mutate(item.id) }}>
+                      <Trash2 className="w-4 h-4 text-red-600" />
+                    </Button>
+                  </TableCell>
+                </TableRow>
+              ))
+            )}
+          </TableBody>
+        </Table>
+      </div>
     </div>
   )
 }

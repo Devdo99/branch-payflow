@@ -582,6 +582,24 @@ const normalizeRule = (item: any): SalaryRule => {
     )
   }
 
+  const handleFieldChange = (
+    id: string,
+    field: 'jumlah_hari' | 'jumlah_jam_lembur' | 'jumlah_telat' | 'jumlah_izin' | 'jumlah_absen' | 'kasbon' | 'bonus_manual' | 'catatan',
+    value: string,
+  ) => {
+    setLocalItems((prev) =>
+      prev.map((item) => {
+        if (item.id !== id) return item
+        const updated = { ...item, [field]: value }
+        // kasbon & bonus mempengaruhi gaji bersih, lainnya hanya informasi
+        if (field === 'kasbon' || field === 'bonus_manual') {
+          return recalculateLocalItem(updated)
+        }
+        return updated
+      }),
+    )
+  }
+
   const renderRuleDescription = (
     rule: SalaryRule,
     type: 'allowance' | 'deduction',

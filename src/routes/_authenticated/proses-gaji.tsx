@@ -93,6 +93,14 @@ type LocalPayrollItem = {
   deductionQty: Record<string, string>
   manualAllowances: Record<string, string>
   manualDeductions: Record<string, string>
+  jumlah_hari: string
+  jumlah_jam_lembur: string
+  jumlah_telat: string
+  jumlah_izin: string
+  jumlah_absen: string
+  kasbon: string
+  bonus_manual: string
+  catatan: string
   employees?: {
     id: string
     nama: string

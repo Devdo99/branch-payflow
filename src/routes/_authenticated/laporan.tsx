@@ -78,52 +78,24 @@ function LaporanPage() {
       const { data, error } = await supabase
         .from('payroll_items')
         .select(`
-          id,
-          gaji_pokok,
-          total_tunjangan,
-          total_potongan,
-          gaji_bersih,
-          jumlah_hari,
-          jumlah_izin,
-          jumlah_absen,
-          jumlah_telat,
-          kasbon,
-          bonus_manual,
-          catatan,
-          payroll_item_allowances (
-            nama,
-            qty,
-            nominal,
-            subtotal
-          ),
-          payroll_item_deductions (
-            nama,
-            qty,
-            nominal,
-            subtotal
-          ),
-          employees (
-            id,
-            nama,
-            jabatan,
-            nama_bank,
-            nomor_rekening,
-            branch_id
-          ),
-          payroll_run:payroll_runs!inner (
-            id,
-            periode,
-            status,
-            branch_id
-          )
+          *,
+          payroll_runs (*),
+          employees (*, branches (*))
         `)
-        .gte('payroll_run.periode', periodeRange.start)
-        .lt('payroll_run.periode', periodeRange.end)
 
       if (error) throw error
 
-      const groupedRuns = (data || []).reduce((acc: Record<string, any>, item: any) => {
-        const run = item.payroll_run
+      const filteredItems = (data || []).filter((item: any) => {
+        const periode = item.payroll_runs?.periode || ''
+        const matchesPeriod = periode >= periodeRange.start && periode < periodeRange.end
+        const matchesBranch =
+          selectedCabang === 'all' || item.employees?.branch_id === selectedCabang
+
+        return matchesPeriod && matchesBranch
+      })
+
+      const groupedRuns = filteredItems.reduce((acc: Record<string, any>, item: any) => {
+        const run = item.payroll_runs
         if (!run?.id) return acc
 
         if (!acc[run.id]) {
@@ -140,10 +112,7 @@ function LaporanPage() {
       }, {})
 
       return Object.values(groupedRuns).map((run: any) => {
-        const items = (run.items || []).filter((item: any) => {
-          if (selectedCabang === 'all') return true
-          return item.employees?.branch_id === selectedCabang
-        })
+        const items = run.items || []
 
         return {
           id: run.id,
@@ -157,7 +126,6 @@ function LaporanPage() {
           sum_thp: items.reduce((acc: number, curr: any) => acc + (curr.gaji_bersih || 0), 0),
         }
       })
-        .filter((row: any) => selectedCabang === 'all' || row.total_karyawan > 0)
         .sort((a: any, b: any) => a.periode.localeCompare(b.periode))
     },
   })

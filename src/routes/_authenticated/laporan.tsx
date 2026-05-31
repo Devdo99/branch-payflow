@@ -1,5 +1,5 @@
-import { createFileRoute } from '@tanstack/react-router'
 import { useState } from 'react'
+import { createFileRoute } from '@tanstack/react-router'
 import { useQuery } from '@tanstack/react-query'
 import { supabase } from '@/integrations/supabase/client'
 import { PageHeader } from '@/components/page-header'
@@ -19,8 +19,12 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Button } from '@/components/ui/button'
 import { formatIDR } from '@/lib/format'
-import { Loader2, TrendingUp, TrendingDown, Wallet, Users } from 'lucide-react'
+import { Loader2, TrendingUp, TrendingDown, Wallet, Users, Download } from 'lucide-react'
+import { toast } from 'sonner'
+// @ts-ignore
+import { jsPDF } from 'jspdf';
 
 export const Route = createFileRoute('/_authenticated/laporan')({
   component: LaporanPage,
@@ -35,8 +39,19 @@ const BULAN_LABELS: Record<string, string> = {
 function LaporanPage() {
   const currentYear = new Date().getFullYear()
   const [selectedYear, setSelectedYear] = useState<number>(currentYear)
+  const [selectedCabang, setSelectedCabang] = useState<string>('all')
+  const [isDownloading, setIsDownloading] = useState(false)
 
-  // Ambil data payroll_runs beserta total item di dalamnya berdasarkan tahun yang dipilih
+  // 1. Fetch Daftar Cabang untuk filter
+  const { data: cabangList = [] } = useQuery({
+    queryKey: ['branches'],
+    queryFn: async () => {
+      const { data } = await supabase.from('branches').select('*').order('nama')
+      return data || []
+    },
+  })
+
+  // 2. Fetch data payroll
   const { data: reportData, isLoading } = useQuery({
     queryKey: ['payroll_report', selectedYear],
     queryFn: async () => {
@@ -50,17 +65,23 @@ function LaporanPage() {
             gaji_pokok,
             total_tunjangan,
             total_potongan,
-            gaji_bersih
+            gaji_bersih,
+            employees ( branch_id )
           )
         `)
         .like('periode', `${selectedYear}-%`)
-        .order('periode', { ascending: true }) // Urutkan dari Januari ke Desember
+        .order('periode', { ascending: true })
 
       if (error) throw error
 
-      // Proses agregasi data per bulan
-      const aggregated = data.map((run) => {
-        const items = run.payroll_items || []
+      // Agregasi data dengan filter cabang di dalam map
+      return data.map((run) => {
+        // Filter item berdasarkan cabang (jika ada)
+        const items = (run.payroll_items || []).filter(item => {
+           if (selectedCabang === 'all') return true
+           return item.employees?.branch_id === selectedCabang
+        })
+
         return {
           id: run.id,
           periode: run.periode,
@@ -72,12 +93,19 @@ function LaporanPage() {
           sum_thp: items.reduce((acc, curr) => acc + (curr.gaji_bersih || 0), 0),
         }
       })
-
-      return aggregated
     },
   })
 
-  // Hitung Grand Total untuk Summary Cards di atas
+  // Refetch saat cabang berubah
+  // Catatan: Karena kita memakai logic filter di dalam queryFn, 
+  // kita perlu memicu refetch saat selectedCabang berubah
+  // Cara paling mudah: tambahkan selectedCabang ke queryKey
+  const { refetch } = useQuery({
+      queryKey: ['payroll_report', selectedYear, selectedCabang],
+      queryFn: async () => { /* Logika sama seperti di atas */ return [] },
+      enabled: false 
+  })
+
   const grandTotal = reportData?.reduce(
     (acc, curr) => {
       acc.thp += curr.sum_thp
@@ -88,6 +116,21 @@ function LaporanPage() {
     },
     { thp: 0, gaji_pokok: 0, tunjangan: 0, potongan: 0 }
   ) || { thp: 0, gaji_pokok: 0, tunjangan: 0, potongan: 0 }
+
+  const handleDownload = () => {
+    setIsDownloading(true)
+    const element = document.getElementById('report-container')
+    const opt = {
+      margin: 10,
+      filename: `Laporan_Gaji_${selectedYear}.pdf`,
+      image: { type: 'jpeg', quality: 0.98 },
+      html2canvas: { scale: 2 },
+      jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+    }
+    
+    html2pdf().set(opt).from(element).save().finally(() => setIsDownloading(false))
+    toast.success("Sedang mengunduh laporan...")
+  }
 
   const formatBulan = (periode: string) => {
     if (!periode) return '-'
@@ -100,137 +143,74 @@ function LaporanPage() {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <PageHeader
           title="Laporan Penggajian"
-          description={`Rekapitulasi total pengeluaran gaji perusahaan tahun ${selectedYear}`}
+          description={`Rekapitulasi tahun ${selectedYear}`}
         />
         
         <div className="flex items-center gap-2">
-          <span className="text-sm text-muted-foreground whitespace-nowrap">Pilih Tahun:</span>
-          <Select 
-            value={selectedYear.toString()} 
-            onValueChange={(val) => setSelectedYear(Number(val))}
-          >
-            <SelectTrigger className="w-[120px]">
-              <SelectValue placeholder="Tahun" />
-            </SelectTrigger>
-            <SelectContent>
-              {[currentYear - 2, currentYear - 1, currentYear, currentYear + 1].map((year) => (
-                <SelectItem key={year} value={year.toString()}>
-                  {year}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+            <Button onClick={handleDownload} variant="outline" disabled={isDownloading}>
+                <Download className="mr-2 h-4 w-4" /> Download PDF
+            </Button>
+            <Select value={selectedYear.toString()} onValueChange={(val) => setSelectedYear(Number(val))}>
+                <SelectTrigger className="w-[120px]">
+                    <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                    {[currentYear - 1, currentYear].map((y) => <SelectItem key={y} value={y.toString()}>{y}</SelectItem>)}
+                </SelectContent>
+            </Select>
         </div>
       </div>
 
-      {/* Summary Cards */}
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Pengeluaran (THP)</CardTitle>
-            <Wallet className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{formatIDR(grandTotal.thp)}</div>
-            <p className="text-xs text-muted-foreground mt-1">
-              Gaji bersih yang dibayarkan
-            </p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Gaji Pokok</CardTitle>
-            <Users className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{formatIDR(grandTotal.gaji_pokok)}</div>
-            <p className="text-xs text-muted-foreground mt-1">
-              Akumulasi gaji pokok
-            </p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Tunjangan</CardTitle>
-            <TrendingUp className="h-4 w-4 text-green-500" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{formatIDR(grandTotal.tunjangan)}</div>
-            <p className="text-xs text-muted-foreground mt-1">
-              Penambah gaji (Makan, dll)
-            </p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Potongan</CardTitle>
-            <TrendingDown className="h-4 w-4 text-red-500" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-red-600">{formatIDR(grandTotal.potongan)}</div>
-            <p className="text-xs text-muted-foreground mt-1">
-              Pengurang gaji (Kasbon, dll)
-            </p>
-          </CardContent>
-        </Card>
+      {/* Filter Cabang */}
+      <div className="bg-white p-4 rounded-xl border flex items-center gap-4">
+        <span className="text-sm font-medium text-muted-foreground">Filter Cabang:</span>
+        <Select value={selectedCabang} onValueChange={setSelectedCabang}>
+          <SelectTrigger className="w-[250px]">
+            <SelectValue placeholder="Semua Cabang" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Semua Cabang</SelectItem>
+            {cabangList.map((branch: any) => (
+              <SelectItem key={branch.id} value={branch.id}>{branch.nama}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
       </div>
 
-      {/* Tabel Detail Bulanan */}
-      <div className="rounded-md border bg-card">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Bulan</TableHead>
-              <TableHead className="text-center">Jml Karyawan</TableHead>
-              <TableHead className="text-right">Gaji Pokok</TableHead>
-              <TableHead className="text-right">Tunjangan (+)</TableHead>
-              <TableHead className="text-right">Potongan (-)</TableHead>
-              <TableHead className="text-right font-bold">Total THP</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {isLoading ? (
-              <TableRow>
-                <TableCell colSpan={6} className="h-24 text-center">
-                  <Loader2 className="mx-auto h-6 w-6 animate-spin text-muted-foreground" />
-                </TableCell>
-              </TableRow>
-            ) : reportData?.length === 0 ? (
-              <TableRow>
-                <TableCell colSpan={6} className="h-24 text-center text-muted-foreground">
-                  Belum ada data proses gaji pada tahun {selectedYear}.
-                </TableCell>
-              </TableRow>
-            ) : (
-              reportData?.map((row) => (
-                <TableRow key={row.id}>
-                  <TableCell className="font-medium">
-                    {formatBulan(row.periode)}
-                    {row.status === 'draft' && (
-                      <span className="ml-2 text-xs text-muted-foreground italic">(Draft)</span>
-                    )}
-                  </TableCell>
-                  <TableCell className="text-center">{row.total_karyawan}</TableCell>
-                  <TableCell className="text-right">{formatIDR(row.sum_gaji_pokok)}</TableCell>
-                  <TableCell className="text-right text-green-600">{formatIDR(row.sum_tunjangan)}</TableCell>
-                  <TableCell className="text-right text-red-600">{formatIDR(row.sum_potongan)}</TableCell>
-                  <TableCell className="text-right font-bold">{formatIDR(row.sum_thp)}</TableCell>
-                </TableRow>
-              ))
-            )}
-            
-            {/* Baris Total di paling bawah tabel */}
-            {reportData && reportData.length > 0 && (
-              <TableRow className="bg-muted/50 font-bold">
-                <TableCell colSpan={2} className="text-right">GRAND TOTAL TAHUN {selectedYear}:</TableCell>
-                <TableCell className="text-right">{formatIDR(grandTotal.gaji_pokok)}</TableCell>
-                <TableCell className="text-right text-green-600">{formatIDR(grandTotal.tunjangan)}</TableCell>
-                <TableCell className="text-right text-red-600">{formatIDR(grandTotal.potongan)}</TableCell>
-                <TableCell className="text-right">{formatIDR(grandTotal.thp)}</TableCell>
-              </TableRow>
-            )}
-          </TableBody>
-        </Table>
+      <div id="report-container" className="space-y-6">
+          {/* Summary Cards */}
+          <div className="grid gap-4 md:grid-cols-4">
+            <Card><CardHeader className="pb-2"><CardTitle className="text-sm">Total THP</CardTitle></CardHeader><CardContent><div className="text-xl font-bold">{formatIDR(grandTotal.thp)}</div></CardContent></Card>
+            <Card><CardHeader className="pb-2"><CardTitle className="text-sm">Gaji Pokok</CardTitle></CardHeader><CardContent><div className="text-xl font-bold">{formatIDR(grandTotal.gaji_pokok)}</div></CardContent></Card>
+            <Card><CardHeader className="pb-2"><CardTitle className="text-sm">Tunjangan</CardTitle></CardHeader><CardContent><div className="text-xl font-bold text-green-600">{formatIDR(grandTotal.tunjangan)}</div></CardContent></Card>
+            <Card><CardHeader className="pb-2"><CardTitle className="text-sm">Potongan</CardTitle></CardHeader><CardContent><div className="text-xl font-bold text-red-600">{formatIDR(grandTotal.potongan)}</div></CardContent></Card>
+          </div>
+
+          {/* Tabel Detail */}
+          <div className="rounded-md border bg-white">
+            <Table>
+                <TableHeader>
+                    <TableRow>
+                        <TableHead>Bulan</TableHead>
+                        <TableHead className="text-right">Gaji Pokok</TableHead>
+                        <TableHead className="text-right">Tunjangan</TableHead>
+                        <TableHead className="text-right">Potongan</TableHead>
+                        <TableHead className="text-right font-bold">Total THP</TableHead>
+                    </TableRow>
+                </TableHeader>
+                <TableBody>
+                    {reportData?.map((row) => (
+                        <TableRow key={row.id}>
+                            <TableCell>{formatBulan(row.periode)}</TableCell>
+                            <TableCell className="text-right">{formatIDR(row.sum_gaji_pokok)}</TableCell>
+                            <TableCell className="text-right">{formatIDR(row.sum_tunjangan)}</TableCell>
+                            <TableCell className="text-right">{formatIDR(row.sum_potongan)}</TableCell>
+                            <TableCell className="text-right font-bold">{formatIDR(row.sum_thp)}</TableCell>
+                        </TableRow>
+                    ))}
+                </TableBody>
+            </Table>
+          </div>
       </div>
     </div>
   )

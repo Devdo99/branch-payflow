@@ -10,7 +10,7 @@
     "preview": "vite preview",
     "lint": "eslint .",
     "format": "prettier --write .",
-    "deploy": "npm run build && wrangler deploy",
+    "deploy": "npm run build && wrangler deploy --config ./dist/server/wrangler.json",
     "cf-typegen": "wrangler types"
   },
   "dependencies": {

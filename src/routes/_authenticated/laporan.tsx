@@ -36,6 +36,24 @@ const BULAN_LABELS: Record<string, string> = {
   '09': 'September', '10': 'Oktober', '11': 'November', '12': 'Desember'
 }
 
+const getPeriodeRange = (year: number, month: string) => {
+  if (month === 'all') {
+    return {
+      start: `${year}-01`,
+      end: `${year + 1}-01`,
+    }
+  }
+
+  const monthNumber = Number(month)
+  const nextMonth = monthNumber === 12 ? 1 : monthNumber + 1
+  const nextYear = monthNumber === 12 ? year + 1 : year
+
+  return {
+    start: `${year}-${month}`,
+    end: `${nextYear}-${String(nextMonth).padStart(2, '0')}`,
+  }
+}
+
 function LaporanPage() {
   const currentYear = new Date().getFullYear()
   const [selectedYear, setSelectedYear] = useState<number>(currentYear)
@@ -56,7 +74,7 @@ function LaporanPage() {
   const { data: reportData, isLoading } = useQuery({
     queryKey: ['payroll_report', selectedYear, selectedMonth, selectedCabang],
     queryFn: async () => {
-      const monthQuery = selectedMonth === 'all' ? '%' : selectedMonth
+      const periodeRange = getPeriodeRange(selectedYear, selectedMonth)
       const { data, error } = await supabase
         .from('payroll_runs')
         .select(`
@@ -77,12 +95,13 @@ function LaporanPage() {
             )
           )
         `)
-        .like('periode', `${selectedYear}-${monthQuery}`)
+        .gte('periode', periodeRange.start)
+        .lt('periode', periodeRange.end)
         .order('periode', { ascending: true })
 
       if (error) throw error
 
-      return data.map((run) => {
+      return (data || []).map((run) => {
         const items = (run.payroll_items || []).filter((item) => {
           if (selectedCabang === 'all') return true
           return item.employees?.branch_id === selectedCabang

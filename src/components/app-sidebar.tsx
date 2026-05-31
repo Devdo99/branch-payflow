@@ -2,7 +2,7 @@ import { Link, useRouterState } from "@tanstack/react-router";
 import {
   LayoutDashboard, Building2, Users, Wallet, Plus, Minus,
   Calculator, FileText, MessageSquare, Settings2, Landmark,
-  BarChart3, Settings, LogOut,
+  BarChart3, Settings, LogOut, Briefcase, // Briefcase sudah ditambahkan di sini
 } from "lucide-react";
 import {
   Sidebar, SidebarContent, SidebarGroup, SidebarGroupContent, SidebarGroupLabel,
@@ -23,6 +23,7 @@ const groups = [
     items: [
       { title: "Cabang", url: "/cabang", icon: Building2 },
       { title: "Karyawan", url: "/karyawan", icon: Users },
+      { title: "Master Jabatan", url: "/jabatan", icon: Briefcase }, // Menu baru ditambahkan di sini
       { title: "Gaji Pokok", url: "/gaji-pokok", icon: Wallet },
       { title: "Tunjangan", url: "/tunjangan", icon: Plus },
       { title: "Potongan", url: "/potongan", icon: Minus },

@@ -1,7 +1,7 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
   "name": "branch-payflow",
-  "account_id": "ISI_ACCOUNT_ID_KAMU_DI_SINI",
+  "account_id": "39d64384d3fff54c939db0e86573000d",
   "compatibility_date": "2026-05-31",
   "compatibility_flags": ["nodejs_compat"],
   "main": "@tanstack/react-start/server-entry",

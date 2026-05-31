@@ -21,6 +21,7 @@ import { Route as AuthenticatedPotonganRouteImport } from './routes/_authenticat
 import { Route as AuthenticatedPengaturanRouteImport } from './routes/_authenticated/pengaturan'
 import { Route as AuthenticatedLaporanRouteImport } from './routes/_authenticated/laporan'
 import { Route as AuthenticatedKaryawanRouteImport } from './routes/_authenticated/karyawan'
+import { Route as AuthenticatedJabatanRouteImport } from './routes/_authenticated/jabatan'
 import { Route as AuthenticatedGajiPokokRouteImport } from './routes/_authenticated/gaji-pokok'
 import { Route as AuthenticatedFormatWhatsappRouteImport } from './routes/_authenticated/format-whatsapp'
 import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
@@ -87,6 +88,11 @@ const AuthenticatedKaryawanRoute = AuthenticatedKaryawanRouteImport.update({
   path: '/karyawan',
   getParentRoute: () => AuthenticatedRoute,
 } as any)
+const AuthenticatedJabatanRoute = AuthenticatedJabatanRouteImport.update({
+  id: '/jabatan',
+  path: '/jabatan',
+  getParentRoute: () => AuthenticatedRoute,
+} as any)
 const AuthenticatedGajiPokokRoute = AuthenticatedGajiPokokRouteImport.update({
   id: '/gaji-pokok',
   path: '/gaji-pokok',
@@ -116,6 +122,7 @@ export interface FileRoutesByFullPath {
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/format-whatsapp': typeof AuthenticatedFormatWhatsappRoute
   '/gaji-pokok': typeof AuthenticatedGajiPokokRoute
+  '/jabatan': typeof AuthenticatedJabatanRoute
   '/karyawan': typeof AuthenticatedKaryawanRoute
   '/laporan': typeof AuthenticatedLaporanRoute
   '/pengaturan': typeof AuthenticatedPengaturanRoute
@@ -133,6 +140,7 @@ export interface FileRoutesByTo {
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/format-whatsapp': typeof AuthenticatedFormatWhatsappRoute
   '/gaji-pokok': typeof AuthenticatedGajiPokokRoute
+  '/jabatan': typeof AuthenticatedJabatanRoute
   '/karyawan': typeof AuthenticatedKaryawanRoute
   '/laporan': typeof AuthenticatedLaporanRoute
   '/pengaturan': typeof AuthenticatedPengaturanRoute
@@ -152,6 +160,7 @@ export interface FileRoutesById {
   '/_authenticated/dashboard': typeof AuthenticatedDashboardRoute
   '/_authenticated/format-whatsapp': typeof AuthenticatedFormatWhatsappRoute
   '/_authenticated/gaji-pokok': typeof AuthenticatedGajiPokokRoute
+  '/_authenticated/jabatan': typeof AuthenticatedJabatanRoute
   '/_authenticated/karyawan': typeof AuthenticatedKaryawanRoute
   '/_authenticated/laporan': typeof AuthenticatedLaporanRoute
   '/_authenticated/pengaturan': typeof AuthenticatedPengaturanRoute
@@ -171,6 +180,7 @@ export interface FileRouteTypes {
     | '/dashboard'
     | '/format-whatsapp'
     | '/gaji-pokok'
+    | '/jabatan'
     | '/karyawan'
     | '/laporan'
     | '/pengaturan'
@@ -188,6 +198,7 @@ export interface FileRouteTypes {
     | '/dashboard'
     | '/format-whatsapp'
     | '/gaji-pokok'
+    | '/jabatan'
     | '/karyawan'
     | '/laporan'
     | '/pengaturan'
@@ -206,6 +217,7 @@ export interface FileRouteTypes {
     | '/_authenticated/dashboard'
     | '/_authenticated/format-whatsapp'
     | '/_authenticated/gaji-pokok'
+    | '/_authenticated/jabatan'
     | '/_authenticated/karyawan'
     | '/_authenticated/laporan'
     | '/_authenticated/pengaturan'
@@ -309,6 +321,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedKaryawanRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
+    '/_authenticated/jabatan': {
+      id: '/_authenticated/jabatan'
+      path: '/jabatan'
+      fullPath: '/jabatan'
+      preLoaderRoute: typeof AuthenticatedJabatanRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
     '/_authenticated/gaji-pokok': {
       id: '/_authenticated/gaji-pokok'
       path: '/gaji-pokok'
@@ -345,6 +364,7 @@ interface AuthenticatedRouteChildren {
   AuthenticatedDashboardRoute: typeof AuthenticatedDashboardRoute
   AuthenticatedFormatWhatsappRoute: typeof AuthenticatedFormatWhatsappRoute
   AuthenticatedGajiPokokRoute: typeof AuthenticatedGajiPokokRoute
+  AuthenticatedJabatanRoute: typeof AuthenticatedJabatanRoute
   AuthenticatedKaryawanRoute: typeof AuthenticatedKaryawanRoute
   AuthenticatedLaporanRoute: typeof AuthenticatedLaporanRoute
   AuthenticatedPengaturanRoute: typeof AuthenticatedPengaturanRoute
@@ -361,6 +381,7 @@ const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedDashboardRoute: AuthenticatedDashboardRoute,
   AuthenticatedFormatWhatsappRoute: AuthenticatedFormatWhatsappRoute,
   AuthenticatedGajiPokokRoute: AuthenticatedGajiPokokRoute,
+  AuthenticatedJabatanRoute: AuthenticatedJabatanRoute,
   AuthenticatedKaryawanRoute: AuthenticatedKaryawanRoute,
   AuthenticatedLaporanRoute: AuthenticatedLaporanRoute,
   AuthenticatedPengaturanRoute: AuthenticatedPengaturanRoute,

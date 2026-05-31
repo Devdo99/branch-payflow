@@ -1,5 +1,5 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react"
-import type { Session, User } from "@supabase/supabase-js"
+import type { Session, User, AuthChangeEvent } from "@supabase/supabase-js"
 import { supabase } from "@/integrations/supabase/client"
 
 type AuthContextType = {
@@ -18,22 +18,33 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     const getSession = async () => {
-      const { data } = await supabase.auth.getSession()
+      try {
+        const { data, error } = await supabase.auth.getSession()
+        if (error) throw error;
 
-      setSession(data.session)
-      setUser(data.session?.user ?? null)
-      setLoading(false)
+        setSession(data.session)
+        setUser(data.session?.user ?? null)
+      } catch (error) {
+        console.error("Error fetching session:", error)
+        setSession(null)
+        setUser(null)
+      } finally {
+        setLoading(false)
+      }
     }
 
     getSession()
 
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
-      setSession(session)
-      setUser(session?.user ?? null)
-      setLoading(false)
-    })
+    } = supabase.auth.onAuthStateChange(
+      // Tambahkan penegasan tipe di sini untuk memperbaiki error implicit 'any'
+      (_event: AuthChangeEvent, session: Session | null) => {
+        setSession(session)
+        setUser(session?.user ?? null)
+        setLoading(false)
+      }
+    )
 
     return () => {
       subscription.unsubscribe()

@@ -129,6 +129,13 @@ const normalizeWhatsappNumber = (phone: unknown) => {
   return cleanPhone;
 };
 
+const getWhatsappUrl = (phone: unknown, message: string) => {
+  const normalizedPhone = normalizeWhatsappNumber(phone);
+  if (!normalizedPhone) return "";
+
+  return `https://api.whatsapp.com/send?phone=${normalizedPhone}&text=${encodeURIComponent(message)}`;
+};
+
 const getSlipFileName = (slip: SlipItem, extension: "jpg" | "pdf") => {
   const nama = safeFileName(slip.employees?.nama);
   const periode = safeFileName(slip.payroll_runs?.periode || "Periode");
@@ -622,9 +629,10 @@ function SlipGajiPage() {
   };
 
   const handleWAText = (slip: SlipItem) => {
-    const phone = normalizeWhatsappNumber(slip.employees?.whatsapp);
+    const phone = slip.employees?.whatsapp;
+    const normalizedPhone = normalizeWhatsappNumber(phone);
 
-    if (!phone) {
+    if (!normalizedPhone) {
       toast.error("Nomor WhatsApp karyawan belum diisi");
       return;
     }
@@ -634,17 +642,17 @@ function SlipGajiPage() {
     const gajiBersih = formatIDR(toNumber(slip.gaji_bersih));
 
     const msg = `Halo ${nama}, berikut ringkasan gaji Anda periode ${periode}.\n\nTHP: ${gajiBersih}`;
+    const waUrl = getWhatsappUrl(phone, msg);
 
-    window.open(
-      `https://web.whatsapp.com/send?phone=${phone}&text=${encodeURIComponent(msg)}`,
-      "_blank",
-    );
+    window.open(waUrl, "_blank", "noopener,noreferrer");
+    toast.success(`WhatsApp dibuka ke nomor ${normalizedPhone}`);
   };
 
   const handleWAImage = async (slip: SlipItem) => {
-    const phone = normalizeWhatsappNumber(slip.employees?.whatsapp);
+    const phone = slip.employees?.whatsapp;
+    const normalizedPhone = normalizeWhatsappNumber(phone);
 
-    if (!phone) {
+    if (!normalizedPhone) {
       toast.error("Nomor WhatsApp karyawan belum diisi");
       return;
     }
@@ -679,7 +687,7 @@ function SlipGajiPage() {
         `Halo ${nama}, berikut slip gaji Anda periode ${periode}.\n\n` +
         `File JPG slip gaji sudah terunduh dari sistem. Silakan lampirkan gambar slip gaji tersebut di chat ini.`;
 
-      const waUrl = `https://web.whatsapp.com/send?phone=${phone}&text=${encodeURIComponent(msg)}`;
+      const waUrl = getWhatsappUrl(phone, msg);
 
       if (waTab) {
         waTab.location.href = waUrl;
@@ -687,7 +695,7 @@ function SlipGajiPage() {
         window.open(waUrl, "_blank");
       }
 
-      toast.success("JPG diunduh dan WhatsApp Web dibuka");
+      toast.success(`JPG diunduh dan WhatsApp dibuka ke nomor ${normalizedPhone}`);
     } catch (error) {
       console.error("Gagal membuat slip untuk WA:", error);
       toast.error("Gagal membuat slip gaji untuk WhatsApp");

@@ -125,6 +125,11 @@ function PotonganPage() {
               <div className="space-y-2">
                   <Label>Nominal Default (Rp)</Label>
                   <Input type="number" value={nominal} onChange={e => setNominal(Number(e.target.value))} placeholder="Biarkan 0 jika dipotong proporsional" />
+                  {metode === 'per_day' && (
+                    <p className="text-xs text-muted-foreground">
+                      Untuk potongan harian, isi 0 agar sistem menghitung gaji pokok / 30 x jumlah hari/kali.
+                    </p>
+                  )}
               </div>
               <div className="flex items-center space-x-2 pt-2 pb-2">
                 <Switch checked={aktif} onCheckedChange={setAktif} />
@@ -170,6 +175,9 @@ function PotonganPage() {
                       <Badge variant="outline">
                           {item.metode === 'fixed' ? 'Tetap' : item.metode === 'per_day' ? 'Harian' : 'Manual'}
                       </Badge>
+                      {item.metode === 'per_day' && Number(item.nominal_default || 0) === 0 && (
+                        <div className="mt-1 text-xs text-muted-foreground">Gaji pokok / 30</div>
+                      )}
                   </TableCell>
                   <TableCell className="text-right">{formatIDR(item.nominal_default || 0)}</TableCell>
                   <TableCell className="text-center">

@@ -36,6 +36,33 @@ export const Route = createFileRoute("/_authenticated/proses-gaji")({
   component: AppProsesGajiPage,
 });
 
+const EVALUATION_PERIOD_MONTHS: Record<string, number> = {
+  "3_bulan": 3,
+  "6_bulan": 6,
+  "12_bulan": 12,
+};
+
+const getCurrentPeriode = () => {
+  const now = new Date();
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+};
+
+const getPeriodDate = (periode: string) => {
+  if (!periode) return getPeriodDate(getCurrentPeriode());
+  const [year, month] = periode.split("-").map(Number);
+  return new Date(year, (month || 1) - 1, 1);
+};
+
+const addMonths = (date: Date, months: number) => {
+  return new Date(date.getFullYear(), date.getMonth() + months, date.getDate());
+};
+
+const formatDateInput = (date: Date) => {
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(
+    date.getDate(),
+  ).padStart(2, "0")}`;
+};
+
 function AppProsesGajiPage() {
   const [employees, setEmployees] = useState<any[]>([]);
 
@@ -45,7 +72,7 @@ function AppProsesGajiPage() {
   const [isConfirmOpen, setIsConfirmOpen] = useState(false);
   const [isDetailOpen, setIsDetailOpen] = useState(false);
   const [detailEmp, setDetailEmp] = useState<any | null>(null);
-  const [periodeGaji, setPeriodeGaji] = useState("");
+  const [periodeGaji, setPeriodeGaji] = useState(getCurrentPeriode());
   const [isSaving, setIsSaving] = useState(false);
 
   // Ambil Data Cabang untuk Filter
@@ -72,9 +99,34 @@ function AppProsesGajiPage() {
   });
 
   const { data: dbEmployees, isLoading: loadingEmp } = useQuery({
-    queryKey: ["employees_payroll_v7"],
+    queryKey: ["employees_payroll_v8"],
     queryFn: async () => {
       const { data, error } = await supabase.from("employees").select("*").eq("aktif", true);
+      if (error) throw error;
+      return data || [];
+    },
+  });
+
+  const { data: salaryEvaluations = [], isLoading: loadingSalaryEvaluations } = useQuery({
+    queryKey: ["salary_evaluations_payroll_v1"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("salary_increase_evaluations")
+        .select("*")
+        .eq("status", "disetujui")
+        .order("tanggal_berlaku", { ascending: true });
+      if (error) throw error;
+      return data || [];
+    },
+  });
+
+  const { data: salaryHistory = [], isLoading: loadingSalaryHistory } = useQuery({
+    queryKey: ["salary_history_payroll_v1"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("salary_history")
+        .select("*")
+        .order("tanggal_berlaku", { ascending: false });
       if (error) throw error;
       return data || [];
     },
@@ -98,13 +150,64 @@ function AppProsesGajiPage() {
     },
   });
 
+  const getApprovedSalaryEvaluations = (emp: any) => {
+    const periodStart = getPeriodDate(periodeGaji);
+    return (salaryEvaluations as any[]).filter((evaluation) => {
+      if (evaluation.employee_id !== emp.id || !evaluation.tanggal_berlaku) return false;
+      return new Date(evaluation.tanggal_berlaku) <= periodStart;
+    });
+  };
+
+  const getApprovedSalaryAdjustment = (emp: any) => {
+    return getApprovedSalaryEvaluations(emp).reduce((total, evaluation) => {
+      const fixedIncrease = Number(evaluation.nominal_kenaikan || 0);
+      if (fixedIncrease > 0) return total + fixedIncrease;
+
+      const percentage = Number(evaluation.persentase || 0);
+      if (percentage > 0) {
+        return total + (Number(emp.gaji_pokok) || 0) * (percentage / 100);
+      }
+
+      return total;
+    }, 0);
+  };
+
+  const getEvaluationInfo = (emp: any) => {
+    const evaluationMonths = EVALUATION_PERIOD_MONTHS[emp.periode_evaluasi];
+    if (!evaluationMonths || !emp.tanggal_masuk) {
+      return {
+        isDue: false,
+        nextDate: null,
+      };
+    }
+
+    const latestHistory = (salaryHistory as any[]).find((history) => history.employee_id === emp.id);
+    const baseDate = new Date(latestHistory?.tanggal_berlaku || emp.tanggal_masuk);
+    if (Number.isNaN(baseDate.getTime())) {
+      return {
+        isDue: false,
+        nextDate: null,
+      };
+    }
+
+    const nextDate = addMonths(baseDate, evaluationMonths);
+    const periodStart = getPeriodDate(periodeGaji);
+
+    return {
+      isDue: nextDate <= periodStart,
+      nextDate: formatDateInput(nextDate),
+    };
+  };
+
   useEffect(() => {
     if (dbEmployees) {
       setEmployees(
         dbEmployees.map((emp) => {
           const component_inputs: any = {};
           const custom_allowances: any[] = [];
-          const gajiPokok = Number(emp.gaji_pokok) || 0;
+          const salaryAdjustment = getApprovedSalaryAdjustment(emp);
+          const evaluationInfo = getEvaluationInfo(emp);
+          const gajiPokok = (Number(emp.gaji_pokok) || 0) + salaryAdjustment;
 
           // Map jabatan (by id or by name) ke nama jabatan & tunjangan_jabatan jika tersedia
           const empJabatanKey = (emp as any).jabatan_id ?? (emp as any).jabatan;
@@ -157,6 +260,9 @@ function AppProsesGajiPage() {
             ...emp,
             jabatan: jabatanName,
             jabatan_tunjangan: jabatanTunjangan,
+            salary_adjustment: salaryAdjustment,
+            salary_increase_manual: 0,
+            evaluation_info: evaluationInfo,
             component_inputs,
             custom_allowances,
             grandTotal: gajiBersih,
@@ -164,7 +270,7 @@ function AppProsesGajiPage() {
         }),
       );
     }
-  }, [dbEmployees, allowanceTypes, deductionTypes, listJabatan]);
+  }, [dbEmployees, allowanceTypes, deductionTypes, listJabatan, salaryEvaluations, salaryHistory, periodeGaji]);
 
   // Filter Karyawan Berdasarkan Cabang yang Dipilih
   const filteredEmployees = useMemo(() => {
@@ -195,13 +301,19 @@ function AppProsesGajiPage() {
     const metode = item.metode;
     const nominalDefault = Number(item.nominal_default || 0);
     const inputVal = Number(emp.component_inputs?.[item.id]) || 0;
+    const gajiPokok = getPayrollBaseSalary(emp);
+    const isDeduction = deductionTypes.some((deduction: any) => deduction.id === item.id);
 
     const isEligible = checkIsEligible(item.catatan, emp.jabatan);
     if (!isEligible) return 0;
 
     if (metode === "fixed") return nominalDefault;
     if (metode === "manual") return inputVal;
-    if (metode === "per_day" || metode === "per_hour") return inputVal * nominalDefault;
+    if (metode === "per_day") {
+      const dailyRate = isDeduction && nominalDefault === 0 ? gajiPokok / 30 : nominalDefault;
+      return inputVal * dailyRate;
+    }
+    if (metode === "per_hour") return inputVal * nominalDefault;
 
     return 0;
   };
@@ -222,10 +334,108 @@ function AppProsesGajiPage() {
       totalPotongan += getComponentCalculatedValue(ded, emp);
     });
 
-    const gajiPokok = Number(emp.gaji_pokok) || 0;
+    const gajiPokok = getPayrollBaseSalary(emp);
     const gajiBersih = gajiPokok + totalTunjangan - totalPotongan;
 
     return { gajiPokok, totalTunjangan, totalPotongan, gajiBersih };
+  };
+
+  const getPayrollBaseSalary = (emp: any) => {
+    return (
+      (Number(emp.gaji_pokok) || 0) +
+      (Number(emp.salary_adjustment) || 0) +
+      (Number(emp.salary_increase_manual) || 0)
+    );
+  };
+
+  const getDeductionQtySummary = (emp: any) => {
+    return deductionTypes.reduce(
+      (summary, deduction: any) => {
+        const qty = Number(emp.component_inputs?.[deduction.id]) || 0;
+        if (qty <= 0 || deduction.metode === "manual" || deduction.metode === "fixed") {
+          return summary;
+        }
+
+        const name = String(deduction.nama || "").toLowerCase();
+        if (name.includes("izin")) summary.jumlah_izin += qty;
+        if (name.includes("sakit") || name.includes("absen")) summary.jumlah_absen += qty;
+        if (name.includes("telat") || name.includes("terlambat")) summary.jumlah_telat += qty;
+        if (deduction.metode === "per_day") summary.jumlah_hari += qty;
+
+        return summary;
+      },
+      { jumlah_hari: 0, jumlah_izin: 0, jumlah_absen: 0, jumlah_telat: 0 },
+    );
+  };
+
+  const buildPayrollItemComponents = (emp: any, payrollItemId: string) => {
+    const allowances = [
+      ...(Number(emp.jabatan_tunjangan || 0) > 0
+        ? [
+            {
+              payroll_item_id: payrollItemId,
+              allowance_type_id: null,
+              nama: "Tunjangan Jabatan",
+              metode: "fixed" as const,
+              qty: 1,
+              nominal: Number(emp.jabatan_tunjangan || 0),
+              subtotal: Number(emp.jabatan_tunjangan || 0),
+            },
+          ]
+        : []),
+      ...allowanceTypes
+        .map((allowance: any) => {
+          const subtotal = getComponentCalculatedValue(allowance, emp);
+          if (subtotal <= 0) return null;
+          const qty = allowance.metode === "fixed" ? 1 : Number(emp.component_inputs?.[allowance.id]) || 0;
+          const nominal =
+            allowance.metode === "manual" ? subtotal : Number(allowance.nominal_default || 0);
+          return {
+            payroll_item_id: payrollItemId,
+            allowance_type_id: allowance.id,
+            nama: allowance.nama,
+            metode: allowance.metode,
+            qty,
+            nominal,
+            subtotal,
+          };
+        })
+        .filter(Boolean),
+      ...(emp.custom_allowances || []).map((allowance: any) => ({
+        payroll_item_id: payrollItemId,
+        allowance_type_id: null,
+        nama: allowance.nama,
+        metode: "manual" as const,
+        qty: 1,
+        nominal: Number(allowance.nominal || 0),
+        subtotal: Number(allowance.nominal || 0),
+      })),
+    ];
+
+    const deductions = deductionTypes
+      .map((deduction: any) => {
+        const subtotal = getComponentCalculatedValue(deduction, emp);
+        if (subtotal <= 0) return null;
+        const qty = deduction.metode === "fixed" ? 1 : Number(emp.component_inputs?.[deduction.id]) || 0;
+        const nominal =
+          deduction.metode === "manual"
+            ? subtotal
+            : deduction.metode === "per_day" && Number(deduction.nominal_default || 0) === 0
+              ? getPayrollBaseSalary(emp) / 30
+              : Number(deduction.nominal_default || 0);
+        return {
+          payroll_item_id: payrollItemId,
+          deduction_type_id: deduction.id,
+          nama: deduction.nama,
+          metode: deduction.metode,
+          qty,
+          nominal,
+          subtotal,
+        };
+      })
+      .filter(Boolean);
+
+    return { allowances, deductions };
   };
 
   const calculateTotal = (emp: any) => {
@@ -248,6 +458,27 @@ function AppProsesGajiPage() {
       if (detailEmp?.id === empId) {
         setDetailEmp(updatedEmployees.find((emp) => emp.id === empId) ?? null);
       }
+      return updatedEmployees;
+    });
+  };
+
+  const handleSalaryIncreaseChange = (empId: string, value: string) => {
+    setEmployees((prev) => {
+      const updatedEmployees = prev.map((emp) => {
+        if (emp.id !== empId) return emp;
+
+        const updatedEmp = {
+          ...emp,
+          salary_increase_manual: Number(value) || 0,
+        };
+        updatedEmp.grandTotal = calculateTotal(updatedEmp);
+        return updatedEmp;
+      });
+
+      if (detailEmp?.id === empId) {
+        setDetailEmp(updatedEmployees.find((emp) => emp.id === empId) ?? null);
+      }
+
       return updatedEmployees;
     });
   };
@@ -336,6 +567,13 @@ function AppProsesGajiPage() {
 
       const payrollItemsToInsert = filteredEmployees.map((emp) => {
         const breakdown = getPayrollBreakdown(emp);
+        const qtySummary = getDeductionQtySummary(emp);
+        const increaseNote =
+          Number(emp.salary_adjustment || 0) > 0 || Number(emp.salary_increase_manual || 0) > 0
+            ? `Kenaikan gaji periode ini: ${formatIDR(
+                Number(emp.salary_adjustment || 0) + Number(emp.salary_increase_manual || 0),
+              )}`
+            : null;
         return {
           payroll_run_id: runData.id,
           employee_id: emp.id,
@@ -343,23 +581,99 @@ function AppProsesGajiPage() {
           total_tunjangan: breakdown.totalTunjangan,
           total_potongan: breakdown.totalPotongan,
           gaji_bersih: breakdown.gajiBersih,
+          jumlah_hari: qtySummary.jumlah_hari,
+          jumlah_izin: qtySummary.jumlah_izin,
+          jumlah_absen: qtySummary.jumlah_absen,
+          jumlah_telat: qtySummary.jumlah_telat,
+          catatan: increaseNote,
           slip_dibuat: true,
         };
       });
 
-      const { error: itemsError } = await supabase
+      const { data: insertedItems, error: itemsError } = await supabase
         .from("payroll_items")
-        .insert(payrollItemsToInsert);
+        .insert(payrollItemsToInsert)
+        .select("id, employee_id");
       if (itemsError) throw itemsError;
+
+      const componentRows = (insertedItems || []).reduce(
+        (rows, item: any) => {
+          const emp = filteredEmployees.find((employee) => employee.id === item.employee_id);
+          if (!emp) return rows;
+
+          const components = buildPayrollItemComponents(emp, item.id);
+          rows.allowances.push(...components.allowances);
+          rows.deductions.push(...components.deductions);
+          return rows;
+        },
+        { allowances: [] as any[], deductions: [] as any[] },
+      );
+
+      if (componentRows.allowances.length > 0) {
+        const { error: allowanceItemsError } = await supabase
+          .from("payroll_item_allowances")
+          .insert(componentRows.allowances);
+        if (allowanceItemsError) throw allowanceItemsError;
+      }
+
+      if (componentRows.deductions.length > 0) {
+        const { error: deductionItemsError } = await supabase
+          .from("payroll_item_deductions")
+          .insert(componentRows.deductions);
+        if (deductionItemsError) throw deductionItemsError;
+      }
+
+      const salaryUpdates = filteredEmployees
+        .map((emp) => {
+          const totalIncrease =
+            Number(emp.salary_adjustment || 0) + Number(emp.salary_increase_manual || 0);
+          if (totalIncrease <= 0) return null;
+          return {
+            id: emp.id,
+            gaji_pokok: (Number(emp.gaji_pokok) || 0) + totalIncrease,
+          };
+        })
+        .filter(Boolean) as { id: string; gaji_pokok: number }[];
+
+      if (salaryUpdates.length > 0) {
+        const salaryUpdateResults = await Promise.all(
+          salaryUpdates.map((salaryUpdate) =>
+            supabase
+              .from("employees")
+              .update({ gaji_pokok: salaryUpdate.gaji_pokok })
+              .eq("id", salaryUpdate.id),
+          ),
+        );
+
+        const salaryUpdateError = salaryUpdateResults.find((result) => result.error)?.error;
+        if (salaryUpdateError) throw salaryUpdateError;
+      }
+
+      const appliedEvaluationIds = filteredEmployees.flatMap((emp) =>
+        getApprovedSalaryEvaluations(emp).map((evaluation) => evaluation.id),
+      );
+
+      if (appliedEvaluationIds.length > 0) {
+        const { error: evaluationError } = await supabase
+          .from("salary_increase_evaluations")
+          .update({ status: "sudah_dinaikkan" })
+          .in("id", appliedEvaluationIds);
+        if (evaluationError) throw evaluationError;
+      }
 
       toast.success(
         `Payroll periode ${formatPeriode(periodeGaji)} berhasil dieksekusi untuk ${selectedBranchName}.`,
       );
 
       setIsConfirmOpen(false);
-      setPeriodeGaji("");
+      setPeriodeGaji(getCurrentPeriode());
       setEmployees((prev) =>
-        prev.map((emp) => ({ ...emp, component_inputs: {}, custom_allowances: [] })),
+        prev.map((emp) => ({
+          ...emp,
+          component_inputs: {},
+          custom_allowances: [],
+          salary_increase_manual: 0,
+        })),
       );
     } catch (error: any) {
       console.error(error);
@@ -369,7 +683,12 @@ function AppProsesGajiPage() {
     }
   };
 
-  const isLoading = loadingEmp || loadingAllowances || loadingDeductions;
+  const isLoading =
+    loadingEmp ||
+    loadingAllowances ||
+    loadingDeductions ||
+    loadingSalaryEvaluations ||
+    loadingSalaryHistory;
   const detailBreakdown = detailEmp ? getPayrollBreakdown(detailEmp) : null;
 
   return (
@@ -385,7 +704,17 @@ function AppProsesGajiPage() {
         </div>
 
         {/* Kontrol Kanan: Filter Cabang + Tombol Eksekusi */}
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-3">
+          <div className="space-y-1">
+            <Label className="text-xs text-slate-500">Periode Payroll</Label>
+            <Input
+              type="month"
+              value={periodeGaji}
+              onChange={(e) => setPeriodeGaji(e.target.value)}
+              disabled={isSaving}
+              className="h-9 w-[160px] bg-white shadow-sm"
+            />
+          </div>
           <div className="flex items-center gap-2 bg-slate-50 border border-slate-200 rounded-lg px-2 py-1 shadow-sm">
             <Store className="w-4 h-4 text-slate-500 ml-1" />
             <Select value={selectedBranchId} onValueChange={setSelectedBranchId}>
@@ -477,7 +806,39 @@ function AppProsesGajiPage() {
                 {detailEmp?.jabatan || "Tidak ada posisi"}
               </div>
               <div className="text-xs text-slate-500">
-                Gaji Pokok: {formatIDR(detailEmp?.gaji_pokok || 0)}
+                Gaji Pokok Payroll: {formatIDR(detailBreakdown?.gajiPokok || 0)}
+              </div>
+              {Number(detailEmp?.salary_adjustment || 0) > 0 && (
+                <div className="text-xs text-emerald-700">
+                  Termasuk kenaikan: {formatIDR(detailEmp?.salary_adjustment || 0)}
+                </div>
+              )}
+              {detailEmp?.evaluation_info?.isDue && (
+                <div className="space-y-2 rounded-lg border border-amber-200 bg-amber-50 p-2">
+                  <div className="text-xs text-amber-700">
+                    Sudah masuk jadwal evaluasi gaji sejak {detailEmp.evaluation_info.nextDate}.
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Label className="w-24 text-xs text-amber-800">Kenaikan</Label>
+                    <Input
+                      type="number"
+                      className="h-8 text-right text-xs"
+                      placeholder="Rp"
+                      value={detailEmp?.salary_increase_manual || ""}
+                      onChange={(e) =>
+                        detailEmp && handleSalaryIncreaseChange(detailEmp.id, e.target.value)
+                      }
+                    />
+                  </div>
+                </div>
+              )}
+              {!detailEmp?.evaluation_info?.isDue && detailEmp?.evaluation_info?.nextDate && (
+                <div className="text-xs text-slate-500">
+                  Evaluasi berikutnya: {detailEmp.evaluation_info.nextDate}
+                </div>
+              )}
+              <div className="text-xs text-slate-500">
+                Gaji Pokok Master: {formatIDR(detailEmp?.gaji_pokok || 0)}
               </div>
               <div className="text-xs text-slate-500">
                 Tunjangan Jabatan: {formatIDR(detailEmp?.jabatan_tunjangan || 0)}
@@ -523,6 +884,51 @@ function AppProsesGajiPage() {
                     )}
                   </div>
                 ))}
+            </div>
+            <div className="space-y-2">
+              <div className="text-xs font-semibold text-slate-700">Potongan</div>
+              {deductionTypes
+                .filter((ded) => checkIsEligible(ded.catatan, detailEmp?.jabatan ?? ""))
+                .map((ded) => {
+                  const finalVal = detailEmp ? getComponentCalculatedValue(ded, detailEmp) : 0;
+                  return (
+                    <div
+                      key={ded.id}
+                      className="flex items-center justify-between gap-2 rounded-lg border border-slate-200 bg-white px-2 py-2"
+                    >
+                      <div>
+                        <div className="text-xs text-slate-600">{ded.nama}</div>
+                        {ded.metode === "per_day" && Number(ded.nominal_default || 0) === 0 && (
+                          <div className="text-[10px] text-slate-400">
+                            Gaji pokok / 30 x jumlah
+                          </div>
+                        )}
+                      </div>
+                      {ded.metode === "fixed" ? (
+                        <div className="text-xs font-medium text-rose-600">
+                          {formatIDR(ded.nominal_default)}
+                        </div>
+                      ) : (
+                        <div className="flex items-center gap-2">
+                          <Input
+                            type="number"
+                            className="h-8 w-24 text-right text-xs"
+                            placeholder={ded.metode === "manual" ? "Rp" : "Jumlah"}
+                            value={detailEmp?.component_inputs?.[ded.id] ?? ""}
+                            onChange={(e) =>
+                              detailEmp && handleInputChange(detailEmp.id, ded.id, e.target.value)
+                            }
+                          />
+                          {finalVal > 0 && (
+                            <div className="w-24 text-right text-xs font-semibold text-rose-600">
+                              {formatIDR(finalVal)}
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
             </div>
           </div>
           <div className="flex justify-end gap-2 pt-2 border-t mt-2">
@@ -629,6 +1035,27 @@ function AppProsesGajiPage() {
                                 Tunjangan: {formatIDR(emp.jabatan_tunjangan)}
                               </div>
                             )}
+                            {Number(emp.salary_adjustment || 0) > 0 && (
+                              <div className="text-[11px] text-emerald-700 font-medium mt-1">
+                                Kenaikan berlaku: +{formatIDR(emp.salary_adjustment)}
+                              </div>
+                            )}
+                            {emp.evaluation_info?.isDue && (
+                              <div className="mt-2 space-y-1 rounded-md border border-amber-200 bg-amber-50 p-2">
+                                <div className="text-[11px] text-amber-700 font-medium">
+                                  Perlu evaluasi gaji
+                                </div>
+                                <Input
+                                  type="number"
+                                  className="h-7 text-xs text-right bg-white"
+                                  placeholder="Kenaikan Rp"
+                                  value={emp.salary_increase_manual || ""}
+                                  onChange={(e) =>
+                                    handleSalaryIncreaseChange(emp.id, e.target.value)
+                                  }
+                                />
+                              </div>
+                            )}
                           </div>
                         </div>
 
@@ -653,7 +1080,17 @@ function AppProsesGajiPage() {
                       </TableCell>
 
                       <TableCell className="text-slate-600 text-sm font-medium">
-                        {formatIDR(emp.gaji_pokok)}
+                        <div>{formatIDR(getPayrollBaseSalary(emp))}</div>
+                        {Number(emp.salary_adjustment || 0) > 0 && (
+                          <div className="text-[10px] font-semibold text-emerald-600">
+                            +{formatIDR(emp.salary_adjustment)}
+                          </div>
+                        )}
+                        {Number(emp.salary_increase_manual || 0) > 0 && (
+                          <div className="text-[10px] font-semibold text-amber-600">
+                            +{formatIDR(emp.salary_increase_manual)}
+                          </div>
+                        )}
                       </TableCell>
 
                       {allowanceTypes.map((alw) => {
@@ -734,6 +1171,7 @@ function AppProsesGajiPage() {
                       </TableCell>
 
                       {deductionTypes.map((ded) => {
+                        const isEligible = checkIsEligible(ded.catatan, emp.jabatan);
                         const inputVal = emp.component_inputs[ded.id] ?? "";
                         const finalVal = getComponentCalculatedValue(ded, emp);
 
@@ -742,7 +1180,9 @@ function AppProsesGajiPage() {
                             key={ded.id}
                             className="hidden md:table-cell text-center align-top pt-4"
                           >
-                            {ded.metode === "fixed" ? (
+                            {!isEligible ? (
+                              <span className="text-slate-200 text-sm font-medium">-</span>
+                            ) : ded.metode === "fixed" ? (
                               <span className="text-sm font-medium text-rose-600/80">
                                 {formatIDR(ded.nominal_default)}
                               </span>
@@ -757,6 +1197,12 @@ function AppProsesGajiPage() {
                                     handleInputChange(emp.id, ded.id, e.target.value)
                                   }
                                 />
+                                {ded.metode === "per_day" &&
+                                  Number(ded.nominal_default || 0) === 0 && (
+                                    <span className="text-[10px] text-slate-400">
+                                      gaji/30
+                                    </span>
+                                  )}
                                 {finalVal > 0 && (
                                   <span className="text-[10px] text-rose-500 font-semibold">
                                     {formatIDR(finalVal)}
@@ -781,6 +1227,17 @@ function AppProsesGajiPage() {
                         className="py-3 px-3 text-xs text-slate-600"
                       >
                         <div className="grid gap-2">
+                          <div className="flex flex-wrap items-center justify-between gap-2">
+                            <span className="font-medium">Gaji Pokok Payroll</span>
+                            <span className="font-semibold">
+                              {formatIDR(getPayrollBaseSalary(emp))}
+                            </span>
+                          </div>
+                          {emp.evaluation_info?.isDue && (
+                            <div className="rounded-md border border-amber-200 bg-amber-50 px-2 py-1 text-[11px] text-amber-800">
+                              Sudah waktunya evaluasi gaji sejak {emp.evaluation_info.nextDate}.
+                            </div>
+                          )}
                           <div className="flex flex-wrap items-center justify-between gap-2">
                             <span className="font-medium">Total Tunjangan</span>
                             <span className="font-semibold">

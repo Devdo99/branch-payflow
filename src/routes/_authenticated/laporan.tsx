@@ -82,13 +82,34 @@ function LaporanPage() {
           periode,
           status,
           payroll_items (
+            id,
             gaji_pokok,
             total_tunjangan,
             total_potongan,
             gaji_bersih,
+            jumlah_hari,
+            jumlah_izin,
+            jumlah_absen,
+            jumlah_telat,
+            kasbon,
+            bonus_manual,
+            catatan,
+            payroll_item_allowances (
+              nama,
+              qty,
+              nominal,
+              subtotal
+            ),
+            payroll_item_deductions (
+              nama,
+              qty,
+              nominal,
+              subtotal
+            ),
             employees (
               id,
               nama,
+              jabatan,
               nama_bank,
               nomor_rekening,
               branch_id
@@ -155,6 +176,37 @@ function LaporanPage() {
 
   const employeeSummaryList = Object.values(employeeSummaries).sort((a: any, b: any) => a.nama.localeCompare(b.nama))
 
+  const detailRows = (reportData ?? [])
+    .flatMap((run) =>
+      (run.items || []).map((item: any) => ({
+        id: item.id || `${run.id}-${item.employees?.id || item.employees?.nama || 'employee'}`,
+        periode: run.periode,
+        nama: item.employees?.nama || '-',
+        jabatan: item.employees?.jabatan || '-',
+        branch_id: item.employees?.branch_id || null,
+        nama_bank: item.employees?.nama_bank || '-',
+        nomor_rekening: item.employees?.nomor_rekening || '-',
+        gaji_pokok: item.gaji_pokok || 0,
+        total_tunjangan: item.total_tunjangan || 0,
+        total_potongan: item.total_potongan || 0,
+        gaji_bersih: item.gaji_bersih || 0,
+        jumlah_hari: item.jumlah_hari || 0,
+        jumlah_izin: item.jumlah_izin || 0,
+        jumlah_absen: item.jumlah_absen || 0,
+        jumlah_telat: item.jumlah_telat || 0,
+        kasbon: item.kasbon || 0,
+        bonus_manual: item.bonus_manual || 0,
+        catatan: item.catatan || '',
+        allowances: item.payroll_item_allowances || [],
+        deductions: item.payroll_item_deductions || [],
+      }))
+    )
+    .sort((a: any, b: any) => {
+      const periodCompare = a.periode.localeCompare(b.periode)
+      if (periodCompare !== 0) return periodCompare
+      return a.nama.localeCompare(b.nama)
+    })
+
   const selectedBranchName =
     selectedCabang === 'all'
       ? 'Semua Cabang'
@@ -167,6 +219,11 @@ function LaporanPage() {
   const totalPeriods = reportData?.length || 0
 
   const handleDownload = async () => {
+    if (!reportData || reportData.length === 0) {
+      toast.error('Tidak ada data laporan untuk diunduh.')
+      return
+    }
+
     setIsDownloading(true)
     const element = document.getElementById('report-container')
 
@@ -178,15 +235,16 @@ function LaporanPage() {
 
     try {
       const canvas = await html2canvas(element, {
-        scale: 2,
+        scale: 1.5,
         backgroundColor: '#ffffff',
         useCORS: true,
         logging: false,
+        windowWidth: element.scrollWidth,
       })
 
       const imgData = canvas.toDataURL('image/jpeg', 0.95)
       const pdf = new jsPDF({
-        orientation: 'portrait',
+        orientation: 'landscape',
         unit: 'mm',
         format: 'a4',
       })
@@ -199,13 +257,17 @@ function LaporanPage() {
       const imgWidth = usableWidth
       const imgHeight = (canvas.height * imgWidth) / canvas.width
 
-      if (imgHeight <= usableHeight) {
-        pdf.addImage(imgData, 'JPEG', margin, margin, imgWidth, imgHeight)
-      } else {
-        const scaledHeight = usableHeight
-        const scaledWidth = (canvas.width * scaledHeight) / canvas.height
-        const x = (pageWidth - scaledWidth) / 2
-        pdf.addImage(imgData, 'JPEG', x, margin, scaledWidth, scaledHeight)
+      let remainingHeight = imgHeight
+      let position = margin
+
+      pdf.addImage(imgData, 'JPEG', margin, position, imgWidth, imgHeight)
+      remainingHeight -= usableHeight
+
+      while (remainingHeight > 0) {
+        position = margin - (imgHeight - remainingHeight)
+        pdf.addPage()
+        pdf.addImage(imgData, 'JPEG', margin, position, imgWidth, imgHeight)
+        remainingHeight -= usableHeight
       }
 
       const monthSuffix = selectedMonth === 'all' ? 'Semua_Bulan' : selectedMonth
@@ -239,6 +301,17 @@ function LaporanPage() {
     if (!periode) return '-'
     const [_, month] = periode.split('-')
     return BULAN_LABELS[month] || month
+  }
+
+  const formatPeriode = (periode: string) => {
+    if (!periode) return '-'
+    const [year, month] = periode.split('-')
+    return `${BULAN_LABELS[month] || month} ${year || ''}`.trim()
+  }
+
+  const getBranchName = (branchId: string | null) => {
+    if (!branchId) return '-'
+    return cabangList.find((branch: any) => branch.id === branchId)?.nama || '-'
   }
 
   return (
@@ -299,7 +372,7 @@ function LaporanPage() {
         </div>
       </div>
 
-      <div id="report-container" className="space-y-6">
+      <div id="report-container" className="space-y-6 bg-white p-1">
           <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 shadow-sm">
             <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
               <div>
@@ -357,6 +430,96 @@ function LaporanPage() {
                 )}
               </TableBody>
             </Table>
+          </div>
+
+          {/* Rincian Per Karyawan */}
+          <div className="rounded-md border bg-white">
+            <div className="p-4 border-b border-slate-200">
+              <h3 className="text-sm font-semibold">Rincian Gaji Per Karyawan</h3>
+              <p className="text-xs text-muted-foreground">Periode, cabang, jabatan, komponen gaji, dan rekening pembayaran</p>
+            </div>
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Periode</TableHead>
+                    <TableHead>Nama</TableHead>
+                    <TableHead>Cabang</TableHead>
+                    <TableHead>Jabatan</TableHead>
+                    <TableHead className="text-right">Gaji Pokok</TableHead>
+                    <TableHead className="text-right">Tunjangan</TableHead>
+                    <TableHead className="text-right">Potongan</TableHead>
+                    <TableHead className="text-right">THP</TableHead>
+                    <TableHead>Komponen</TableHead>
+                    <TableHead>Rekening</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {detailRows.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={10} className="h-24 text-center text-muted-foreground">
+                        Tidak ada rincian gaji untuk filter ini.
+                      </TableCell>
+                    </TableRow>
+                  ) : (
+                    detailRows.map((row: any) => (
+                      <TableRow key={row.id}>
+                        <TableCell>{formatPeriode(row.periode)}</TableCell>
+                        <TableCell className="font-medium">{row.nama}</TableCell>
+                        <TableCell>{getBranchName(row.branch_id)}</TableCell>
+                        <TableCell>{row.jabatan}</TableCell>
+                        <TableCell className="text-right">{formatIDR(row.gaji_pokok)}</TableCell>
+                        <TableCell className="text-right">{formatIDR(row.total_tunjangan)}</TableCell>
+                        <TableCell className="text-right">{formatIDR(row.total_potongan)}</TableCell>
+                        <TableCell className="text-right font-semibold">{formatIDR(row.gaji_bersih)}</TableCell>
+                        <TableCell>
+                          <div className="min-w-[220px] space-y-1 text-xs leading-tight">
+                            {row.allowances.length > 0 ? (
+                              <div>
+                                <span className="font-semibold text-emerald-700">Tunjangan: </span>
+                                {row.allowances
+                                  .map((item: any) => `${item.nama} ${formatIDR(item.subtotal || 0)}`)
+                                  .join(', ')}
+                              </div>
+                            ) : (
+                              <div>
+                                <span className="font-semibold text-emerald-700">Tunjangan: </span>
+                                {formatIDR(row.total_tunjangan)}
+                              </div>
+                            )}
+                            {row.deductions.length > 0 ? (
+                              <div>
+                                <span className="font-semibold text-rose-700">Potongan: </span>
+                                {row.deductions
+                                  .map((item: any) => `${item.nama} ${formatIDR(item.subtotal || 0)}`)
+                                  .join(', ')}
+                              </div>
+                            ) : (
+                              <div>
+                                <span className="font-semibold text-rose-700">Potongan: </span>
+                                {formatIDR(row.total_potongan)}
+                              </div>
+                            )}
+                            {(row.jumlah_izin > 0 || row.jumlah_absen > 0 || row.jumlah_telat > 0) && (
+                              <div className="text-muted-foreground">
+                                Izin {row.jumlah_izin}, sakit/absen {row.jumlah_absen}, telat {row.jumlah_telat}
+                              </div>
+                            )}
+                            {row.catatan && <div className="text-muted-foreground">{row.catatan}</div>}
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <div className="text-xs leading-tight">
+                            <div>{row.nomor_rekening}</div>
+                            <div className="text-muted-foreground">{row.nama_bank}</div>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  )}
+                </TableBody>
+              </Table>
+            </div>
           </div>
 
           {/* Tabel Detail */}

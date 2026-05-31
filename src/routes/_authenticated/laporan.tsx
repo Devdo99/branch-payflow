@@ -76,54 +76,71 @@ function LaporanPage() {
     queryFn: async () => {
       const periodeRange = getPeriodeRange(selectedYear, selectedMonth)
       const { data, error } = await supabase
-        .from('payroll_runs')
+        .from('payroll_items')
         .select(`
           id,
-          periode,
-          status,
-          payroll_items (
+          gaji_pokok,
+          total_tunjangan,
+          total_potongan,
+          gaji_bersih,
+          jumlah_hari,
+          jumlah_izin,
+          jumlah_absen,
+          jumlah_telat,
+          kasbon,
+          bonus_manual,
+          catatan,
+          payroll_item_allowances (
+            nama,
+            qty,
+            nominal,
+            subtotal
+          ),
+          payroll_item_deductions (
+            nama,
+            qty,
+            nominal,
+            subtotal
+          ),
+          employees (
             id,
-            gaji_pokok,
-            total_tunjangan,
-            total_potongan,
-            gaji_bersih,
-            jumlah_hari,
-            jumlah_izin,
-            jumlah_absen,
-            jumlah_telat,
-            kasbon,
-            bonus_manual,
-            catatan,
-            payroll_item_allowances (
-              nama,
-              qty,
-              nominal,
-              subtotal
-            ),
-            payroll_item_deductions (
-              nama,
-              qty,
-              nominal,
-              subtotal
-            ),
-            employees (
-              id,
-              nama,
-              jabatan,
-              nama_bank,
-              nomor_rekening,
-              branch_id
-            )
+            nama,
+            jabatan,
+            nama_bank,
+            nomor_rekening,
+            branch_id
+          ),
+          payroll_run:payroll_runs!inner (
+            id,
+            periode,
+            status,
+            branch_id
           )
         `)
-        .gte('periode', periodeRange.start)
-        .lt('periode', periodeRange.end)
-        .order('periode', { ascending: true })
+        .gte('payroll_run.periode', periodeRange.start)
+        .lt('payroll_run.periode', periodeRange.end)
 
       if (error) throw error
 
-      return (data || []).map((run) => {
-        const items = (run.payroll_items || []).filter((item) => {
+      const groupedRuns = (data || []).reduce((acc: Record<string, any>, item: any) => {
+        const run = item.payroll_run
+        if (!run?.id) return acc
+
+        if (!acc[run.id]) {
+          acc[run.id] = {
+            id: run.id,
+            periode: run.periode,
+            status: run.status,
+            items: [],
+          }
+        }
+
+        acc[run.id].items.push(item)
+        return acc
+      }, {})
+
+      return Object.values(groupedRuns).map((run: any) => {
+        const items = (run.items || []).filter((item: any) => {
           if (selectedCabang === 'all') return true
           return item.employees?.branch_id === selectedCabang
         })
@@ -134,12 +151,14 @@ function LaporanPage() {
           status: run.status,
           items,
           total_karyawan: items.length,
-          sum_gaji_pokok: items.reduce((acc, curr) => acc + (curr.gaji_pokok || 0), 0),
-          sum_tunjangan: items.reduce((acc, curr) => acc + (curr.total_tunjangan || 0), 0),
-          sum_potongan: items.reduce((acc, curr) => acc + (curr.total_potongan || 0), 0),
-          sum_thp: items.reduce((acc, curr) => acc + (curr.gaji_bersih || 0), 0),
+          sum_gaji_pokok: items.reduce((acc: number, curr: any) => acc + (curr.gaji_pokok || 0), 0),
+          sum_tunjangan: items.reduce((acc: number, curr: any) => acc + (curr.total_tunjangan || 0), 0),
+          sum_potongan: items.reduce((acc: number, curr: any) => acc + (curr.total_potongan || 0), 0),
+          sum_thp: items.reduce((acc: number, curr: any) => acc + (curr.gaji_bersih || 0), 0),
         }
       })
+        .filter((row: any) => selectedCabang === 'all' || row.total_karyawan > 0)
+        .sort((a: any, b: any) => a.periode.localeCompare(b.periode))
     },
   })
 

@@ -56,6 +56,7 @@ type PayrollRun = {
 };
 
 type PayrollComponent = {
+  payroll_item_id?: string | null;
   id?: string;
   nama?: string | null;
   metode?: string | null;
@@ -145,6 +146,12 @@ const getSlipTemplateConfig = (value: unknown): SlipTemplateConfig => {
 const toNumber = (value: unknown) => {
   const numberValue = Number(value ?? 0);
   return Number.isFinite(numberValue) ? numberValue : 0;
+};
+
+const isMissingComponentTableError = (error: unknown) => {
+  if (!error || typeof error !== "object") return false;
+  const code = "code" in error ? (error as { code?: string }).code : "";
+  return code === "PGRST200" || code === "PGRST205";
 };
 
 const escapeHtml = (value: unknown) => {
@@ -678,14 +685,54 @@ function SlipGajiPage() {
       const { data, error } = await supabase.from("payroll_items").select(`
           *,
           payroll_runs (*),
-          employees (*, branches (*)),
-          payroll_item_allowances (*),
-          payroll_item_deductions (*)
+          employees (*, branches (*))
         `);
 
       if (error) throw error;
 
-      return data || [];
+      const payrollItems = (data || []) as SlipItem[];
+      const payrollItemIds = payrollItems.map((item) => item.id).filter(Boolean);
+
+      if (payrollItemIds.length === 0) {
+        return payrollItems;
+      }
+
+      const [
+        { data: allowanceRows, error: allowanceError },
+        { data: deductionRows, error: deductionError },
+      ] = await Promise.all([
+        supabase.from("payroll_item_allowances").select("*").in("payroll_item_id", payrollItemIds),
+        supabase.from("payroll_item_deductions").select("*").in("payroll_item_id", payrollItemIds),
+      ]);
+
+      if (allowanceError && !isMissingComponentTableError(allowanceError)) {
+        throw allowanceError;
+      }
+      if (deductionError && !isMissingComponentTableError(deductionError)) {
+        throw deductionError;
+      }
+
+      const allowancesByItem = (
+        allowanceError ? [] : ((allowanceRows || []) as PayrollComponent[])
+      ).reduce((acc: Record<string, PayrollComponent[]>, row) => {
+        if (!row.payroll_item_id) return acc;
+        acc[row.payroll_item_id] = [...(acc[row.payroll_item_id] || []), row];
+        return acc;
+      }, {});
+
+      const deductionsByItem = (
+        deductionError ? [] : ((deductionRows || []) as PayrollComponent[])
+      ).reduce((acc: Record<string, PayrollComponent[]>, row) => {
+        if (!row.payroll_item_id) return acc;
+        acc[row.payroll_item_id] = [...(acc[row.payroll_item_id] || []), row];
+        return acc;
+      }, {});
+
+      return payrollItems.map((item) => ({
+        ...item,
+        payroll_item_allowances: allowancesByItem[item.id] || [],
+        payroll_item_deductions: deductionsByItem[item.id] || [],
+      }));
     },
   });
 

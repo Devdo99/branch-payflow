@@ -75,6 +75,13 @@ const getSlipTemplateConfig = (value: unknown): SlipTemplateConfig => {
   return { ...defaultSlipTemplateConfig, ...(value as Partial<SlipTemplateConfig>) };
 };
 
+const isMissingColumnError = (error: unknown, columnName: string) => {
+  if (!error || typeof error !== "object") return false;
+  const code = "code" in error ? (error as { code?: string }).code : "";
+  const message = "message" in error ? String((error as { message?: string }).message) : "";
+  return code === "42703" && message.includes(columnName);
+};
+
 function PengaturanPage() {
   const qc = useQueryClient();
   const [namaPerusahaan, setNamaPerusahaan] = useState("");
@@ -138,17 +145,31 @@ function PengaturanPage() {
           : defaultSlipTemplateConfig.accentColor,
       };
 
-      const { error } = await supabase.from("app_settings").upsert(
-        {
+      const payload = {
         id: 1,
         nama_perusahaan: namaPerusahaan || "Nama Perusahaan",
         alamat,
         footer_slip: footerSlip,
-        periode_evaluasi_default: periodeEvaluasiDefault,
-          slip_template_config: cleanSlipTemplateConfig,
+        slip_template_config: cleanSlipTemplateConfig,
+      };
+
+      const { error } = await supabase.from("app_settings").upsert(
+        {
+          ...payload,
+          periode_evaluasi_default: periodeEvaluasiDefault,
         } as any,
         { onConflict: "id" },
       );
+
+      if (isMissingColumnError(error, "periode_evaluasi_default")) {
+        const { error: fallbackError } = await supabase
+          .from("app_settings")
+          .upsert(payload as any, { onConflict: "id" });
+
+        if (fallbackError) throw fallbackError;
+        return;
+      }
+
       if (error) throw error;
     },
     onSuccess: () => {

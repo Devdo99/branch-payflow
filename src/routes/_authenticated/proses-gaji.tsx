@@ -402,7 +402,9 @@ function AppProsesGajiPage() {
           const subtotal = getComponentCalculatedValue(allowance, emp);
           if (subtotal <= 0) return null;
           const qty =
-            allowance.metode === "fixed" ? 1 : Number(emp.component_inputs?.[allowance.id]) || 0;
+            allowance.metode === "fixed" || allowance.metode === "manual"
+              ? 1
+              : Number(emp.component_inputs?.[allowance.id]) || 0;
           const nominal =
             allowance.metode === "manual" ? subtotal : Number(allowance.nominal_default || 0);
           return {
@@ -432,18 +434,15 @@ function AppProsesGajiPage() {
         const subtotal = getComponentCalculatedValue(deduction, emp);
         if (subtotal <= 0) return null;
         const qty =
-          deduction.metode === "fixed" ? 1 : Number(emp.component_inputs?.[deduction.id]) || 0;
+          deduction.metode === "fixed" || deduction.metode === "manual"
+            ? 1
+            : Number(emp.component_inputs?.[deduction.id]) || 0;
         const nominal =
           deduction.metode === "manual"
             ? subtotal
             : deduction.metode === "per_day" && Number(deduction.nominal_default || 0) === 0
-              ? getPayrollBaseSalary(emp) / 30
-              : Number(deduction.nominal_default || 0);
-        return {
-          payroll_item_id: payrollItemId,
-          deduction_type_id: deduction.id,
-          nama: deduction.nama,
-          metode: deduction.metode,
+            ? getPayrollBaseSalary(emp) / 30
+            : Number(deduction.nominal_default || 0);
           qty,
           nominal,
           subtotal,

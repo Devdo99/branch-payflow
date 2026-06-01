@@ -2,8 +2,8 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { PageHeader } from "@/components/page-header";
 import { Button } from "@/components/ui/button";
+import { Label } from "@/components/ui/label";
 import {
   Table,
   TableBody,
@@ -15,7 +15,16 @@ import {
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { toast } from "sonner";
 import { formatIDR } from "@/lib/format";
-import { ImageIcon, FileText, Send, Trash2, Eye, Loader2, MessageSquare } from "lucide-react";
+import {
+  ImageIcon,
+  FileText,
+  Send,
+  Trash2,
+  Eye,
+  Loader2,
+  MessageSquare,
+  Store,
+} from "lucide-react";
 import html2canvas from "html2canvas";
 import { jsPDF } from "jspdf";
 
@@ -23,7 +32,45 @@ export const Route = createFileRoute("/_authenticated/slip-gaji")({
   component: SlipGajiPage,
 });
 
-type SlipItem = any;
+type Branch = {
+  id: string;
+  nama: string;
+};
+
+type Employee = {
+  id?: string;
+  nama?: string;
+  jabatan?: string;
+  branch_id?: string;
+  nama_bank?: string;
+  nomor_rekening?: string;
+  branches?: {
+    nama?: string;
+  } | null;
+};
+
+type PayrollRun = {
+  periode?: string;
+  branch_id?: string;
+};
+
+type SlipItem = {
+  id?: string;
+  gaji_pokok?: number;
+  total_tunjangan?: number;
+  total_potongan?: number;
+  gaji_bersih?: number;
+  payroll_runs?: PayrollRun | null;
+  employees?: Employee | null;
+  jumlah_hari?: number;
+  jumlah_izin?: number;
+  jumlah_absen?: number;
+  jumlah_telat?: number;
+  kasbon?: number;
+  bonus_manual?: number;
+  catatan?: string;
+};
+
 type AppSettings = {
   nama_perusahaan?: string | null;
   alamat?: string | null;
@@ -511,12 +558,12 @@ function SlipGajiPage() {
     },
   });
 
-  const { data: branches = [] } = useQuery({
+  const { data: branches = [] } = useQuery<Branch[]>({
     queryKey: ["branches"],
     queryFn: async () => {
       const { data, error } = await supabase.from("branches").select("id, nama").order("nama");
       if (error) throw error;
-      return data || [];
+      return (data || []) as Branch[];
     },
   });
 
@@ -539,7 +586,7 @@ function SlipGajiPage() {
       const [year, month] = (latestPayrollRun.periode || "").split("-");
       if (year && month) {
         setSelectedYear(Number(year));
-        setSelectedMonth(month);
+        setSelectedMonth(String(month).padStart(2, "0"));
       }
       setSelectedBranch(latestPayrollRun.branch_id || "all");
       setHasInitializedFilters(true);
@@ -566,14 +613,15 @@ function SlipGajiPage() {
   });
 
   const filteredPayrollItems = useMemo(() => {
+    const normalizedMonth = String(selectedMonth).padStart(2, "0");
     return payrollItems.filter((slip: SlipItem) => {
       const periode = slip.payroll_runs?.periode || "";
       const runBranchId = slip.payroll_runs?.branch_id;
-      const branchMatch =
-        selectedBranch === "all" || runBranchId === selectedBranch;
-      const periodMatch = selectedMonth === "all"
-        ? periode.startsWith(`${selectedYear}-`)
-        : periode === `${selectedYear}-${selectedMonth}`;
+      const branchMatch = selectedBranch === "all" || runBranchId === selectedBranch;
+      const periodMatch =
+        selectedMonth === "all"
+          ? periode.startsWith(`${selectedYear}-`)
+          : periode === `${selectedYear}-${normalizedMonth}`;
 
       return branchMatch && periodMatch;
     });
@@ -799,53 +847,111 @@ function SlipGajiPage() {
   };
 
   const isButtonLoading = (key: string) => loading === key;
+  const selectedBranchName =
+    selectedBranch === "all"
+      ? "Semua Cabang"
+      : branches.find((branch) => branch.id === selectedBranch)?.nama || "Cabang Terpilih";
+  const selectedMonthName = BULAN_LABELS[selectedMonth] || selectedMonth;
+  const activeSlipConfig = getSlipTemplateConfig(appSettings?.slip_template_config);
+  const activeSections = [
+    activeSlipConfig.showCompanyName ? "Perusahaan" : null,
+    activeSlipConfig.showCompanyAddress ? "Alamat" : null,
+    activeSlipConfig.showEmployeeName ? "Karyawan" : null,
+    activeSlipConfig.showBranch ? "Cabang" : null,
+    activeSlipConfig.showPeriod ? "Periode" : null,
+    activeSlipConfig.showBaseSalary ? "Gaji Pokok" : null,
+    activeSlipConfig.showAllowance ? "Tunjangan" : null,
+    activeSlipConfig.showDeduction ? "Potongan" : null,
+    activeSlipConfig.showNetSalary ? "THP" : null,
+    activeSlipConfig.showSignature ? "TTD" : null,
+    activeSlipConfig.showFooter ? "Footer" : null,
+  ].filter((section): section is string => Boolean(section));
 
   return (
-    <div className="p-6 space-y-6">
-      <PageHeader title="Slip Gaji" description="Kelola, unduh, dan kirim slip gaji karyawan" />
+    <div className="space-y-6 p-6">
+      <div className="flex flex-col justify-between gap-4 border-b border-slate-200 pb-5 md:flex-row md:items-end">
+        <div className="space-y-1">
+          <h1 className="text-2xl font-semibold tracking-tight text-slate-900">Slip Gaji</h1>
+          <p className="max-w-2xl text-sm text-slate-500">
+            Kelola, preview, unduh, dan kirim slip gaji untuk {selectedBranchName} periode{" "}
+            {selectedMonthName} {selectedYear}.
+          </p>
+        </div>
 
-      <div className="rounded-lg border bg-white">
-        <div className="flex flex-col gap-3 border-b border-slate-200 bg-slate-50 p-4 sm:flex-row sm:items-center sm:justify-between">
-          <div className="flex flex-col gap-2">
-            <div className="text-sm font-semibold">Filter Slip Gaji</div>
-            <div className="flex flex-wrap gap-2">
+        <div className="flex flex-wrap items-center gap-3">
+          <div className="space-y-1">
+            <Label className="text-xs text-slate-500">Tahun</Label>
+            <select
+              value={selectedYear}
+              onChange={(event) => setSelectedYear(Number(event.currentTarget.value))}
+              className="h-9 w-[120px] rounded-md border border-slate-200 bg-white px-3 text-sm shadow-sm"
+            >
+              {yearOptions.map((year) => (
+                <option key={year} value={year}>
+                  {year}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div className="space-y-1">
+            <Label className="text-xs text-slate-500">Bulan</Label>
+            <select
+              value={selectedMonth}
+              onChange={(event) => setSelectedMonth(event.currentTarget.value)}
+              className="h-9 w-[150px] rounded-md border border-slate-200 bg-white px-3 text-sm shadow-sm"
+            >
+              {Object.entries(BULAN_LABELS).map(([value, label]) => (
+                <option key={value} value={value}>
+                  {label}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div className="space-y-1">
+            <Label className="text-xs text-slate-500">Cabang</Label>
+            <div className="flex items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-2 py-1 shadow-sm">
+              <Store className="ml-1 h-4 w-4 text-slate-500" />
               <select
                 value={selectedBranch}
                 onChange={(event) => setSelectedBranch(event.currentTarget.value)}
-                className="rounded border px-3 py-2 text-sm"
+                className="h-8 w-[180px] border-0 bg-transparent text-sm font-medium shadow-none outline-none"
               >
                 <option value="all">Semua Cabang</option>
-                {branches.map((branch: any) => (
+                {branches.map((branch: Branch) => (
                   <option key={branch.id} value={branch.id}>
                     {branch.nama}
                   </option>
                 ))}
               </select>
-
-              <select
-                value={selectedYear}
-                onChange={(event) => setSelectedYear(Number(event.currentTarget.value))}
-                className="rounded border px-3 py-2 text-sm"
-              >
-                {yearOptions.map((year) => (
-                  <option key={year} value={year}>
-                    {year}
-                  </option>
-                ))}
-              </select>
-
-              <select
-                value={selectedMonth}
-                onChange={(event) => setSelectedMonth(event.currentTarget.value)}
-                className="rounded border px-3 py-2 text-sm"
-              >
-                {Object.entries(BULAN_LABELS).map(([value, label]) => (
-                  <option key={value} value={value}>
-                    {label}
-                  </option>
-                ))}
-              </select>
             </div>
+          </div>
+        </div>
+      </div>
+
+      <div className="rounded-lg border bg-white">
+        <div className="flex flex-col gap-3 border-b border-slate-200 bg-slate-50 p-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="space-y-1">
+            <div className="text-sm font-semibold text-slate-900">Daftar Slip Gaji</div>
+            <div className="text-xs text-slate-500">
+              Tampilan slip mengikuti konfigurasi aktif dari halaman Pengaturan.
+            </div>
+          </div>
+          <div className="flex max-w-2xl flex-wrap justify-start gap-1.5 sm:justify-end">
+            {activeSections.map((section) => (
+              <span
+                key={section}
+                className="rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-xs font-medium text-emerald-700"
+              >
+                {section}
+              </span>
+            ))}
+            {activeSections.length === 0 && (
+              <span className="rounded-full border border-slate-200 bg-white px-2.5 py-1 text-xs text-slate-500">
+                Belum ada bagian aktif
+              </span>
+            )}
           </div>
         </div>
 

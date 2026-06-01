@@ -53,12 +53,13 @@ const getPeriodeRange = (year: number, month: string) => {
     };
   }
 
-  const monthNumber = Number(month);
+  const normalizedMonth = String(month).padStart(2, "0");
+  const monthNumber = Number(normalizedMonth);
   const nextMonth = monthNumber === 12 ? 1 : monthNumber + 1;
   const nextYear = monthNumber === 12 ? year + 1 : year;
 
   return {
-    start: `${year}-${month}`,
+    start: `${year}-${normalizedMonth}`,
     end: `${nextYear}-${String(nextMonth).padStart(2, "0")}`,
   };
 };
@@ -70,20 +71,128 @@ const safeFileName = (value: unknown) => {
     .trim();
 };
 
+type Branch = {
+  id: string;
+  nama: string;
+};
+
+type Employee = {
+  id?: string;
+  nama?: string;
+  jabatan?: string;
+  branch_id?: string;
+  nama_bank?: string;
+  nomor_rekening?: string;
+  branches?: Branch | null;
+};
+
+type PayrollRun = {
+  id?: string;
+  periode?: string;
+  status?: string;
+  branch_id?: string | null;
+};
+
+type PayrollItem = {
+  id?: string;
+  payroll_runs?: PayrollRun | null;
+  employees?: Employee | null;
+  gaji_pokok?: number;
+  total_tunjangan?: number;
+  total_potongan?: number;
+  gaji_bersih?: number;
+  jumlah_hari?: number;
+  jumlah_izin?: number;
+  jumlah_absen?: number;
+  jumlah_telat?: number;
+  kasbon?: number;
+  bonus_manual?: number;
+  catatan?: string;
+  payroll_item_allowances?: Array<{
+    nama?: string;
+    subtotal?: number;
+    nominal?: number;
+    jumlah?: number;
+  }>;
+  payroll_item_deductions?: Array<{
+    nama?: string;
+    subtotal?: number;
+    nominal?: number;
+    jumlah?: number;
+  }>;
+};
+
+type PayrollReportRun = {
+  id: string;
+  periode: string;
+  status?: string;
+  items: PayrollItem[];
+  total_karyawan: number;
+  sum_gaji_pokok: number;
+  sum_tunjangan: number;
+  sum_potongan: number;
+  sum_thp: number;
+};
+
+type EmployeeSummary = {
+  id: string;
+  nama: string;
+  nama_bank: string;
+  nomor_rekening: string;
+  total_gaji: number;
+};
+
+type ComponentItem = {
+  payroll_item_id?: string;
+  nama?: string;
+  subtotal?: number;
+  nominal?: number;
+  jumlah?: number;
+};
+
+type DetailRow = {
+  id: string;
+  periode: string;
+  nama: string;
+  jabatan: string;
+  branch_id: string | null;
+  nama_bank: string;
+  nomor_rekening: string;
+  gaji_pokok: number;
+  total_tunjangan: number;
+  total_potongan: number;
+  gaji_bersih: number;
+  jumlah_hari: number;
+  jumlah_izin: number;
+  jumlah_absen: number;
+  jumlah_telat: number;
+  kasbon: number;
+  bonus_manual: number;
+  catatan: string;
+  allowances: ComponentItem[];
+  deductions: ComponentItem[];
+};
+
 const toNumber = (value: unknown) => {
   const numberValue = Number(value ?? 0);
   return Number.isFinite(numberValue) ? numberValue : 0;
 };
 
-const getComponentRows = (items: any[], fallbackLabel: string, fallbackValue: number) => {
+const getComponentRows = (items: ComponentItem[], fallbackLabel: string, fallbackValue: number) => {
   if (items.length > 0) {
-    return items.map((item: any) => ({
+    return items.map((item) => ({
       label: item.nama || fallbackLabel,
       value: toNumber(item.subtotal ?? item.nominal ?? item.jumlah),
     }));
   }
 
   return fallbackValue > 0 ? [{ label: fallbackLabel, value: fallbackValue }] : [];
+};
+
+const isMissingComponentTableError = (error: unknown) => {
+  if (!error || typeof error !== "object") return false;
+  const code = "code" in error ? (error as { code?: string }).code : "";
+  return code === "PGRST200" || code === "PGRST205";
 };
 
 function LaporanPage() {
@@ -96,15 +205,15 @@ function LaporanPage() {
   const [hasLoadedDefaultFilters, setHasLoadedDefaultFilters] = useState(false);
 
   // 1. Fetch Daftar Cabang untuk filter
-  const { data: cabangList = [] } = useQuery({
+  const { data: cabangList = [] } = useQuery<Branch[]>({
     queryKey: ["branches"],
     queryFn: async () => {
       const { data } = await supabase.from("branches").select("*").order("nama");
-      return data || [];
+      return (data || []) as Branch[];
     },
   });
 
-  const { data: latestPayrollRun = null } = useQuery({
+  const { data: latestPayrollRun = null } = useQuery<PayrollRun | null>({
     queryKey: ["latest_payroll_run"],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -123,7 +232,7 @@ function LaporanPage() {
       const [year, month] = (latestPayrollRun.periode || "").split("-");
       if (year && month) {
         setSelectedYear(Number(year));
-        setSelectedMonth(month);
+        setSelectedMonth(String(month).padStart(2, "0"));
       }
       setSelectedCabang(latestPayrollRun.branch_id || "all");
       setHasLoadedDefaultFilters(true);
@@ -131,49 +240,119 @@ function LaporanPage() {
   }, [latestPayrollRun, hasLoadedDefaultFilters]);
 
   // 2. Fetch data payroll
-  const { data: reportData, isLoading } = useQuery({
+  const { data: reportData, isLoading } = useQuery<PayrollReportRun[]>({
     queryKey: ["payroll_report", selectedYear, selectedMonth, selectedCabang],
     queryFn: async () => {
       const periodeRange = getPeriodeRange(selectedYear, selectedMonth);
       const { data, error } = await supabase.from("payroll_items").select(`
           *,
-          payroll_item_allowances (*),
-          payroll_item_deductions (*),
           payroll_runs (*),
           employees (*, branches (*))
         `);
 
       if (error) throw error;
 
-      const filteredItems = (data || []).filter((item: any) => {
+      const payrollItems = (data || []) as PayrollItem[];
+
+      const filteredItems = payrollItems.filter((item: PayrollItem) => {
         const periode = item.payroll_runs?.periode || "";
         const matchesPeriod = periode >= periodeRange.start && periode < periodeRange.end;
         const runBranchId = item.payroll_runs?.branch_id;
-        const matchesBranch =
-          selectedCabang === "all" || runBranchId === selectedCabang;
+        const matchesBranch = selectedCabang === "all" || runBranchId === selectedCabang;
 
         return matchesPeriod && matchesBranch;
       });
 
-      const groupedRuns = filteredItems.reduce((acc: Record<string, any>, item: any) => {
-        const run = item.payroll_runs;
-        if (!run?.id) return acc;
+      const payrollItemIds = filteredItems
+        .map((item) => item.id)
+        .filter((id): id is string => Boolean(id));
 
-        if (!acc[run.id]) {
-          acc[run.id] = {
-            id: run.id,
-            periode: run.periode,
-            status: run.status,
-            items: [],
-          };
+      let itemsWithComponents = filteredItems;
+
+      if (payrollItemIds.length > 0) {
+        const [
+          { data: allowanceRows, error: allowanceError },
+          { data: deductionRows, error: deductionError },
+        ] = await Promise.all([
+          supabase
+            .from("payroll_item_allowances")
+            .select("*")
+            .in("payroll_item_id", payrollItemIds),
+          supabase
+            .from("payroll_item_deductions")
+            .select("*")
+            .in("payroll_item_id", payrollItemIds),
+        ]);
+
+        if (allowanceError && !isMissingComponentTableError(allowanceError)) {
+          throw allowanceError;
+        }
+        if (deductionError && !isMissingComponentTableError(deductionError)) {
+          throw deductionError;
         }
 
-        acc[run.id].items.push(item);
-        return acc;
-      }, {});
+        const allowancesByItem = (
+          allowanceError ? [] : ((allowanceRows || []) as ComponentItem[])
+        ).reduce(
+          (
+            acc: Record<string, ComponentItem[]>,
+            row: ComponentItem & { payroll_item_id?: string },
+          ) => {
+            if (!row.payroll_item_id) return acc;
+            acc[row.payroll_item_id] = [...(acc[row.payroll_item_id] || []), row];
+            return acc;
+          },
+          {},
+        );
+
+        const deductionsByItem = (
+          deductionError ? [] : ((deductionRows || []) as ComponentItem[])
+        ).reduce(
+          (
+            acc: Record<string, ComponentItem[]>,
+            row: ComponentItem & { payroll_item_id?: string },
+          ) => {
+            if (!row.payroll_item_id) return acc;
+            acc[row.payroll_item_id] = [...(acc[row.payroll_item_id] || []), row];
+            return acc;
+          },
+          {},
+        );
+
+        itemsWithComponents = filteredItems.map((item) => ({
+          ...item,
+          payroll_item_allowances: item.id ? allowancesByItem[item.id] || [] : [],
+          payroll_item_deductions: item.id ? deductionsByItem[item.id] || [] : [],
+        }));
+      }
+
+      const groupedRuns = itemsWithComponents.reduce(
+        (acc: Record<string, PayrollReportRun>, item: PayrollItem) => {
+          const run = item.payroll_runs;
+          if (!run?.id) return acc;
+
+          if (!acc[run.id]) {
+            acc[run.id] = {
+              id: run.id,
+              periode: run.periode || "",
+              status: run.status,
+              items: [],
+              total_karyawan: 0,
+              sum_gaji_pokok: 0,
+              sum_tunjangan: 0,
+              sum_potongan: 0,
+              sum_thp: 0,
+            };
+          }
+
+          acc[run.id].items.push(item);
+          return acc;
+        },
+        {} as Record<string, PayrollReportRun>,
+      );
 
       return Object.values(groupedRuns)
-        .map((run: any) => {
+        .map((run) => {
           const items = run.items || [];
 
           return {
@@ -183,21 +362,24 @@ function LaporanPage() {
             items,
             total_karyawan: items.length,
             sum_gaji_pokok: items.reduce(
-              (acc: number, curr: any) => acc + (curr.gaji_pokok || 0),
+              (acc: number, curr: PayrollItem) => acc + (curr.gaji_pokok || 0),
               0,
             ),
             sum_tunjangan: items.reduce(
-              (acc: number, curr: any) => acc + (curr.total_tunjangan || 0),
+              (acc: number, curr: PayrollItem) => acc + (curr.total_tunjangan || 0),
               0,
             ),
             sum_potongan: items.reduce(
-              (acc: number, curr: any) => acc + (curr.total_potongan || 0),
+              (acc: number, curr: PayrollItem) => acc + (curr.total_potongan || 0),
               0,
             ),
-            sum_thp: items.reduce((acc: number, curr: any) => acc + (curr.gaji_bersih || 0), 0),
+            sum_thp: items.reduce(
+              (acc: number, curr: PayrollItem) => acc + (curr.gaji_bersih || 0),
+              0,
+            ),
           };
         })
-        .sort((a: any, b: any) => a.periode.localeCompare(b.periode));
+        .sort((a, b) => a.periode.localeCompare(b.periode));
     },
   });
 
@@ -214,31 +396,34 @@ function LaporanPage() {
 
   const employeeSummaries = (reportData ?? [])
     .flatMap((run) => run.items || [])
-    .reduce((acc: Record<string, any>, item: any) => {
-      const employee = item.employees;
-      if (!employee) return acc;
+    .reduce(
+      (acc: Record<string, EmployeeSummary>, item: PayrollItem) => {
+        const employee = item.employees;
+        if (!employee?.id) return acc;
 
-      if (!acc[employee.id]) {
-        acc[employee.id] = {
-          id: employee.id,
-          nama: employee.nama || "-",
-          nama_bank: employee.nama_bank || "-",
-          nomor_rekening: employee.nomor_rekening || "-",
-          total_gaji: 0,
-        };
-      }
+        if (!acc[employee.id]) {
+          acc[employee.id] = {
+            id: employee.id,
+            nama: employee.nama || "-",
+            nama_bank: employee.nama_bank || "-",
+            nomor_rekening: employee.nomor_rekening || "-",
+            total_gaji: 0,
+          };
+        }
 
-      acc[employee.id].total_gaji += item.gaji_bersih || 0;
-      return acc;
-    }, {});
+        acc[employee.id].total_gaji += item.gaji_bersih || 0;
+        return acc;
+      },
+      {} as Record<string, EmployeeSummary>,
+    );
 
-  const employeeSummaryList = Object.values(employeeSummaries).sort((a: any, b: any) =>
+  const employeeSummaryList = Object.values(employeeSummaries).sort((a, b) =>
     a.nama.localeCompare(b.nama),
   );
 
   const detailRows = (reportData ?? [])
     .flatMap((run) =>
-      (run.items || []).map((item: any) => ({
+      (run.items || []).map((item: PayrollItem) => ({
         id: item.id || `${run.id}-${item.employees?.id || item.employees?.nama || "employee"}`,
         periode: run.periode,
         nama: item.employees?.nama || "-",
@@ -261,7 +446,7 @@ function LaporanPage() {
         deductions: item.payroll_item_deductions || [],
       })),
     )
-    .sort((a: any, b: any) => {
+    .sort((a: DetailRow, b: DetailRow) => {
       const periodCompare = a.periode.localeCompare(b.periode);
       if (periodCompare !== 0) return periodCompare;
       return a.nama.localeCompare(b.nama);
@@ -270,7 +455,7 @@ function LaporanPage() {
   const selectedBranchName =
     selectedCabang === "all"
       ? "Semua Cabang"
-      : cabangList.find((branch: any) => branch.id === selectedCabang)?.nama ||
+      : cabangList.find((branch: Branch) => branch.id === selectedCabang)?.nama ||
         "Cabang tidak diketahui";
 
   const selectedMonthName =
@@ -367,7 +552,7 @@ function LaporanPage() {
 
   const handleSendWhatsApp = () => {
     const employeeLines = employeeSummaryList.map(
-      (employee: any) =>
+      (employee) =>
         `${employee.nama}: ${formatIDR(employee.total_gaji)} | ${employee.nomor_rekening} | ${employee.nama_bank}`,
     );
 
@@ -388,7 +573,7 @@ function LaporanPage() {
     return BULAN_LABELS[month] || month;
   };
 
-  const handleDownloadDetail = (row: any) => {
+  const handleDownloadDetail = (row: DetailRow) => {
     setDownloadingDetailId(row.id);
 
     try {
@@ -572,7 +757,7 @@ function LaporanPage() {
 
   const getBranchName = (branchId: string | null) => {
     if (!branchId) return "-";
-    return cabangList.find((branch: any) => branch.id === branchId)?.nama || "-";
+    return cabangList.find((branch: Branch) => branch.id === branchId)?.nama || "-";
   };
 
   return (
@@ -628,7 +813,7 @@ function LaporanPage() {
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">Semua Cabang</SelectItem>
-              {cabangList.map((branch: any) => (
+              {cabangList.map((branch: Branch) => (
                 <SelectItem key={branch.id} value={branch.id}>
                   {branch.nama}
                 </SelectItem>
@@ -741,7 +926,7 @@ function LaporanPage() {
                   </TableCell>
                 </TableRow>
               ) : (
-                employeeSummaryList.map((employee: any) => (
+                employeeSummaryList.map((employee: EmployeeSummary) => (
                   <TableRow key={employee.id} className="odd:bg-white even:bg-slate-50/60">
                     <TableCell>{employee.nama}</TableCell>
                     <TableCell className="text-right">{formatIDR(employee.total_gaji)}</TableCell>
@@ -790,7 +975,7 @@ function LaporanPage() {
                     </TableCell>
                   </TableRow>
                 ) : (
-                  detailRows.map((row: any) => (
+                  detailRows.map((row: DetailRow) => (
                     <TableRow key={row.id} className="odd:bg-white even:bg-slate-50/60">
                       <TableCell className="whitespace-nowrap">
                         {formatPeriode(row.periode)}
@@ -810,7 +995,10 @@ function LaporanPage() {
                             <div>
                               <span className="font-semibold text-emerald-700">Tunjangan: </span>
                               {row.allowances
-                                .map((item: any) => `${item.nama} ${formatIDR(item.subtotal || 0)}`)
+                                .map(
+                                  (item: ComponentItem) =>
+                                    `${item.nama} ${formatIDR(item.subtotal || 0)}`,
+                                )
                                 .join(", ")}
                             </div>
                           ) : (
@@ -823,7 +1011,10 @@ function LaporanPage() {
                             <div>
                               <span className="font-semibold text-rose-700">Potongan: </span>
                               {row.deductions
-                                .map((item: any) => `${item.nama} ${formatIDR(item.subtotal || 0)}`)
+                                .map(
+                                  (item: ComponentItem) =>
+                                    `${item.nama} ${formatIDR(item.subtotal || 0)}`,
+                                )
                                 .join(", ")}
                             </div>
                           ) : (

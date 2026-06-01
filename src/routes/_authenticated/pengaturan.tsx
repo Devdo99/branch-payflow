@@ -143,6 +143,18 @@ function PengaturanPage() {
     onError: (e: Error) => toast.error(e.message),
   });
 
+  const previewAccentColor = /^#[0-9a-fA-F]{6}$/.test(slipTemplateConfig.accentColor)
+    ? slipTemplateConfig.accentColor
+    : "#000000";
+  const previewFontSize =
+    slipTemplateConfig.fontSize === "small"
+      ? "text-xs"
+      : slipTemplateConfig.fontSize === "large"
+        ? "text-base"
+        : "text-sm";
+  const isCompactPreview = slipTemplateConfig.layout === "compact";
+  const isBorderlessPreview = slipTemplateConfig.layout === "borderless";
+
   return (
     <div className="flex flex-col gap-6 p-6 max-w-3xl">
       <PageHeader
@@ -343,6 +355,149 @@ function PengaturanPage() {
                         updateSlipTemplateConfig("rightSignatureLabel", e.target.value)
                       }
                     />
+                  </div>
+                </div>
+
+                <div className="space-y-3 rounded-lg border border-slate-200 bg-slate-50 p-4">
+                  <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+                    <div>
+                      <div className="text-sm font-semibold text-slate-900">Preview Slip Aktif</div>
+                      <div className="text-xs text-slate-500">
+                        Contoh ini mengikuti layout dan bagian yang dicentang.
+                      </div>
+                    </div>
+                    <span className="rounded-full border border-slate-200 bg-white px-2.5 py-1 text-xs text-slate-600">
+                      {slipTemplateConfig.layout}
+                    </span>
+                  </div>
+
+                  <div className="overflow-auto rounded-md bg-white p-3">
+                    <div
+                      className={`mx-auto w-full max-w-[520px] bg-white text-slate-950 ${previewFontSize}`}
+                      style={{
+                        border: isBorderlessPreview ? "0" : `1px solid ${previewAccentColor}`,
+                        padding: isCompactPreview ? 20 : 28,
+                      }}
+                    >
+                      {(slipTemplateConfig.showCompanyName ||
+                        slipTemplateConfig.showCompanyAddress) && (
+                        <div
+                          className="mb-4 border-b pb-3 text-center"
+                          style={{ borderColor: previewAccentColor }}
+                        >
+                          {slipTemplateConfig.showCompanyName && (
+                            <div className="text-lg font-bold uppercase tracking-wide">
+                              {namaPerusahaan || "Nama Perusahaan"}
+                            </div>
+                          )}
+                          {slipTemplateConfig.showCompanyAddress && (
+                            <div className="mt-1 whitespace-pre-line text-xs text-slate-600">
+                              {alamat || "Alamat perusahaan"}
+                            </div>
+                          )}
+                        </div>
+                      )}
+
+                      <div
+                        className="text-center text-lg font-bold uppercase tracking-wide"
+                        style={{ color: previewAccentColor }}
+                      >
+                        Slip Gaji
+                      </div>
+
+                      {(slipTemplateConfig.showEmployeeName ||
+                        slipTemplateConfig.showBranch ||
+                        slipTemplateConfig.showPeriod) && (
+                        <div className="my-4 space-y-1 text-slate-700">
+                          {slipTemplateConfig.showEmployeeName && (
+                            <div>
+                              <span className="font-semibold">Nama:</span> Karyawan Contoh
+                            </div>
+                          )}
+                          {slipTemplateConfig.showBranch && (
+                            <div>
+                              <span className="font-semibold">Cabang:</span> Cabang Utama
+                            </div>
+                          )}
+                          {slipTemplateConfig.showPeriod && (
+                            <div>
+                              <span className="font-semibold">Periode:</span> 2026-05
+                            </div>
+                          )}
+                        </div>
+                      )}
+
+                      {(slipTemplateConfig.showBaseSalary ||
+                        slipTemplateConfig.showAllowance ||
+                        slipTemplateConfig.showDeduction ||
+                        slipTemplateConfig.showNetSalary) && (
+                        <div className="mt-4 divide-y divide-slate-200">
+                          {slipTemplateConfig.showBaseSalary && (
+                            <div className="flex justify-between py-2">
+                              <span>Gaji Pokok</span>
+                              <span className="font-medium">Rp 3.000.000</span>
+                            </div>
+                          )}
+                          {slipTemplateConfig.showAllowance && (
+                            <div className="flex justify-between py-2">
+                              <span>Tunjangan</span>
+                              <span className="font-medium">Rp 500.000</span>
+                            </div>
+                          )}
+                          {slipTemplateConfig.showDeduction && (
+                            <div className="flex justify-between py-2">
+                              <span>Potongan</span>
+                              <span className="font-medium">Rp 150.000</span>
+                            </div>
+                          )}
+                          {slipTemplateConfig.showNetSalary && (
+                            <div
+                              className="mt-2 flex justify-between border-t-2 py-3 font-bold"
+                              style={{ borderColor: previewAccentColor }}
+                            >
+                              <span>Total Bersih</span>
+                              <span>Rp 3.350.000</span>
+                            </div>
+                          )}
+                        </div>
+                      )}
+
+                      {slipTemplateConfig.showSignature && (
+                        <div className="mt-8 grid grid-cols-2 gap-6 text-center text-xs text-slate-700">
+                          <div>
+                            <div className="mb-12">
+                              {slipTemplateConfig.leftSignatureLabel || "Dibuat oleh,"}
+                            </div>
+                            <div
+                              className="border-t pt-2"
+                              style={{ borderColor: previewAccentColor }}
+                            >
+                              {slipTemplateConfig.leftSignatureName || "Admin"}
+                            </div>
+                          </div>
+                          <div>
+                            <div className="mb-12">
+                              {slipTemplateConfig.rightSignatureLabel || "Diterima oleh,"}
+                            </div>
+                            <div
+                              className="border-t pt-2"
+                              style={{ borderColor: previewAccentColor }}
+                            >
+                              Karyawan Contoh
+                            </div>
+                          </div>
+                        </div>
+                      )}
+
+                      {slipTemplateConfig.showFooter && (
+                        <div
+                          className="mt-6 border-t pt-3 text-center text-xs text-slate-500"
+                          style={{ borderColor: previewAccentColor }}
+                        >
+                          {footerSlip || "Dokumen ini dibuat otomatis oleh sistem penggajian."}
+                        </div>
+                      )}
+                    </div>
                   </div>
                 </div>
               </>

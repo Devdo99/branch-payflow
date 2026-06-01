@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -93,6 +93,7 @@ function LaporanPage() {
   const [selectedCabang, setSelectedCabang] = useState<string>("all");
   const [isDownloading, setIsDownloading] = useState(false);
   const [downloadingDetailId, setDownloadingDetailId] = useState<string | null>(null);
+  const [hasLoadedDefaultFilters, setHasLoadedDefaultFilters] = useState(false);
 
   // 1. Fetch Daftar Cabang untuk filter
   const { data: cabangList = [] } = useQuery({
@@ -102,6 +103,32 @@ function LaporanPage() {
       return data || [];
     },
   });
+
+  const { data: latestPayrollRun = null } = useQuery({
+    queryKey: ["latest_payroll_run"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("payroll_runs")
+        .select("id, periode, branch_id")
+        .order("periode", { ascending: false })
+        .limit(1);
+
+      if (error) throw error;
+      return data?.[0] ?? null;
+    },
+  });
+
+  useEffect(() => {
+    if (latestPayrollRun && !hasLoadedDefaultFilters) {
+      const [year, month] = (latestPayrollRun.periode || "").split("-");
+      if (year && month) {
+        setSelectedYear(Number(year));
+        setSelectedMonth(month);
+      }
+      setSelectedCabang(latestPayrollRun.branch_id || "all");
+      setHasLoadedDefaultFilters(true);
+    }
+  }, [latestPayrollRun, hasLoadedDefaultFilters]);
 
   // 2. Fetch data payroll
   const { data: reportData, isLoading } = useQuery({
@@ -247,6 +274,27 @@ function LaporanPage() {
 
   const selectedMonthName =
     selectedMonth === "all" ? "Semua Bulan" : BULAN_LABELS[selectedMonth] || selectedMonth;
+
+  const reportEmptyMessage =
+    !isLoading && (!reportData || reportData.length === 0)
+      ? latestPayrollRun
+        ? "Tidak ada data laporan untuk filter yang dipilih. Coba ubah cabang atau periode, atau jalankan payroll di menu Proses Gaji."
+        : "Belum ada payroll yang dibuat. Gunakan menu Proses Gaji untuk membuat payroll terlebih dahulu."
+      : "";
+
+  const yearOptions = useMemo(() => {
+    const years = new Set<number>([currentYear, currentYear - 1]);
+    if (latestPayrollRun?.periode) {
+      const latestYear = Number(latestPayrollRun.periode.split("-")[0]);
+      if (!Number.isNaN(latestYear)) {
+        years.add(latestYear);
+      }
+    }
+    if (!Number.isNaN(selectedYear)) {
+      years.add(selectedYear);
+    }
+    return Array.from(years).sort((a, b) => b - a);
+  }, [currentYear, latestPayrollRun, selectedYear]);
 
   const totalEmployees = employeeSummaryList.length;
   const totalPeriods = reportData?.length || 0;
@@ -558,7 +606,7 @@ function LaporanPage() {
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              {[currentYear - 1, currentYear].map((y) => (
+              {yearOptions.map((y) => (
                 <SelectItem key={y} value={y.toString()}>
                   {y}
                 </SelectItem>
@@ -639,6 +687,12 @@ function LaporanPage() {
             </div>
           </div>
         </div>
+
+        {reportEmptyMessage ? (
+          <div className="rounded-md border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
+            {reportEmptyMessage}
+          </div>
+        ) : null}
 
         {/* Summary Cards */}
         <div className="grid gap-3 md:grid-cols-4">

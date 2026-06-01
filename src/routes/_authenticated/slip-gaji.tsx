@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { PageHeader } from "@/components/page-header";
@@ -140,6 +140,22 @@ const getSlipFileName = (slip: SlipItem, extension: "jpg" | "pdf") => {
   const nama = safeFileName(slip.employees?.nama);
   const periode = safeFileName(slip.payroll_runs?.periode || "Periode");
   return `Slip_Gaji_${nama}_${periode}.${extension}`;
+};
+
+const BULAN_LABELS: Record<string, string> = {
+  all: "Semua Bulan",
+  "01": "Januari",
+  "02": "Februari",
+  "03": "Maret",
+  "04": "April",
+  "05": "Mei",
+  "06": "Juni",
+  "07": "Juli",
+  "08": "Agustus",
+  "09": "September",
+  "10": "Oktober",
+  "11": "November",
+  "12": "Desember",
 };
 
 const getRawHtmlTemplate = (slip: SlipItem, settings?: AppSettings) => {
@@ -475,6 +491,10 @@ function SlipGajiPage() {
 
   const [loading, setLoading] = useState<string | null>(null);
   const [previewSlip, setPreviewSlip] = useState<SlipItem | null>(null);
+  const [selectedBranch, setSelectedBranch] = useState<string>("all");
+  const [selectedYear, setSelectedYear] = useState<number>(new Date().getFullYear());
+  const [selectedMonth, setSelectedMonth] = useState<string>("all");
+  const [hasInitializedFilters, setHasInitializedFilters] = useState(false);
 
   const { data: appSettings = null } = useQuery({
     queryKey: ["app_settings"],
@@ -490,6 +510,41 @@ function SlipGajiPage() {
       return data;
     },
   });
+
+  const { data: branches = [] } = useQuery({
+    queryKey: ["branches"],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("branches").select("id, nama").order("nama");
+      if (error) throw error;
+      return data || [];
+    },
+  });
+
+  const { data: latestPayrollRun = null } = useQuery({
+    queryKey: ["latest_payroll_run"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("payroll_runs")
+        .select("id, periode, branch_id")
+        .order("periode", { ascending: false })
+        .limit(1);
+
+      if (error) throw error;
+      return data?.[0] ?? null;
+    },
+  });
+
+  useEffect(() => {
+    if (latestPayrollRun && !hasInitializedFilters) {
+      const [year, month] = (latestPayrollRun.periode || "").split("-");
+      if (year && month) {
+        setSelectedYear(Number(year));
+        setSelectedMonth(month);
+      }
+      setSelectedBranch(latestPayrollRun.branch_id || "all");
+      setHasInitializedFilters(true);
+    }
+  }, [latestPayrollRun, hasInitializedFilters]);
 
   const {
     data: payrollItems = [],
@@ -509,6 +564,35 @@ function SlipGajiPage() {
       return data || [];
     },
   });
+
+  const filteredPayrollItems = useMemo(() => {
+    return payrollItems.filter((slip: SlipItem) => {
+      const periode = slip.payroll_runs?.periode || "";
+      const branchMatch = selectedBranch === "all" || slip.employees?.branch_id === selectedBranch;
+      const periodMatch = selectedMonth === "all"
+        ? periode.startsWith(`${selectedYear}-`)
+        : periode === `${selectedYear}-${selectedMonth}`;
+
+      return branchMatch && periodMatch;
+    });
+  }, [payrollItems, selectedBranch, selectedYear, selectedMonth]);
+
+  const yearOptions = useMemo(() => {
+    const years = new Set<number>([new Date().getFullYear()]);
+    if (latestPayrollRun?.periode) {
+      const year = Number(latestPayrollRun.periode.split("-")[0]);
+      if (!Number.isNaN(year)) {
+        years.add(year);
+      }
+    }
+    payrollItems.forEach((slip: SlipItem) => {
+      const year = Number(slip.payroll_runs?.periode?.split("-")[0]);
+      if (!Number.isNaN(year)) {
+        years.add(year);
+      }
+    });
+    return Array.from(years).sort((a, b) => b - a);
+  }, [latestPayrollRun, payrollItems]);
 
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => {
@@ -719,6 +803,50 @@ function SlipGajiPage() {
       <PageHeader title="Slip Gaji" description="Kelola, unduh, dan kirim slip gaji karyawan" />
 
       <div className="rounded-lg border bg-white">
+        <div className="flex flex-col gap-3 border-b border-slate-200 bg-slate-50 p-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex flex-col gap-2">
+            <div className="text-sm font-semibold">Filter Slip Gaji</div>
+            <div className="flex flex-wrap gap-2">
+              <select
+                value={selectedBranch}
+                onChange={(event) => setSelectedBranch(event.currentTarget.value)}
+                className="rounded border px-3 py-2 text-sm"
+              >
+                <option value="all">Semua Cabang</option>
+                {branches.map((branch: any) => (
+                  <option key={branch.id} value={branch.id}>
+                    {branch.nama}
+                  </option>
+                ))}
+              </select>
+
+              <select
+                value={selectedYear}
+                onChange={(event) => setSelectedYear(Number(event.currentTarget.value))}
+                className="rounded border px-3 py-2 text-sm"
+              >
+                {yearOptions.map((year) => (
+                  <option key={year} value={year}>
+                    {year}
+                  </option>
+                ))}
+              </select>
+
+              <select
+                value={selectedMonth}
+                onChange={(event) => setSelectedMonth(event.currentTarget.value)}
+                className="rounded border px-3 py-2 text-sm"
+              >
+                {Object.entries(BULAN_LABELS).map(([value, label]) => (
+                  <option key={value} value={value}>
+                    {label}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+        </div>
+
         <Table>
           <TableHeader>
             <TableRow>
@@ -750,17 +878,19 @@ function SlipGajiPage() {
               </TableRow>
             )}
 
-            {!isLoading && !isError && payrollItems.length === 0 && (
+            {!isLoading && !isError && filteredPayrollItems.length === 0 && (
               <TableRow>
                 <TableCell colSpan={5} className="h-24 text-center text-muted-foreground">
-                  Belum ada data slip gaji.
+                  {payrollItems.length === 0
+                    ? "Belum ada data slip gaji."
+                    : "Tidak ada slip gaji untuk filter yang dipilih. Pilih cabang, tahun, atau bulan lain."}
                 </TableCell>
               </TableRow>
             )}
 
             {!isLoading &&
               !isError &&
-              payrollItems.map((slip: SlipItem) => {
+              filteredPayrollItems.map((slip: SlipItem) => {
                 const jpgLoading = isButtonLoading(`JPG-${slip.id}`);
                 const pdfLoading = isButtonLoading(`PDF-${slip.id}`);
                 const waImageLoading = isButtonLoading(`WA-IMG-${slip.id}`);

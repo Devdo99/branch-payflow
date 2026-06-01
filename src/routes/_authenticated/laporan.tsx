@@ -148,8 +148,9 @@ function LaporanPage() {
       const filteredItems = (data || []).filter((item: any) => {
         const periode = item.payroll_runs?.periode || "";
         const matchesPeriod = periode >= periodeRange.start && periode < periodeRange.end;
+        const runBranchId = item.payroll_runs?.branch_id;
         const matchesBranch =
-          selectedCabang === "all" || item.employees?.branch_id === selectedCabang;
+          selectedCabang === "all" || runBranchId === selectedCabang;
 
         return matchesPeriod && matchesBranch;
       });

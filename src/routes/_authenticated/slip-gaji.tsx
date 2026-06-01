@@ -568,7 +568,9 @@ function SlipGajiPage() {
   const filteredPayrollItems = useMemo(() => {
     return payrollItems.filter((slip: SlipItem) => {
       const periode = slip.payroll_runs?.periode || "";
-      const branchMatch = selectedBranch === "all" || slip.employees?.branch_id === selectedBranch;
+      const runBranchId = slip.payroll_runs?.branch_id;
+      const branchMatch =
+        selectedBranch === "all" || runBranchId === selectedBranch;
       const periodMatch = selectedMonth === "all"
         ? periode.startsWith(`${selectedYear}-`)
         : periode === `${selectedYear}-${selectedMonth}`;

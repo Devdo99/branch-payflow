@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useState, useEffect, useMemo } from "react";
+import { Fragment, useState, useEffect, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { PageHeader } from "@/components/page-header";
@@ -72,6 +72,10 @@ function AppProsesGajiPage() {
   const [isConfirmOpen, setIsConfirmOpen] = useState(false);
   const [isDetailOpen, setIsDetailOpen] = useState(false);
   const [detailEmp, setDetailEmp] = useState<any | null>(null);
+  const [customAllowanceModalOpen, setCustomAllowanceModalOpen] = useState(false);
+  const [customAllowanceEmployeeId, setCustomAllowanceEmployeeId] = useState<string | null>(null);
+  const [customAllowanceName, setCustomAllowanceName] = useState("");
+  const [customAllowanceNominal, setCustomAllowanceNominal] = useState<number | "">("");
   const [periodeGaji, setPeriodeGaji] = useState(getCurrentPeriode());
   const [isSaving, setIsSaving] = useState(false);
 
@@ -181,7 +185,9 @@ function AppProsesGajiPage() {
       };
     }
 
-    const latestHistory = (salaryHistory as any[]).find((history) => history.employee_id === emp.id);
+    const latestHistory = (salaryHistory as any[]).find(
+      (history) => history.employee_id === emp.id,
+    );
     const baseDate = new Date(latestHistory?.tanggal_berlaku || emp.tanggal_masuk);
     if (Number.isNaN(baseDate.getTime())) {
       return {
@@ -270,7 +276,15 @@ function AppProsesGajiPage() {
         }),
       );
     }
-  }, [dbEmployees, allowanceTypes, deductionTypes, listJabatan, salaryEvaluations, salaryHistory, periodeGaji]);
+  }, [
+    dbEmployees,
+    allowanceTypes,
+    deductionTypes,
+    listJabatan,
+    salaryEvaluations,
+    salaryHistory,
+    periodeGaji,
+  ]);
 
   // Filter Karyawan Berdasarkan Cabang yang Dipilih
   const filteredEmployees = useMemo(() => {
@@ -387,7 +401,8 @@ function AppProsesGajiPage() {
         .map((allowance: any) => {
           const subtotal = getComponentCalculatedValue(allowance, emp);
           if (subtotal <= 0) return null;
-          const qty = allowance.metode === "fixed" ? 1 : Number(emp.component_inputs?.[allowance.id]) || 0;
+          const qty =
+            allowance.metode === "fixed" ? 1 : Number(emp.component_inputs?.[allowance.id]) || 0;
           const nominal =
             allowance.metode === "manual" ? subtotal : Number(allowance.nominal_default || 0);
           return {
@@ -416,7 +431,8 @@ function AppProsesGajiPage() {
       .map((deduction: any) => {
         const subtotal = getComponentCalculatedValue(deduction, emp);
         if (subtotal <= 0) return null;
-        const qty = deduction.metode === "fixed" ? 1 : Number(emp.component_inputs?.[deduction.id]) || 0;
+        const qty =
+          deduction.metode === "fixed" ? 1 : Number(emp.component_inputs?.[deduction.id]) || 0;
         const nominal =
           deduction.metode === "manual"
             ? subtotal
@@ -484,21 +500,35 @@ function AppProsesGajiPage() {
   };
 
   const handleAddCustomAllowance = (empId: string) => {
-    const namaTunjangan = window.prompt(
-      "Nama Tunjangan Tambahan (Contoh: Bonus Target / Lembur Dadakan):",
-    );
-    if (!namaTunjangan) return;
-    const nominal = Number(window.prompt("Masukkan Nominal (Rp):")) || 0;
-    if (nominal <= 0) return toast.error("Nominal tidak valid.");
+    setCustomAllowanceEmployeeId(empId);
+    setCustomAllowanceName("");
+    setCustomAllowanceNominal("");
+    setCustomAllowanceModalOpen(true);
+  };
+
+  const handleConfirmCustomAllowance = () => {
+    if (!customAllowanceEmployeeId) return;
+
+    const trimmedName = customAllowanceName.trim();
+    const nominal = Number(customAllowanceNominal);
+
+    if (!trimmedName) {
+      toast.error("Nama penyesuaian wajib diisi.");
+      return;
+    }
+    if (Number.isNaN(nominal) || nominal <= 0) {
+      toast.error("Nominal harus lebih besar dari nol.");
+      return;
+    }
 
     setEmployees((prev) => {
       const updatedEmployees = prev.map((emp) => {
-        if (emp.id === empId) {
+        if (emp.id === customAllowanceEmployeeId) {
           const updatedEmp = {
             ...emp,
             custom_allowances: [
               ...(emp.custom_allowances || []),
-              { id: "custom-" + Date.now(), nama: namaTunjangan, nominal },
+              { id: `custom-${Date.now()}`, nama: trimmedName, nominal },
             ],
           };
           updatedEmp.grandTotal = calculateTotal(updatedEmp);
@@ -506,11 +536,16 @@ function AppProsesGajiPage() {
         }
         return emp;
       });
-      if (detailEmp?.id === empId) {
-        setDetailEmp(updatedEmployees.find((emp) => emp.id === empId) ?? null);
+      if (detailEmp?.id === customAllowanceEmployeeId) {
+        setDetailEmp(updatedEmployees.find((emp) => emp.id === customAllowanceEmployeeId) ?? null);
       }
       return updatedEmployees;
     });
+
+    setCustomAllowanceModalOpen(false);
+    setCustomAllowanceEmployeeId(null);
+    setCustomAllowanceName("");
+    setCustomAllowanceNominal("");
     toast.success("Penyesuaian berhasil ditambahkan.");
   };
 
@@ -792,6 +827,61 @@ function AppProsesGajiPage() {
       </Dialog>
 
       <Dialog
+        open={customAllowanceModalOpen}
+        onOpenChange={(open) => {
+          if (!open) {
+            setCustomAllowanceModalOpen(false);
+            setCustomAllowanceEmployeeId(null);
+          }
+        }}
+      >
+        <DialogContent className="sm:max-w-[420px]">
+          <DialogHeader>
+            <DialogTitle>Tambah Penyesuaian Khusus</DialogTitle>
+            <DialogDescription>
+              Tambahkan penyesuaian yang hanya berlaku untuk satu karyawan.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label>Nama Penyesuaian</Label>
+              <Input
+                value={customAllowanceName}
+                onChange={(e) => setCustomAllowanceName(e.target.value)}
+                placeholder="Contoh: Lembur Minggu"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Nominal (Rp)</Label>
+              <Input
+                type="number"
+                value={customAllowanceNominal}
+                onChange={(e) => setCustomAllowanceNominal(Number(e.target.value) || "")}
+                placeholder="500000"
+              />
+            </div>
+          </div>
+          <div className="flex justify-end gap-2 pt-2 border-t mt-2">
+            <Button
+              variant="ghost"
+              onClick={() => {
+                setCustomAllowanceModalOpen(false);
+                setCustomAllowanceEmployeeId(null);
+              }}
+            >
+              Batal
+            </Button>
+            <Button
+              onClick={handleConfirmCustomAllowance}
+              className="bg-slate-900 text-white hover:bg-slate-800"
+            >
+              Tambah Penyesuaian
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
         open={isDetailOpen}
         onOpenChange={(open) => (!open ? closeDetail() : setIsDetailOpen(true))}
       >
@@ -899,9 +989,7 @@ function AppProsesGajiPage() {
                       <div>
                         <div className="text-xs text-slate-600">{ded.nama}</div>
                         {ded.metode === "per_day" && Number(ded.nominal_default || 0) === 0 && (
-                          <div className="text-[10px] text-slate-400">
-                            Gaji pokok / 30 x jumlah
-                          </div>
+                          <div className="text-[10px] text-slate-400">Gaji pokok / 30 x jumlah</div>
                         )}
                       </div>
                       {ded.metode === "fixed" ? (
@@ -1020,8 +1108,8 @@ function AppProsesGajiPage() {
                 </TableRow>
               ) : (
                 filteredEmployees.map((emp) => (
-                  <>
-                    <TableRow key={emp.id} className="group hover:bg-slate-50/50 transition-colors">
+                  <Fragment key={emp.id}>
+                      <TableRow className="group hover:bg-slate-50/50 transition-colors">
                       <TableCell className="sticky left-0 bg-white group-hover:bg-slate-50/95 z-10 space-y-2 border-r border-slate-100 transition-colors">
                         <div>
                           <div className="font-medium text-slate-900">{emp.nama}</div>
@@ -1199,9 +1287,7 @@ function AppProsesGajiPage() {
                                 />
                                 {ded.metode === "per_day" &&
                                   Number(ded.nominal_default || 0) === 0 && (
-                                    <span className="text-[10px] text-slate-400">
-                                      gaji/30
-                                    </span>
+                                    <span className="text-[10px] text-slate-400">gaji/30</span>
                                   )}
                                 {finalVal > 0 && (
                                   <span className="text-[10px] text-rose-500 font-semibold">
@@ -1277,7 +1363,7 @@ function AppProsesGajiPage() {
                         </div>
                       </TableCell>
                     </TableRow>
-                  </>
+                  </Fragment>
                 ))
               )}
             </TableBody>

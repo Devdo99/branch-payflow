@@ -100,56 +100,57 @@
 
   /* Sidebar — putih bersih, item aktif hijau */
   /* Sidebar — Latar Hijau Tua, Teks Putih (Versi HSL yang lebih kompatibel) */
-  --sidebar: 150 100% 19%;       /* Forest Green (Hijau Tua) */
+  --sidebar: 150 100% 19%; /* Forest Green (Hijau Tua) */
   --sidebar-foreground: 0 0% 100%; /* Putih bersih */
-  
+
   /* Warna tombol saat diklik/aktif */
-  --sidebar-primary: 150 100% 25%; 
+  --sidebar-primary: 150 100% 25%;
   --sidebar-primary-foreground: 0 0% 100%;
-  
+
   /* Warna saat di-hover/disorot mouse */
-  --sidebar-accent: 150 100% 22%; 
+  --sidebar-accent: 150 100% 22%;
   --sidebar-accent-foreground: 0 0% 100%;
-  
+
   --sidebar-border: 150 100% 15%; /* Border hijau sangat gelap */
-  --sidebar-ring: 150 100% 30%;}
+  --sidebar-ring: 150 100% 30%;
+}
 
 .dark {
   --background: oklch(0.18 0.01 150);
   --foreground: oklch(0.96 0.005 150);
-  
+
   --card: oklch(0.22 0.015 150);
   --card-foreground: oklch(0.96 0.005 150);
-  
+
   --popover: oklch(0.22 0.015 150);
   --popover-foreground: oklch(0.96 0.005 150);
-  
+
   /* Aksen Utama: Hijau terang (agar kontras di dark mode) */
   --primary: oklch(0.75 0.12 150);
   --primary-foreground: oklch(0.2 0.04 150);
-  
+
   --secondary: oklch(0.28 0.02 150);
   --secondary-foreground: oklch(0.96 0.005 150);
-  
+
   --muted: oklch(0.26 0.02 150);
   --muted-foreground: oklch(0.7 0.015 150);
-  
+
   --accent: oklch(0.3 0.025 150);
   --accent-foreground: oklch(0.96 0.005 150);
-  
+
   --destructive: oklch(0.6 0.2 27);
   --destructive-foreground: oklch(0.99 0 0);
-  
+
   --success: oklch(0.6 0.12 155);
   --success-foreground: oklch(0.99 0 0);
-  
+
   --warning: oklch(0.72 0.14 75);
   --warning-foreground: oklch(0.18 0.02 150);
-  
+
   --border: oklch(1 0 0 / 12%);
   --input: oklch(1 0 0 / 15%);
   --ring: oklch(0.75 0.12 150);
-  
+
   /* Sidebar Dark Mode */
   --sidebar: oklch(0.2 0.015 150);
   --sidebar-foreground: oklch(0.92 0.01 150);

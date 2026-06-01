@@ -19,13 +19,26 @@ function DashboardPage() {
       const [branches, employees, items, rek] = await Promise.all([
         supabase.from("branches").select("id", { count: "exact", head: true }).eq("aktif", true),
         supabase.from("employees").select("id", { count: "exact", head: true }).eq("aktif", true),
-        supabase.from("payroll_items").select("gaji_pokok,total_tunjangan,total_potongan,gaji_bersih,kasbon,slip_dibuat,payroll_run_id,payroll_run:payroll_runs!inner(periode,branch_id)").eq("payroll_run.periode", periode),
-        supabase.from("employees").select("id", { count: "exact", head: true }).neq("status_rekening", "valid").eq("aktif", true),
+        supabase
+          .from("payroll_items")
+          .select(
+            "gaji_pokok,total_tunjangan,total_potongan,gaji_bersih,kasbon,slip_dibuat,payroll_run_id,payroll_run:payroll_runs!inner(periode,branch_id)",
+          )
+          .eq("payroll_run.periode", periode),
+        supabase
+          .from("employees")
+          .select("id", { count: "exact", head: true })
+          .neq("status_rekening", "valid")
+          .eq("aktif", true),
       ]);
 
       const it = (items.data ?? []) as Array<{
-        gaji_pokok: number; total_tunjangan: number; total_potongan: number;
-        gaji_bersih: number; kasbon: number | null; slip_dibuat: boolean;
+        gaji_pokok: number;
+        total_tunjangan: number;
+        total_potongan: number;
+        gaji_bersih: number;
+        kasbon: number | null;
+        slip_dibuat: boolean;
       }>;
 
       return {
@@ -44,12 +57,23 @@ function DashboardPage() {
   const cards = [
     { label: "Cabang Aktif", value: data?.totalCabang ?? 0, icon: Building2, format: false },
     { label: "Karyawan Aktif", value: data?.totalKaryawan ?? 0, icon: Users, format: false },
-    { label: `Total Gaji ${formatPeriode(periode)}`, value: data?.totalGaji ?? 0, icon: Wallet, format: true },
+    {
+      label: `Total Gaji ${formatPeriode(periode)}`,
+      value: data?.totalGaji ?? 0,
+      icon: Wallet,
+      format: true,
+    },
     { label: "Total Tunjangan", value: data?.totalTunjangan ?? 0, icon: Wallet, format: true },
     { label: "Total Potongan", value: data?.totalPotongan ?? 0, icon: Wallet, format: true },
     { label: "Total Kasbon", value: data?.totalKasbon ?? 0, icon: Wallet, format: true },
     { label: "Slip Dibuat", value: data?.slipDibuat ?? 0, icon: FileText, format: false },
-    { label: "Rekening Perlu Dicek", value: data?.rekeningPerluCek ?? 0, icon: Landmark, format: false, warn: true },
+    {
+      label: "Rekening Perlu Dicek",
+      value: data?.rekeningPerluCek ?? 0,
+      icon: Landmark,
+      format: false,
+      warn: true,
+    },
   ];
 
   return (
@@ -61,7 +85,9 @@ function DashboardPage() {
             <div key={c.label} className="rounded-md border border-border bg-card p-4">
               <div className="flex items-center justify-between">
                 <span className="text-xs text-muted-foreground">{c.label}</span>
-                <c.icon className={"h-4 w-4 " + (c.warn ? "text-warning" : "text-muted-foreground")} />
+                <c.icon
+                  className={"h-4 w-4 " + (c.warn ? "text-warning" : "text-muted-foreground")}
+                />
               </div>
               <div className="mt-2 text-lg font-semibold tabular-nums">
                 {c.format ? formatIDR(Number(c.value)) : c.value}
@@ -76,8 +102,8 @@ function DashboardPage() {
             Catatan
           </div>
           <p className="mt-2 text-sm text-muted-foreground">
-            Fitur peringatan kenaikan gaji, laporan per cabang, dan ringkasan lainnya akan diaktifkan
-            setelah modul terkait selesai dibangun di iterasi berikutnya.
+            Fitur peringatan kenaikan gaji, laporan per cabang, dan ringkasan lainnya akan
+            diaktifkan setelah modul terkait selesai dibangun di iterasi berikutnya.
           </p>
         </div>
       </div>

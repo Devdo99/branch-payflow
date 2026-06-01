@@ -1,12 +1,12 @@
-import { createFileRoute } from '@tanstack/react-router'
-import { useState } from 'react'
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { supabase } from '@/integrations/supabase/client'
-import { PageHeader } from '@/components/page-header'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
-import { Textarea } from '@/components/ui/textarea'
+import { createFileRoute } from "@tanstack/react-router";
+import { useState } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
+import { PageHeader } from "@/components/page-header";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import {
   Table,
   TableBody,
@@ -14,116 +14,108 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from '@/components/ui/table'
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog'
+} from "@/components/ui/table";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from '@/components/ui/select'
-import { Badge } from '@/components/ui/badge'
-import { toast } from 'sonner'
-import { Pencil, Loader2, Building2 } from 'lucide-react'
-import { Database } from '@/integrations/supabase/types'
+} from "@/components/ui/select";
+import { Badge } from "@/components/ui/badge";
+import { toast } from "sonner";
+import { Pencil, Loader2, Building2 } from "lucide-react";
+import { Database } from "@/integrations/supabase/types";
 
-type Employee = Database['public']['Tables']['employees']['Row']
-type BankStatus = Database['public']['Enums']['bank_status']
+type Employee = Database["public"]["Tables"]["employees"]["Row"];
+type BankStatus = Database["public"]["Enums"]["bank_status"];
 
-export const Route = createFileRoute('/_authenticated/rekening-bank')({
+export const Route = createFileRoute("/_authenticated/rekening-bank")({
   component: RekeningBankPage,
-})
+});
 
 const statusLabels: Record<BankStatus, string> = {
-  valid: 'Valid (Siap Transfer)',
-  belum_dicek: 'Belum Dicek',
-  perlu_dicek_ulang: 'Perlu Dicek Ulang',
-}
+  valid: "Valid (Siap Transfer)",
+  belum_dicek: "Belum Dicek",
+  perlu_dicek_ulang: "Perlu Dicek Ulang",
+};
 
 function getStatusBadge(status: BankStatus) {
   switch (status) {
-    case 'valid':
-      return <Badge className="bg-green-500 hover:bg-green-600">Valid</Badge>
-    case 'belum_dicek':
-      return <Badge variant="secondary">Belum Dicek</Badge>
-    case 'perlu_dicek_ulang':
-      return <Badge variant="destructive">Perlu Cek Ulang</Badge>
+    case "valid":
+      return <Badge className="bg-green-500 hover:bg-green-600">Valid</Badge>;
+    case "belum_dicek":
+      return <Badge variant="secondary">Belum Dicek</Badge>;
+    case "perlu_dicek_ulang":
+      return <Badge variant="destructive">Perlu Cek Ulang</Badge>;
   }
 }
 
 function RekeningBankPage() {
-  const queryClient = useQueryClient()
-  const [isOpen, setIsOpen] = useState(false)
-  const [editItem, setEditItem] = useState<Employee | null>(null)
+  const queryClient = useQueryClient();
+  const [isOpen, setIsOpen] = useState(false);
+  const [editItem, setEditItem] = useState<Employee | null>(null);
 
   // Form State
-  const [namaBank, setNamaBank] = useState('')
-  const [nomorRekening, setNomorRekening] = useState('')
-  const [namaPemilik, setNamaPemilik] = useState('')
-  const [statusRekening, setStatusRekening] = useState<BankStatus>('belum_dicek')
-  const [catatan, setCatatan] = useState('')
+  const [namaBank, setNamaBank] = useState("");
+  const [nomorRekening, setNomorRekening] = useState("");
+  const [namaPemilik, setNamaPemilik] = useState("");
+  const [statusRekening, setStatusRekening] = useState<BankStatus>("belum_dicek");
+  const [catatan, setCatatan] = useState("");
 
   // Fetch Data - Hanya ambil karyawan aktif
   const { data: employees, isLoading } = useQuery({
-    queryKey: ['employees_bank'],
+    queryKey: ["employees_bank"],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from('employees')
-        .select('*')
-        .eq('aktif', true)
-        .order('nama', { ascending: true })
-      if (error) throw error
-      return data as Employee[]
+        .from("employees")
+        .select("*")
+        .eq("aktif", true)
+        .order("nama", { ascending: true });
+      if (error) throw error;
+      return data as Employee[];
     },
-  })
+  });
 
   // Mutation
   const updateMutation = useMutation({
     mutationFn: async (newData: Partial<Employee>) => {
-      if (!editItem) return
-      const { error } = await supabase
-        .from('employees')
-        .update(newData)
-        .eq('id', editItem.id)
-      if (error) throw error
+      if (!editItem) return;
+      const { error } = await supabase.from("employees").update(newData).eq("id", editItem.id);
+      if (error) throw error;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['employees_bank'] })
-      toast.success('Data rekening berhasil diperbarui!')
-      setIsOpen(false)
+      queryClient.invalidateQueries({ queryKey: ["employees_bank"] });
+      toast.success("Data rekening berhasil diperbarui!");
+      setIsOpen(false);
     },
     onError: (error) => {
-      toast.error('Gagal menyimpan data: ' + error.message)
+      toast.error("Gagal menyimpan data: " + error.message);
     },
-  })
+  });
 
   const handleEdit = (item: Employee) => {
-    setEditItem(item)
-    setNamaBank(item.nama_bank || '')
-    setNomorRekening(item.nomor_rekening || '')
+    setEditItem(item);
+    setNamaBank(item.nama_bank || "");
+    setNomorRekening(item.nomor_rekening || "");
     // Default ke nama karyawan jika nama pemilik masih kosong
-    setNamaPemilik(item.nama_pemilik_rekening || item.nama) 
-    setStatusRekening(item.status_rekening)
-    setCatatan(item.catatan_rekening || '')
-    setIsOpen(true)
-  }
+    setNamaPemilik(item.nama_pemilik_rekening || item.nama);
+    setStatusRekening(item.status_rekening);
+    setCatatan(item.catatan_rekening || "");
+    setIsOpen(true);
+  };
 
   const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault()
+    e.preventDefault();
     updateMutation.mutate({
       nama_bank: namaBank,
       nomor_rekening: nomorRekening,
       nama_pemilik_rekening: namaPemilik,
       status_rekening: statusRekening,
       catatan_rekening: catatan,
-    })
-  }
+    });
+  };
 
   return (
     <div className="flex flex-col gap-6 p-6">
@@ -174,19 +166,25 @@ function RekeningBankPage() {
                 onChange={(e) => setNamaPemilik(e.target.value)}
               />
               <p className="text-[0.8rem] text-muted-foreground">
-                Pastikan nama di sini sama persis dengan nama di buku tabungan untuk menghindari retur/gagal transfer.
+                Pastikan nama di sini sama persis dengan nama di buku tabungan untuk menghindari
+                retur/gagal transfer.
               </p>
             </div>
 
             <div className="flex flex-col gap-2">
               <Label htmlFor="status">Status Validasi</Label>
-              <Select value={statusRekening} onValueChange={(val) => setStatusRekening(val as BankStatus)}>
+              <Select
+                value={statusRekening}
+                onValueChange={(val) => setStatusRekening(val as BankStatus)}
+              >
                 <SelectTrigger>
                   <SelectValue placeholder="Pilih status validasi" />
                 </SelectTrigger>
                 <SelectContent>
                   {Object.entries(statusLabels).map(([key, label]) => (
-                    <SelectItem key={key} value={key}>{label}</SelectItem>
+                    <SelectItem key={key} value={key}>
+                      {label}
+                    </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
@@ -246,13 +244,17 @@ function RekeningBankPage() {
                     )}
                   </TableCell>
                   <TableCell>
-                    {item.nama_bank || <span className="text-muted-foreground italic">- Belum diisi -</span>}
+                    {item.nama_bank || (
+                      <span className="text-muted-foreground italic">- Belum diisi -</span>
+                    )}
                   </TableCell>
                   <TableCell>
                     {item.nomor_rekening ? (
                       <div className="flex flex-col">
                         <span className="font-mono text-sm">{item.nomor_rekening}</span>
-                        <span className="text-xs text-muted-foreground uppercase">A.N. {item.nama_pemilik_rekening}</span>
+                        <span className="text-xs text-muted-foreground uppercase">
+                          A.N. {item.nama_pemilik_rekening}
+                        </span>
                       </div>
                     ) : (
                       <span className="text-muted-foreground italic">- Belum diisi -</span>
@@ -262,7 +264,12 @@ function RekeningBankPage() {
                     {getStatusBadge(item.status_rekening)}
                   </TableCell>
                   <TableCell className="text-right">
-                    <Button variant="outline" size="sm" onClick={() => handleEdit(item)} className="gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleEdit(item)}
+                      className="gap-2"
+                    >
                       <Pencil className="h-4 w-4" />
                       Update
                     </Button>
@@ -274,5 +281,5 @@ function RekeningBankPage() {
         </Table>
       </div>
     </div>
-  )
+  );
 }

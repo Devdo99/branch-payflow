@@ -1,12 +1,32 @@
 import { Link, useRouterState } from "@tanstack/react-router";
 import {
-  LayoutDashboard, Building2, Users, Wallet, Plus, Minus,
-  Calculator, FileText, MessageSquare, Settings2, Landmark,
-  BarChart3, Settings, LogOut, Briefcase, // Briefcase sudah ditambahkan di sini
+  LayoutDashboard,
+  Building2,
+  Users,
+  Wallet,
+  Plus,
+  Minus,
+  Calculator,
+  FileText,
+  MessageSquare,
+  Settings2,
+  Landmark,
+  BarChart3,
+  Settings,
+  LogOut,
+  Briefcase, // Briefcase sudah ditambahkan di sini
 } from "lucide-react";
 import {
-  Sidebar, SidebarContent, SidebarGroup, SidebarGroupContent, SidebarGroupLabel,
-  SidebarMenu, SidebarMenuButton, SidebarMenuItem, SidebarHeader, SidebarFooter,
+  Sidebar,
+  SidebarContent,
+  SidebarGroup,
+  SidebarGroupContent,
+  SidebarGroupLabel,
+  SidebarMenu,
+  SidebarMenuButton,
+  SidebarMenuItem,
+  SidebarHeader,
+  SidebarFooter,
   useSidebar,
 } from "@/components/ui/sidebar";
 import { useAuth } from "@/lib/auth-context";
@@ -14,9 +34,7 @@ import { useAuth } from "@/lib/auth-context";
 const groups = [
   {
     label: "Ringkasan",
-    items: [
-      { title: "Dashboard", url: "/dashboard", icon: LayoutDashboard },
-    ],
+    items: [{ title: "Dashboard", url: "/dashboard", icon: LayoutDashboard }],
   },
   {
     label: "Master Data",

@@ -12,7 +12,20 @@ export function formatDate(value: string | Date | null | undefined): string {
 export function formatPeriode(yyyymm: string | null | undefined): string {
   if (!yyyymm) return "-";
   const [y, m] = yyyymm.split("-");
-  const months = ["Januari","Februari","Maret","April","Mei","Juni","Juli","Agustus","September","Oktober","November","Desember"];
+  const months = [
+    "Januari",
+    "Februari",
+    "Maret",
+    "April",
+    "Mei",
+    "Juni",
+    "Juli",
+    "Agustus",
+    "September",
+    "Oktober",
+    "November",
+    "Desember",
+  ];
   return `${months[Number(m) - 1] ?? m} ${y}`;
 }
 

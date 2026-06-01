@@ -10,13 +10,31 @@ import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
 import {
-  Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
 } from "@/components/ui/dialog";
 import {
-  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
-  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import { Plus, Pencil, Trash2, Search } from "lucide-react";
 import { toast } from "sonner";
 import { formatDate } from "@/lib/format";
@@ -53,8 +71,14 @@ function CabangPage() {
 
   const filtered = (data ?? []).filter((b) => b.nama.toLowerCase().includes(q.toLowerCase()));
 
-  const openNew = () => { setEditing(null); setOpen(true); };
-  const openEdit = (b: Branch) => { setEditing(b); setOpen(true); };
+  const openNew = () => {
+    setEditing(null);
+    setOpen(true);
+  };
+  const openEdit = (b: Branch) => {
+    setEditing(b);
+    setOpen(true);
+  };
 
   const onDelete = async () => {
     if (!toDelete) return;
@@ -105,26 +129,52 @@ function CabangPage() {
             </TableHeader>
             <TableBody>
               {isLoading ? (
-                <TableRow><TableCell colSpan={5} className="text-center text-sm text-muted-foreground py-8">Memuat...</TableCell></TableRow>
+                <TableRow>
+                  <TableCell colSpan={5} className="text-center text-sm text-muted-foreground py-8">
+                    Memuat...
+                  </TableCell>
+                </TableRow>
               ) : filtered.length === 0 ? (
-                <TableRow><TableCell colSpan={5} className="text-center text-sm text-muted-foreground py-8">Belum ada cabang. Klik "Tambah Cabang".</TableCell></TableRow>
+                <TableRow>
+                  <TableCell colSpan={5} className="text-center text-sm text-muted-foreground py-8">
+                    Belum ada cabang. Klik "Tambah Cabang".
+                  </TableCell>
+                </TableRow>
               ) : (
                 filtered.map((b) => (
                   <TableRow key={b.id}>
                     <TableCell className="font-medium">{b.nama}</TableCell>
                     <TableCell className="text-muted-foreground">{b.alamat || "-"}</TableCell>
                     <TableCell>
-                      {b.aktif
-                        ? <Badge variant="outline" className="border-success/40 text-success">Aktif</Badge>
-                        : <Badge variant="outline" className="text-muted-foreground">Nonaktif</Badge>}
+                      {b.aktif ? (
+                        <Badge variant="outline" className="border-success/40 text-success">
+                          Aktif
+                        </Badge>
+                      ) : (
+                        <Badge variant="outline" className="text-muted-foreground">
+                          Nonaktif
+                        </Badge>
+                      )}
                     </TableCell>
-                    <TableCell className="text-muted-foreground">{formatDate(b.created_at)}</TableCell>
+                    <TableCell className="text-muted-foreground">
+                      {formatDate(b.created_at)}
+                    </TableCell>
                     <TableCell className="text-right">
                       <div className="inline-flex gap-1">
-                        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openEdit(b)}>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8"
+                          onClick={() => openEdit(b)}
+                        >
                           <Pencil className="h-3.5 w-3.5" />
                         </Button>
-                        <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => setToDelete(b)}>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 text-destructive"
+                          onClick={() => setToDelete(b)}
+                        >
                           <Trash2 className="h-3.5 w-3.5" />
                         </Button>
                       </div>
@@ -137,7 +187,12 @@ function CabangPage() {
         </div>
       </div>
 
-      <BranchDialog open={open} onOpenChange={setOpen} editing={editing} onSaved={() => qc.invalidateQueries({ queryKey: ["branches"] })} />
+      <BranchDialog
+        open={open}
+        onOpenChange={setOpen}
+        editing={editing}
+        onSaved={() => qc.invalidateQueries({ queryKey: ["branches"] })}
+      />
 
       <AlertDialog open={!!toDelete} onOpenChange={(v) => !v && setToDelete(null)}>
         <AlertDialogContent>
@@ -150,7 +205,10 @@ function CabangPage() {
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Batal</AlertDialogCancel>
-            <AlertDialogAction onClick={onDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+            <AlertDialogAction
+              onClick={onDelete}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
               Hapus
             </AlertDialogAction>
           </AlertDialogFooter>
@@ -161,7 +219,10 @@ function CabangPage() {
 }
 
 function BranchDialog({
-  open, onOpenChange, editing, onSaved,
+  open,
+  onOpenChange,
+  editing,
+  onSaved,
 }: {
   open: boolean;
   onOpenChange: (v: boolean) => void;
@@ -222,27 +283,53 @@ function BranchDialog({
         </DialogHeader>
         <form onSubmit={submit} className="space-y-3">
           <div className="space-y-1.5">
-            <Label htmlFor="nama">Nama cabang <span className="text-destructive">*</span></Label>
-            <Input id="nama" required value={nama} onChange={(e) => setNama(e.target.value)} maxLength={100} />
+            <Label htmlFor="nama">
+              Nama cabang <span className="text-destructive">*</span>
+            </Label>
+            <Input
+              id="nama"
+              required
+              value={nama}
+              onChange={(e) => setNama(e.target.value)}
+              maxLength={100}
+            />
           </div>
           <div className="space-y-1.5">
             <Label htmlFor="alamat">Alamat</Label>
-            <Textarea id="alamat" rows={2} value={alamat} onChange={(e) => setAlamat(e.target.value)} maxLength={500} />
+            <Textarea
+              id="alamat"
+              rows={2}
+              value={alamat}
+              onChange={(e) => setAlamat(e.target.value)}
+              maxLength={500}
+            />
           </div>
           <div className="space-y-1.5">
             <Label htmlFor="catatan">Catatan</Label>
-            <Textarea id="catatan" rows={2} value={catatan} onChange={(e) => setCatatan(e.target.value)} maxLength={500} />
+            <Textarea
+              id="catatan"
+              rows={2}
+              value={catatan}
+              onChange={(e) => setCatatan(e.target.value)}
+              maxLength={500}
+            />
           </div>
           <div className="flex items-center justify-between rounded-md border border-border p-3">
             <div>
               <div className="text-sm font-medium">Status Aktif</div>
-              <div className="text-xs text-muted-foreground">Cabang nonaktif tidak muncul di filter penggajian.</div>
+              <div className="text-xs text-muted-foreground">
+                Cabang nonaktif tidak muncul di filter penggajian.
+              </div>
             </div>
             <Switch checked={aktif} onCheckedChange={setAktif} />
           </div>
           <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>Batal</Button>
-            <Button type="submit" disabled={saving}>{saving ? "Menyimpan..." : "Simpan"}</Button>
+            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+              Batal
+            </Button>
+            <Button type="submit" disabled={saving}>
+              {saving ? "Menyimpan..." : "Simpan"}
+            </Button>
           </DialogFooter>
         </form>
       </DialogContent>

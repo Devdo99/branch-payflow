@@ -2,11 +2,11 @@ import "./lib/error-capture";
 
 import { consumeLastCapturedError } from "./lib/error-capture";
 import { renderErrorPage } from "./lib/error-page";
-import handler from "@tanstack/react-start/server-entry"
+import handler from "@tanstack/react-start/server-entry";
 
 export default {
   fetch: handler.fetch,
-}
+};
 
 type ServerEntry = {
   fetch: (request: Request, env: unknown, ctx: unknown) => Promise<Response> | Response;

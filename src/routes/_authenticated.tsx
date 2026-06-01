@@ -18,7 +18,7 @@ function AuthenticatedLayout() {
     );
   }
 
-  // Jika tidak loading dan tidak ada session, langsung blokir render 
+  // Jika tidak loading dan tidak ada session, langsung blokir render
   // dan alihkan (redirect) secara deklaratif tanpa menunggu useEffect
   if (!session) {
     return <Navigate to="/login" replace />;

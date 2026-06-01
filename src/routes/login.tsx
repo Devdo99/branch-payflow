@@ -43,14 +43,31 @@ function LoginPage() {
           <h1 className="text-xl font-semibold tracking-tight">Sistem Penggajian</h1>
           <p className="mt-1 text-sm text-muted-foreground">Masuk sebagai admin</p>
         </div>
-        <form onSubmit={onSubmit} className="space-y-4 rounded-md border border-border bg-card p-6 shadow-sm">
+        <form
+          onSubmit={onSubmit}
+          className="space-y-4 rounded-md border border-border bg-card p-6 shadow-sm"
+        >
           <div className="space-y-1.5">
             <Label htmlFor="email">Email</Label>
-            <Input id="email" type="email" required value={email} onChange={(e) => setEmail(e.target.value)} autoComplete="email" />
+            <Input
+              id="email"
+              type="email"
+              required
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              autoComplete="email"
+            />
           </div>
           <div className="space-y-1.5">
             <Label htmlFor="password">Password</Label>
-            <Input id="password" type="password" required value={password} onChange={(e) => setPassword(e.target.value)} autoComplete="current-password" />
+            <Input
+              id="password"
+              type="password"
+              required
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              autoComplete="current-password"
+            />
           </div>
           <Button type="submit" className="w-full" disabled={submitting}>
             {submitting ? "Memproses..." : "Masuk"}

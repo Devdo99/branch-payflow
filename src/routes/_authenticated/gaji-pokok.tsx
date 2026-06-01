@@ -1,11 +1,11 @@
-import { createFileRoute } from '@tanstack/react-router'
-import { useState } from 'react'
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { supabase } from '@/integrations/supabase/client'
-import { PageHeader } from '@/components/page-header'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
+import { createFileRoute } from "@tanstack/react-router";
+import { useState } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
+import { PageHeader } from "@/components/page-header";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import {
   Table,
   TableBody,
@@ -13,78 +13,73 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from '@/components/ui/table'
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog'
-import { toast } from 'sonner'
-import { formatIDR } from '@/lib/format'
-import { Pencil, Loader2, Banknote } from 'lucide-react'
-import { Database } from '@/integrations/supabase/types'
+} from "@/components/ui/table";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { toast } from "sonner";
+import { formatIDR } from "@/lib/format";
+import { Pencil, Loader2, Banknote } from "lucide-react";
+import { Database } from "@/integrations/supabase/types";
 
-type Employee = Database['public']['Tables']['employees']['Row']
+type Employee = Database["public"]["Tables"]["employees"]["Row"];
 
-export const Route = createFileRoute('/_authenticated/gaji-pokok')({
+export const Route = createFileRoute("/_authenticated/gaji-pokok")({
   component: GajiPokokPage,
-})
+});
 
 function GajiPokokPage() {
-  const queryClient = useQueryClient()
-  const [isOpen, setIsOpen] = useState(false)
-  const [editItem, setEditItem] = useState<Employee | null>(null)
-  const [nominal, setNominal] = useState<number | ''>('')
+  const queryClient = useQueryClient();
+  const [isOpen, setIsOpen] = useState(false);
+  const [editItem, setEditItem] = useState<Employee | null>(null);
+  const [nominal, setNominal] = useState<number | "">("");
 
   // Fetch Karyawan Aktif
   const { data: employees, isLoading } = useQuery({
-    queryKey: ['employees_gaji'],
+    queryKey: ["employees_gaji"],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from('employees')
-        .select('*')
-        .eq('aktif', true)
-        .order('nama', { ascending: true })
-      if (error) throw error
-      return data as Employee[]
+        .from("employees")
+        .select("*")
+        .eq("aktif", true)
+        .order("nama", { ascending: true });
+      if (error) throw error;
+      return data as Employee[];
     },
-  })
+  });
 
   // Mutation Update Gaji
   const updateMutation = useMutation({
     mutationFn: async (newGaji: number) => {
-      if (!editItem) return
+      if (!editItem) return;
       const { error } = await supabase
-        .from('employees')
+        .from("employees")
         .update({ gaji_pokok: newGaji })
-        .eq('id', editItem.id)
-      if (error) throw error
+        .eq("id", editItem.id);
+      if (error) throw error;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['employees_gaji'] })
-      toast.success('Gaji pokok berhasil diperbarui!')
-      setIsOpen(false)
+      queryClient.invalidateQueries({ queryKey: ["employees_gaji"] });
+      toast.success("Gaji pokok berhasil diperbarui!");
+      setIsOpen(false);
     },
     onError: (error) => {
-      toast.error('Gagal memperbarui gaji: ' + error.message)
+      toast.error("Gagal memperbarui gaji: " + error.message);
     },
-  })
+  });
 
   const handleEdit = (item: Employee) => {
-    setEditItem(item)
-    setNominal(item.gaji_pokok || 0)
-    setIsOpen(true)
-  }
+    setEditItem(item);
+    setNominal(item.gaji_pokok || 0);
+    setIsOpen(true);
+  };
 
   const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault()
-    if (nominal === '' || nominal < 0) {
-      toast.error('Masukkan nominal gaji yang valid!')
-      return
+    e.preventDefault();
+    if (nominal === "" || nominal < 0) {
+      toast.error("Masukkan nominal gaji yang valid!");
+      return;
     }
-    updateMutation.mutate(Number(nominal))
-  }
+    updateMutation.mutate(Number(nominal));
+  };
 
   return (
     <div className="flex flex-col gap-6 p-6">
@@ -115,7 +110,8 @@ function GajiPokokPage() {
                 />
               </div>
               <p className="text-xs text-muted-foreground mt-1">
-                Nominal ini akan menjadi angka dasar sebelum ditambah tunjangan dan dikurangi potongan pada saat proses generate gaji.
+                Nominal ini akan menjadi angka dasar sebelum ditambah tunjangan dan dikurangi
+                potongan pada saat proses generate gaji.
               </p>
             </div>
 
@@ -161,12 +157,17 @@ function GajiPokokPage() {
                       </span>
                     )}
                   </TableCell>
-                  <TableCell>{item.jabatan || '-'}</TableCell>
+                  <TableCell>{item.jabatan || "-"}</TableCell>
                   <TableCell className="text-right font-semibold text-green-600">
                     {formatIDR(item.gaji_pokok || 0)}
                   </TableCell>
                   <TableCell className="text-right">
-                    <Button variant="outline" size="sm" onClick={() => handleEdit(item)} className="gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleEdit(item)}
+                      className="gap-2"
+                    >
                       <Pencil className="h-4 w-4" />
                       Atur Nominal
                     </Button>
@@ -178,5 +179,5 @@ function GajiPokokPage() {
         </Table>
       </div>
     </div>
-  )
+  );
 }

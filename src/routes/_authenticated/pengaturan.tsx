@@ -34,7 +34,9 @@ type SlipTemplateConfig = {
   showPeriod: boolean;
   showBaseSalary: boolean;
   showAllowance: boolean;
+  showAllowanceDetails: boolean;
   showDeduction: boolean;
+  showDeductionDetails: boolean;
   showNetSalary: boolean;
   showSignature: boolean;
   showFooter: boolean;
@@ -54,7 +56,9 @@ const defaultSlipTemplateConfig: SlipTemplateConfig = {
   showPeriod: true,
   showBaseSalary: true,
   showAllowance: true,
+  showAllowanceDetails: true,
   showDeduction: true,
+  showDeductionDetails: true,
   showNetSalary: true,
   showSignature: true,
   showFooter: true,
@@ -126,14 +130,25 @@ function PengaturanPage() {
 
   const saveMutation = useMutation({
     mutationFn: async () => {
-      const { error } = await supabase.from("app_settings").upsert({
+      const cleanSlipTemplateConfig = {
+        ...defaultSlipTemplateConfig,
+        ...slipTemplateConfig,
+        accentColor: /^#[0-9a-fA-F]{6}$/.test(slipTemplateConfig.accentColor)
+          ? slipTemplateConfig.accentColor
+          : defaultSlipTemplateConfig.accentColor,
+      };
+
+      const { error } = await supabase.from("app_settings").upsert(
+        {
         id: 1,
         nama_perusahaan: namaPerusahaan || "Nama Perusahaan",
         alamat,
         footer_slip: footerSlip,
         periode_evaluasi_default: periodeEvaluasiDefault,
-        slip_template_config: slipTemplateConfig,
-      } as any);
+          slip_template_config: cleanSlipTemplateConfig,
+        } as any,
+        { onConflict: "id" },
+      );
       if (error) throw error;
     },
     onSuccess: () => {
@@ -318,7 +333,9 @@ function PengaturanPage() {
                     {renderSlipCheckbox("showPeriod", "Periode")}
                     {renderSlipCheckbox("showBaseSalary", "Gaji pokok")}
                     {renderSlipCheckbox("showAllowance", "Total tunjangan")}
+                    {renderSlipCheckbox("showAllowanceDetails", "Rincian tunjangan")}
                     {renderSlipCheckbox("showDeduction", "Total potongan")}
+                    {renderSlipCheckbox("showDeductionDetails", "Rincian potongan")}
                     {renderSlipCheckbox("showNetSalary", "Total bersih / THP")}
                     {renderSlipCheckbox("showSignature", "Kolom tanda tangan")}
                     {renderSlipCheckbox("showFooter", "Catatan kaki")}
@@ -439,15 +456,55 @@ function PengaturanPage() {
                             </div>
                           )}
                           {slipTemplateConfig.showAllowance && (
-                            <div className="flex justify-between py-2">
-                              <span>Tunjangan</span>
-                              <span className="font-medium">Rp 500.000</span>
+                            <div className="py-2">
+                              <div
+                                className="mb-1 text-xs font-bold uppercase"
+                                style={{ color: previewAccentColor }}
+                              >
+                                Tunjangan
+                              </div>
+                              {slipTemplateConfig.showAllowanceDetails && (
+                                <div className="space-y-1 pb-1 text-xs text-slate-600">
+                                  <div className="flex justify-between">
+                                    <span>Tunjangan Jabatan</span>
+                                    <span>Rp 300.000</span>
+                                  </div>
+                                  <div className="flex justify-between">
+                                    <span>Uang Makan</span>
+                                    <span>Rp 200.000</span>
+                                  </div>
+                                </div>
+                              )}
+                              <div className="flex justify-between font-medium">
+                                <span>Total Tunjangan</span>
+                                <span>Rp 500.000</span>
+                              </div>
                             </div>
                           )}
                           {slipTemplateConfig.showDeduction && (
-                            <div className="flex justify-between py-2">
-                              <span>Potongan</span>
-                              <span className="font-medium">Rp 150.000</span>
+                            <div className="py-2">
+                              <div
+                                className="mb-1 text-xs font-bold uppercase"
+                                style={{ color: previewAccentColor }}
+                              >
+                                Potongan
+                              </div>
+                              {slipTemplateConfig.showDeductionDetails && (
+                                <div className="space-y-1 pb-1 text-xs text-slate-600">
+                                  <div className="flex justify-between">
+                                    <span>Telat</span>
+                                    <span>Rp 50.000</span>
+                                  </div>
+                                  <div className="flex justify-between">
+                                    <span>Kasbon</span>
+                                    <span>Rp 100.000</span>
+                                  </div>
+                                </div>
+                              )}
+                              <div className="flex justify-between font-medium">
+                                <span>Total Potongan</span>
+                                <span>Rp 150.000</span>
+                              </div>
                             </div>
                           )}
                           {slipTemplateConfig.showNetSalary && (

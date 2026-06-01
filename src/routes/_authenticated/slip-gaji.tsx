@@ -39,36 +39,48 @@ type Branch = {
 
 type Employee = {
   id?: string;
-  nama?: string;
-  jabatan?: string;
-  branch_id?: string;
-  nama_bank?: string;
-  nomor_rekening?: string;
+  nama?: string | null;
+  jabatan?: string | null;
+  branch_id?: string | null;
+  nama_bank?: string | null;
+  nomor_rekening?: string | null;
+  whatsapp?: string | null;
   branches?: {
-    nama?: string;
+    nama?: string | null;
   } | null;
 };
 
 type PayrollRun = {
-  periode?: string;
-  branch_id?: string;
+  periode?: string | null;
+  branch_id?: string | null;
+};
+
+type PayrollComponent = {
+  id?: string;
+  nama?: string | null;
+  metode?: string | null;
+  qty?: number | null;
+  nominal?: number | null;
+  subtotal?: number | null;
 };
 
 type SlipItem = {
-  id?: string;
-  gaji_pokok?: number;
-  total_tunjangan?: number;
-  total_potongan?: number;
-  gaji_bersih?: number;
+  id: string;
+  gaji_pokok?: number | null;
+  total_tunjangan?: number | null;
+  total_potongan?: number | null;
+  gaji_bersih?: number | null;
   payroll_runs?: PayrollRun | null;
   employees?: Employee | null;
-  jumlah_hari?: number;
-  jumlah_izin?: number;
-  jumlah_absen?: number;
-  jumlah_telat?: number;
-  kasbon?: number;
-  bonus_manual?: number;
-  catatan?: string;
+  jumlah_hari?: number | null;
+  jumlah_izin?: number | null;
+  jumlah_absen?: number | null;
+  jumlah_telat?: number | null;
+  kasbon?: number | null;
+  bonus_manual?: number | null;
+  catatan?: string | null;
+  payroll_item_allowances?: PayrollComponent[] | null;
+  payroll_item_deductions?: PayrollComponent[] | null;
 };
 
 type AppSettings = {
@@ -89,7 +101,9 @@ type SlipTemplateConfig = {
   showPeriod: boolean;
   showBaseSalary: boolean;
   showAllowance: boolean;
+  showAllowanceDetails: boolean;
   showDeduction: boolean;
+  showDeductionDetails: boolean;
   showNetSalary: boolean;
   showSignature: boolean;
   showFooter: boolean;
@@ -109,7 +123,9 @@ const defaultSlipTemplateConfig: SlipTemplateConfig = {
   showPeriod: true,
   showBaseSalary: true,
   showAllowance: true,
+  showAllowanceDetails: true,
   showDeduction: true,
+  showDeductionDetails: true,
   showNetSalary: true,
   showSignature: true,
   showFooter: true,
@@ -189,6 +205,18 @@ const getSlipFileName = (slip: SlipItem, extension: "jpg" | "pdf") => {
   return `Slip_Gaji_${nama}_${periode}.${extension}`;
 };
 
+const getComponentDescription = (component: PayrollComponent) => {
+  const metode = String(component.metode || "");
+  const qty = toNumber(component.qty);
+  const nominal = toNumber(component.nominal);
+
+  if (metode === "fixed" || metode === "manual" || qty <= 1) {
+    return "";
+  }
+
+  return `${qty} x ${formatIDR(nominal)}`;
+};
+
 const BULAN_LABELS: Record<string, string> = {
   all: "Semua Bulan",
   "01": "Januari",
@@ -226,6 +254,35 @@ const getRawHtmlTemplate = (slip: SlipItem, settings?: AppSettings) => {
   const totalTunjangan = toNumber(slip.total_tunjangan);
   const totalPotongan = toNumber(slip.total_potongan);
   const gajiBersih = toNumber(slip.gaji_bersih);
+  const allowanceComponents = (slip.payroll_item_allowances || []).filter(
+    (component) => toNumber(component.subtotal) > 0,
+  );
+  const deductionComponents = (slip.payroll_item_deductions || []).filter(
+    (component) => toNumber(component.subtotal) > 0,
+  );
+  const componentRows = (components: PayrollComponent[]) =>
+    components
+      .map((component) => {
+        const description = getComponentDescription(component);
+        return `
+          <tr style="border-bottom: 1px solid #e5e7eb;">
+            <td style="padding: 8px 0 8px 14px;">
+              <div>${escapeHtml(component.nama || "-")}</div>
+              ${
+                description
+                  ? `<div style="font-size: ${Math.max(baseFontSize - 2, 10)}px; color: #4b5563;">${escapeHtml(
+                      description,
+                    )}</div>`
+                  : ""
+              }
+            </td>
+            <td style="text-align: right; padding: 8px 0;">
+              ${formatIDR(toNumber(component.subtotal))}
+            </td>
+          </tr>
+        `;
+      })
+      .join("");
   const infoRows = [
     config.showEmployeeName ? `<p style="margin: 4px 0;"><strong>Nama:</strong> ${nama}</p>` : "",
     config.showBranch ? `<p style="margin: 4px 0;"><strong>Cabang:</strong> ${cabang}</p>` : "",
@@ -248,7 +305,16 @@ const getRawHtmlTemplate = (slip: SlipItem, settings?: AppSettings) => {
     config.showAllowance
       ? `
           <tr style="border-bottom: 1px solid ${accentColor};">
-            <td style="padding: 12px 0;">Tunjangan</td>
+            <td colspan="2" style="
+              padding: 14px 0 8px 0;
+              font-weight: bold;
+              text-transform: uppercase;
+              color: ${accentColor};
+            ">Tunjangan</td>
+          </tr>
+          ${config.showAllowanceDetails ? componentRows(allowanceComponents) : ""}
+          <tr style="border-bottom: 1px solid ${accentColor};">
+            <td style="padding: 12px 0; font-weight: bold;">Total Tunjangan</td>
             <td style="text-align: right; padding: 12px 0;">
               ${formatIDR(totalTunjangan)}
             </td>
@@ -258,7 +324,16 @@ const getRawHtmlTemplate = (slip: SlipItem, settings?: AppSettings) => {
     config.showDeduction
       ? `
           <tr style="border-bottom: 1px solid ${accentColor};">
-            <td style="padding: 12px 0;">Potongan</td>
+            <td colspan="2" style="
+              padding: 14px 0 8px 0;
+              font-weight: bold;
+              text-transform: uppercase;
+              color: ${accentColor};
+            ">Potongan</td>
+          </tr>
+          ${config.showDeductionDetails ? componentRows(deductionComponents) : ""}
+          <tr style="border-bottom: 1px solid ${accentColor};">
+            <td style="padding: 12px 0; font-weight: bold;">Total Potongan</td>
             <td style="text-align: right; padding: 12px 0;">
               ${formatIDR(totalPotongan)}
             </td>
@@ -603,7 +678,9 @@ function SlipGajiPage() {
       const { data, error } = await supabase.from("payroll_items").select(`
           *,
           payroll_runs (*),
-          employees (*, branches (*))
+          employees (*, branches (*)),
+          payroll_item_allowances (*),
+          payroll_item_deductions (*)
         `);
 
       if (error) throw error;
@@ -860,8 +937,16 @@ function SlipGajiPage() {
     activeSlipConfig.showBranch ? "Cabang" : null,
     activeSlipConfig.showPeriod ? "Periode" : null,
     activeSlipConfig.showBaseSalary ? "Gaji Pokok" : null,
-    activeSlipConfig.showAllowance ? "Tunjangan" : null,
-    activeSlipConfig.showDeduction ? "Potongan" : null,
+    activeSlipConfig.showAllowance
+      ? activeSlipConfig.showAllowanceDetails
+        ? "Rincian Tunjangan"
+        : "Total Tunjangan"
+      : null,
+    activeSlipConfig.showDeduction
+      ? activeSlipConfig.showDeductionDetails
+        ? "Rincian Potongan"
+        : "Total Potongan"
+      : null,
     activeSlipConfig.showNetSalary ? "THP" : null,
     activeSlipConfig.showSignature ? "TTD" : null,
     activeSlipConfig.showFooter ? "Footer" : null,

@@ -78,7 +78,6 @@ function AppProsesGajiPage() {
   const [customAllowanceNominal, setCustomAllowanceNominal] = useState<number | "">("");
   const [periodeGaji, setPeriodeGaji] = useState(getCurrentPeriode());
   const [searchQuery, setSearchQuery] = useState("");
-  const [showDueEvaluationOnly, setShowDueEvaluationOnly] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
 
   // Ambil Data Cabang untuk Filter
@@ -299,22 +298,16 @@ function AppProsesGajiPage() {
     const searchTerm = searchQuery.trim().toLowerCase();
     return employees.filter((emp) => {
       const branchMatch = selectedBranchId === "all" || emp.branch_id === selectedBranchId;
-      const dueMatch = !showDueEvaluationOnly || Boolean(emp.evaluation_info?.isDue);
       const searchText = `${emp.nama ?? ""} ${emp.jabatan ?? ""} ${getBranchName(emp.branch_id)}`
         .toLowerCase();
       const searchMatch = !searchTerm || searchText.includes(searchTerm);
 
-      return branchMatch && dueMatch && searchMatch;
+      return branchMatch && searchMatch;
     });
-  }, [employees, selectedBranchId, searchQuery, showDueEvaluationOnly, branches]);
+  }, [employees, selectedBranchId, searchQuery, branches]);
 
   const totalFilteredTHP = useMemo(
     () => filteredEmployees.reduce((sum, emp) => sum + Number(emp.grandTotal || 0), 0),
-    [filteredEmployees],
-  );
-
-  const dueEvaluationCount = useMemo(
-    () => filteredEmployees.filter((emp) => emp.evaluation_info?.isDue).length,
     [filteredEmployees],
   );
 
@@ -813,15 +806,6 @@ function AppProsesGajiPage() {
 
           <div className="flex flex-wrap items-center gap-3">
             <Button
-              variant={showDueEvaluationOnly ? "secondary" : "outline"}
-              size="sm"
-              onClick={() => setShowDueEvaluationOnly((prev) => !prev)}
-              className="h-9"
-            >
-              {showDueEvaluationOnly ? "Tampilkan Semua" : "Hanya Evaluasi"}
-            </Button>
-
-            <Button
               onClick={() => setIsConfirmOpen(true)}
               disabled={isLoading || filteredEmployees.length === 0}
               className="shadow-sm h-9"
@@ -831,7 +815,7 @@ function AppProsesGajiPage() {
           </div>
         </div>
 
-        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-2">
           <div className="rounded-3xl border border-slate-200 bg-slate-50 p-4 shadow-sm">
             <div className="text-xs uppercase tracking-[0.18em] text-slate-500">Karyawan</div>
             <div className="mt-3 text-3xl font-semibold text-slate-900">{filteredEmployees.length}</div>
@@ -841,11 +825,6 @@ function AppProsesGajiPage() {
             <div className="text-xs uppercase tracking-[0.18em] text-slate-500">Total THP</div>
             <div className="mt-3 text-3xl font-semibold text-slate-900">{formatIDR(totalFilteredTHP)}</div>
             <div className="mt-1 text-sm text-slate-500">Untuk karyawan terpilih</div>
-          </div>
-          <div className="rounded-3xl border border-slate-200 bg-slate-50 p-4 shadow-sm">
-            <div className="text-xs uppercase tracking-[0.18em] text-slate-500">Evaluasi</div>
-            <div className="mt-3 text-3xl font-semibold text-slate-900">{dueEvaluationCount}</div>
-            <div className="mt-1 text-sm text-slate-500">karyawan butuh evaluasi</div>
           </div>
         </div>
       </div>

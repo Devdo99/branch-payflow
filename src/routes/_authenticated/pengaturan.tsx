@@ -77,9 +77,10 @@ const getSlipTemplateConfig = (value: unknown): SlipTemplateConfig => {
 
 const isMissingColumnError = (error: unknown, columnName: string) => {
   if (!error || typeof error !== "object") return false;
-  const code = "code" in error ? (error as { code?: string }).code : "";
+  const code = "code" in error ? (error as { code?: string | number }).code : "";
   const message = "message" in error ? String((error as { message?: string }).message) : "";
-  return code === "42703" && message.includes(columnName);
+  const normalizedCode = typeof code === "number" ? String(code) : code;
+  return normalizedCode === "42703" && message.toLowerCase().includes(columnName.toLowerCase());
 };
 
 function PengaturanPage() {
@@ -151,26 +152,50 @@ function PengaturanPage() {
         alamat,
         footer_slip: footerSlip,
         slip_template_config: cleanSlipTemplateConfig,
-      };
+        periode_evaluasi_default: periodeEvaluasiDefault,
+      } as any;
 
-      const { error } = await supabase.from("app_settings").upsert(
-        {
-          ...payload,
-          periode_evaluasi_default: periodeEvaluasiDefault,
-        } as any,
-        { onConflict: "id" },
-      );
+      const { error } = await supabase.from("app_settings").upsert(payload, {
+        onConflict: "id",
+      });
 
-      if (isMissingColumnError(error, "periode_evaluasi_default")) {
-        const { error: fallbackError } = await supabase
-          .from("app_settings")
-          .upsert(payload as any, { onConflict: "id" });
+      if (error) {
+        const missingColumns = [
+          "periode_evaluasi_default",
+          "slip_template_config",
+          "footer_slip",
+          "alamat",
+        ].filter((column) => isMissingColumnError(error, column));
 
-        if (fallbackError) throw fallbackError;
-        return;
+        if (missingColumns.length > 0) {
+          const fallbackPayload: any = {
+            id: 1,
+            nama_perusahaan: namaPerusahaan || "Nama Perusahaan",
+          };
+
+          if (!missingColumns.includes("periode_evaluasi_default")) {
+            fallbackPayload.periode_evaluasi_default = periodeEvaluasiDefault;
+          }
+          if (!missingColumns.includes("slip_template_config")) {
+            fallbackPayload.slip_template_config = cleanSlipTemplateConfig;
+          }
+          if (!missingColumns.includes("footer_slip")) {
+            fallbackPayload.footer_slip = footerSlip;
+          }
+          if (!missingColumns.includes("alamat")) {
+            fallbackPayload.alamat = alamat;
+          }
+
+          const { error: fallbackError } = await supabase
+            .from("app_settings")
+            .upsert(fallbackPayload, { onConflict: "id" });
+
+          if (fallbackError) throw fallbackError;
+          return;
+        }
+
+        throw error;
       }
-
-      if (error) throw error;
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["app_settings"] });

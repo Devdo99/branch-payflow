@@ -291,6 +291,10 @@ function AppProsesGajiPage() {
   ]);
 
   // Filter Karyawan Berdasarkan Cabang yang Dipilih
+  const getBranchName = (branchId: string | null | undefined) => {
+    return branches.find((branch: any) => branch.id === branchId)?.nama || "Cabang belum diatur";
+  };
+
   const filteredEmployees = useMemo(() => {
     const searchTerm = searchQuery.trim().toLowerCase();
     return employees.filter((emp) => {
@@ -302,7 +306,7 @@ function AppProsesGajiPage() {
 
       return branchMatch && dueMatch && searchMatch;
     });
-  }, [employees, selectedBranchId, searchQuery, showDueEvaluationOnly]);
+  }, [employees, selectedBranchId, searchQuery, showDueEvaluationOnly, branches]);
 
   const totalFilteredTHP = useMemo(
     () => filteredEmployees.reduce((sum, emp) => sum + Number(emp.grandTotal || 0), 0),
@@ -320,10 +324,6 @@ function AppProsesGajiPage() {
       branches.find((branch: any) => branch.id === selectedBranchId)?.nama || "Cabang Terpilih"
     );
   }, [branches, selectedBranchId]);
-
-  const getBranchName = (branchId: string | null | undefined) => {
-    return branches.find((branch: any) => branch.id === branchId)?.nama || "Cabang belum diatur";
-  };
 
   const periodeGajiLabel = periodeGaji ? formatPeriode(periodeGaji) : "";
 

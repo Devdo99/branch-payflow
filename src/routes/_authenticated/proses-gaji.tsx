@@ -30,7 +30,7 @@ import {
 } from "@/components/ui/select";
 import { formatIDR, formatPeriode } from "@/lib/format";
 import { toast } from "sonner";
-import { Loader2, Calculator, Plus, Trash2, ArrowRight, Store } from "lucide-react";
+import { Loader2, Calculator, Plus, Trash2, ArrowRight, Store, Search as SearchIcon } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/proses-gaji")({
   component: AppProsesGajiPage,
@@ -77,6 +77,8 @@ function AppProsesGajiPage() {
   const [customAllowanceName, setCustomAllowanceName] = useState("");
   const [customAllowanceNominal, setCustomAllowanceNominal] = useState<number | "">("");
   const [periodeGaji, setPeriodeGaji] = useState(getCurrentPeriode());
+  const [searchQuery, setSearchQuery] = useState("");
+  const [showDueEvaluationOnly, setShowDueEvaluationOnly] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
 
   // Ambil Data Cabang untuk Filter
@@ -290,9 +292,27 @@ function AppProsesGajiPage() {
 
   // Filter Karyawan Berdasarkan Cabang yang Dipilih
   const filteredEmployees = useMemo(() => {
-    if (selectedBranchId === "all") return employees;
-    return employees.filter((emp) => emp.branch_id === selectedBranchId);
-  }, [employees, selectedBranchId]);
+    const searchTerm = searchQuery.trim().toLowerCase();
+    return employees.filter((emp) => {
+      const branchMatch = selectedBranchId === "all" || emp.branch_id === selectedBranchId;
+      const dueMatch = !showDueEvaluationOnly || Boolean(emp.evaluation_info?.isDue);
+      const searchText = `${emp.nama ?? ""} ${emp.jabatan ?? ""} ${getBranchName(emp.branch_id)}`
+        .toLowerCase();
+      const searchMatch = !searchTerm || searchText.includes(searchTerm);
+
+      return branchMatch && dueMatch && searchMatch;
+    });
+  }, [employees, selectedBranchId, searchQuery, showDueEvaluationOnly]);
+
+  const totalFilteredTHP = useMemo(
+    () => filteredEmployees.reduce((sum, emp) => sum + Number(emp.grandTotal || 0), 0),
+    [filteredEmployees],
+  );
+
+  const dueEvaluationCount = useMemo(
+    () => filteredEmployees.filter((emp) => emp.evaluation_info?.isDue).length,
+    [filteredEmployees],
+  );
 
   const selectedBranchName = useMemo(() => {
     if (selectedBranchId === "all") return "Semua Cabang";
@@ -746,41 +766,87 @@ function AppProsesGajiPage() {
         </div>
 
         {/* Kontrol Kanan: Filter Cabang + Tombol Eksekusi */}
-        <div className="flex flex-wrap items-center gap-3">
-          <div className="space-y-1">
-            <Label className="text-xs text-slate-500">Periode Payroll</Label>
-            <Input
-              type="month"
-              value={periodeGaji}
-              onChange={(e) => setPeriodeGaji(e.target.value)}
-              disabled={isSaving}
-              className="h-9 w-[160px] bg-white shadow-sm"
-            />
-          </div>
-          <div className="flex items-center gap-2 bg-slate-50 border border-slate-200 rounded-lg px-2 py-1 shadow-sm">
-            <Store className="w-4 h-4 text-slate-500 ml-1" />
-            <Select value={selectedBranchId} onValueChange={setSelectedBranchId}>
-              <SelectTrigger className="w-[180px] h-8 border-0 bg-transparent shadow-none focus:ring-0 text-sm font-medium">
-                <SelectValue placeholder="Pilih Cabang" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Semua Cabang</SelectItem>
-                {branches.map((b: any) => (
-                  <SelectItem key={b.id} value={b.id}>
-                    {b.nama}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+        <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:gap-3">
+            <div className="space-y-1 min-w-[180px]">
+              <Label className="text-xs text-slate-500">Periode Payroll</Label>
+              <Input
+                type="month"
+                value={periodeGaji}
+                onChange={(e) => setPeriodeGaji(e.target.value)}
+                disabled={isSaving}
+                className="h-9 w-full bg-white shadow-sm"
+              />
+            </div>
+            <div className="space-y-1 min-w-[180px]">
+              <Label className="text-xs text-slate-500">Cabang</Label>
+              <div className="flex items-center gap-2 bg-slate-50 border border-slate-200 rounded-lg px-2 py-1 shadow-sm">
+                <Store className="w-4 h-4 text-slate-500 ml-1" />
+                <Select value={selectedBranchId} onValueChange={setSelectedBranchId}>
+                  <SelectTrigger className="w-[180px] h-8 border-0 bg-transparent shadow-none focus:ring-0 text-sm font-medium">
+                    <SelectValue placeholder="Pilih Cabang" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Semua Cabang</SelectItem>
+                    {branches.map((b: any) => (
+                      <SelectItem key={b.id} value={b.id}>
+                        {b.nama}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <div className="space-y-1 min-w-[220px]">
+              <Label className="text-xs text-slate-500">Cari karyawan</Label>
+              <div className="relative">
+                <SearchIcon className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                <Input
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder="Nama, jabatan, atau cabang"
+                  className="h-9 pl-10"
+                />
+              </div>
+            </div>
           </div>
 
-          <Button
-            onClick={() => setIsConfirmOpen(true)}
-            disabled={isLoading || filteredEmployees.length === 0}
-            className="shadow-sm"
-          >
-            <Calculator className="w-4 h-4 mr-2" /> Eksekusi Payroll
-          </Button>
+          <div className="flex flex-wrap items-center gap-3">
+            <Button
+              variant={showDueEvaluationOnly ? "secondary" : "outline"}
+              size="sm"
+              onClick={() => setShowDueEvaluationOnly((prev) => !prev)}
+              className="h-9"
+            >
+              {showDueEvaluationOnly ? "Tampilkan Semua" : "Hanya Evaluasi"}
+            </Button>
+
+            <Button
+              onClick={() => setIsConfirmOpen(true)}
+              disabled={isLoading || filteredEmployees.length === 0}
+              className="shadow-sm h-9"
+            >
+              <Calculator className="w-4 h-4 mr-2" /> Eksekusi Payroll
+            </Button>
+          </div>
+        </div>
+
+        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+          <div className="rounded-3xl border border-slate-200 bg-slate-50 p-4 shadow-sm">
+            <div className="text-xs uppercase tracking-[0.18em] text-slate-500">Karyawan</div>
+            <div className="mt-3 text-3xl font-semibold text-slate-900">{filteredEmployees.length}</div>
+            <div className="mt-1 text-sm text-slate-500">dari {employees.length} aktif</div>
+          </div>
+          <div className="rounded-3xl border border-slate-200 bg-slate-50 p-4 shadow-sm">
+            <div className="text-xs uppercase tracking-[0.18em] text-slate-500">Total THP</div>
+            <div className="mt-3 text-3xl font-semibold text-slate-900">{formatIDR(totalFilteredTHP)}</div>
+            <div className="mt-1 text-sm text-slate-500">Untuk karyawan terpilih</div>
+          </div>
+          <div className="rounded-3xl border border-slate-200 bg-slate-50 p-4 shadow-sm">
+            <div className="text-xs uppercase tracking-[0.18em] text-slate-500">Evaluasi</div>
+            <div className="mt-3 text-3xl font-semibold text-slate-900">{dueEvaluationCount}</div>
+            <div className="mt-1 text-sm text-slate-500">karyawan butuh evaluasi</div>
+          </div>
         </div>
       </div>
 

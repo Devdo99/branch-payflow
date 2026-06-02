@@ -3,7 +3,9 @@ import { useEffect, useMemo, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
+import { AppLogo } from "@/components/app-logo";
 import {
   Table,
   TableBody,
@@ -624,6 +626,7 @@ function SlipGajiPage() {
   const [selectedYear, setSelectedYear] = useState<number>(new Date().getFullYear());
   const [selectedMonth, setSelectedMonth] = useState<string>("all");
   const [hasInitializedFilters, setHasInitializedFilters] = useState(false);
+  const [selectedSlipIds, setSelectedSlipIds] = useState<string[]>([]);
 
   const { data: appSettings = null } = useQuery({
     queryKey: ["app_settings"],
@@ -776,15 +779,70 @@ function SlipGajiPage() {
 
       return id;
     },
-    onSuccess: () => {
+    onSuccess: (id) => {
       toast.success("Slip gaji berhasil dihapus");
       queryClient.invalidateQueries({ queryKey: ["payroll_items"] });
+      setSelectedSlipIds((prev) => prev.filter((prevId) => prevId !== id));
     },
     onError: (error) => {
       console.error(error);
       toast.error("Gagal menghapus slip gaji");
     },
   });
+
+  const bulkDeleteMutation = useMutation({
+    mutationFn: async (ids: string[]) => {
+      const { error } = await supabase.from("payroll_items").delete().in("id", ids);
+      if (error) throw error;
+      return ids;
+    },
+    onSuccess: (ids) => {
+      toast.success(`Berhasil menghapus ${ids.length} slip gaji.`);
+      queryClient.invalidateQueries({ queryKey: ["payroll_items"] });
+      setSelectedSlipIds((prev) => prev.filter((id) => !ids.includes(id)));
+    },
+    onError: (error) => {
+      console.error(error);
+      toast.error("Gagal menghapus slip gaji.");
+    },
+  });
+
+  const handleBulkDelete = () => {
+    if (selectedSlipIds.length === 0) {
+      return toast.error("Pilih minimal satu slip gaji untuk dihapus.");
+    }
+    const confirmation = window.confirm(
+      `Apakah Anda yakin ingin menghapus ${selectedSlipIds.length} slip gaji terpilih?`
+    );
+    if (!confirmation) return;
+
+    bulkDeleteMutation.mutate(selectedSlipIds);
+  };
+
+  const allFilteredSlipIds = useMemo(
+    () => filteredPayrollItems.map((slip: SlipItem) => slip.id),
+    [filteredPayrollItems],
+  );
+
+  const isAllSelected = selectedSlipIds.length > 0 && selectedSlipIds.length === allFilteredSlipIds.length;
+
+  useEffect(() => {
+    setSelectedSlipIds((prev) => prev.filter((id) => allFilteredSlipIds.includes(id)));
+  }, [allFilteredSlipIds]);
+
+  const toggleSlipSelection = (slipId: string) => {
+    setSelectedSlipIds((prev) =>
+      prev.includes(slipId) ? prev.filter((id) => id !== slipId) : [...prev, slipId],
+    );
+  };
+
+  const toggleSelectAll = () => {
+    if (isAllSelected) {
+      setSelectedSlipIds([]);
+    } else {
+      setSelectedSlipIds(allFilteredSlipIds);
+    }
+  };
 
   const handleExportJPG = async (slip: SlipItem) => {
     setLoading(`JPG-${slip.id}`);
@@ -1001,13 +1059,16 @@ function SlipGajiPage() {
 
   return (
     <div className="space-y-6 p-6">
-      <div className="flex flex-col justify-between gap-4 border-b border-slate-200 pb-5 md:flex-row md:items-end">
-        <div className="space-y-1">
-          <h1 className="text-2xl font-semibold tracking-tight text-slate-900">Slip Gaji</h1>
-          <p className="max-w-2xl text-sm text-slate-500">
-            Kelola, preview, unduh, dan kirim slip gaji untuk {selectedBranchName} periode{" "}
-            {selectedMonthName} {selectedYear}.
-          </p>
+      <div className="flex flex-col gap-5 border-b border-slate-200 pb-5 md:flex-row md:items-center md:justify-between">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:gap-5">
+          <AppLogo className="min-w-[180px]" />
+          <div className="space-y-1">
+            <h1 className="text-2xl font-semibold tracking-tight text-slate-900">Slip Gaji</h1>
+            <p className="max-w-2xl text-sm text-slate-500">
+              Kelola, preview, unduh, dan kirim slip gaji untuk {selectedBranchName} periode{" "}
+              {selectedMonthName} {selectedYear}.
+            </p>
+          </div>
         </div>
 
         <div className="flex flex-wrap items-center gap-3">
@@ -1070,38 +1131,72 @@ function SlipGajiPage() {
               Tampilan slip mengikuti konfigurasi aktif dari halaman Pengaturan.
             </div>
           </div>
-          <div className="flex max-w-2xl flex-wrap justify-start gap-1.5 sm:justify-end">
-            {activeSections.map((section) => (
-              <span
-                key={section}
-                className="rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-xs font-medium text-emerald-700"
-              >
-                {section}
-              </span>
-            ))}
-            {activeSections.length === 0 && (
-              <span className="rounded-full border border-slate-200 bg-white px-2.5 py-1 text-xs text-slate-500">
-                Belum ada bagian aktif
-              </span>
+          <div className="flex flex-wrap items-center gap-2">
+            {selectedSlipIds.length > 0 && (
+              <>
+                <Button
+                  variant="destructive"
+                  size="sm"
+                  onClick={handleBulkDelete}
+                  disabled={bulkDeleteMutation.isPending || !!loading}
+                >
+                  Hapus {selectedSlipIds.length} Terpilih
+                </Button>
+                <span className="rounded-full bg-slate-900 px-3 py-1 text-xs font-semibold uppercase tracking-[0.15em] text-white">
+                  {selectedSlipIds.length} dipilih
+                </span>
+              </>
             )}
+            <div className="flex max-w-2xl flex-wrap justify-start gap-1.5 sm:justify-end">
+              {activeSections.map((section) => (
+                <span
+                  key={section}
+                  className="rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-xs font-medium text-emerald-700"
+                >
+                  {section}
+                </span>
+              ))}
+              {activeSections.length === 0 && (
+                <span className="rounded-full border border-slate-200 bg-white px-2.5 py-1 text-xs text-slate-500">
+                  Belum ada bagian aktif
+                </span>
+              )}
+            </div>
           </div>
         </div>
 
-        <Table>
+        <Table className="min-w-full border-separate border-spacing-0">
           <TableHeader>
-            <TableRow>
-              <TableHead>Nama Karyawan</TableHead>
-              <TableHead>Cabang</TableHead>
-              <TableHead>Periode</TableHead>
-              <TableHead className="text-right">THP</TableHead>
-              <TableHead className="text-right">Aksi</TableHead>
+            <TableRow className="bg-slate-50 text-slate-600">
+              <TableHead className="w-12 px-3 py-3">
+                <Checkbox
+                  checked={isAllSelected}
+                  onCheckedChange={toggleSelectAll}
+                  aria-label="Pilih semua slip"
+                />
+              </TableHead>
+              <TableHead className="py-3 text-left text-xs uppercase tracking-[0.16em] text-slate-500">
+                Nama Karyawan
+              </TableHead>
+              <TableHead className="py-3 text-left text-xs uppercase tracking-[0.16em] text-slate-500">
+                Cabang
+              </TableHead>
+              <TableHead className="py-3 text-left text-xs uppercase tracking-[0.16em] text-slate-500">
+                Periode
+              </TableHead>
+              <TableHead className="py-3 text-right text-xs uppercase tracking-[0.16em] text-slate-500">
+                THP
+              </TableHead>
+              <TableHead className="py-3 text-right text-xs uppercase tracking-[0.16em] text-slate-500">
+                Aksi
+              </TableHead>
             </TableRow>
           </TableHeader>
 
           <TableBody>
             {isLoading && (
               <TableRow>
-                <TableCell colSpan={5} className="h-24 text-center">
+                <TableCell colSpan={6} className="h-24 text-center">
                   <div className="flex items-center justify-center gap-2 text-muted-foreground">
                     <Loader2 className="h-4 w-4 animate-spin" />
                     Memuat data slip gaji...
@@ -1112,7 +1207,7 @@ function SlipGajiPage() {
 
             {isError && !isLoading && (
               <TableRow>
-                <TableCell colSpan={5} className="h-24 text-center text-red-500">
+                <TableCell colSpan={6} className="h-24 text-center text-red-500">
                   Gagal memuat data slip gaji.
                 </TableCell>
               </TableRow>
@@ -1120,7 +1215,7 @@ function SlipGajiPage() {
 
             {!isLoading && !isError && filteredPayrollItems.length === 0 && (
               <TableRow>
-                <TableCell colSpan={5} className="h-24 text-center text-muted-foreground">
+                <TableCell colSpan={6} className="h-24 text-center text-muted-foreground">
                   {payrollItems.length === 0
                     ? "Belum ada data slip gaji."
                     : "Tidak ada slip gaji untuk filter yang dipilih. Pilih cabang, tahun, atau bulan lain."}
@@ -1134,16 +1229,29 @@ function SlipGajiPage() {
                 const jpgLoading = isButtonLoading(`JPG-${slip.id}`);
                 const pdfLoading = isButtonLoading(`PDF-${slip.id}`);
                 const waImageLoading = isButtonLoading(`WA-IMG-${slip.id}`);
+                const isSelected = selectedSlipIds.includes(slip.id);
 
                 return (
-                  <TableRow key={slip.id}>
-                    <TableCell className="font-medium">{slip.employees?.nama || "-"}</TableCell>
+                  <TableRow
+                    key={slip.id}
+                    className={`group transition-colors ${
+                      isSelected ? "bg-slate-100" : "hover:bg-slate-50"
+                    }`}
+                  >
+                    <TableCell className="px-3 py-3">
+                      <Checkbox
+                        checked={isSelected}
+                        onCheckedChange={() => toggleSlipSelection(slip.id)}
+                        aria-label={`Pilih slip ${slip.employees?.nama || "-"}`}
+                      />
+                    </TableCell>
+                    <TableCell className="font-medium py-3">{slip.employees?.nama || "-"}</TableCell>
 
-                    <TableCell>{slip.employees?.branches?.nama || "-"}</TableCell>
+                    <TableCell className="py-3">{slip.employees?.branches?.nama || "-"}</TableCell>
 
-                    <TableCell>{slip.payroll_runs?.periode || "-"}</TableCell>
+                    <TableCell className="py-3">{slip.payroll_runs?.periode || "-"}</TableCell>
 
-                    <TableCell className="text-right font-medium">
+                    <TableCell className="text-right font-medium py-3">
                       {formatIDR(toNumber(slip.gaji_bersih))}
                     </TableCell>
 

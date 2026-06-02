@@ -443,6 +443,12 @@ function AppProsesGajiPage() {
             : deduction.metode === "per_day" && Number(deduction.nominal_default || 0) === 0
             ? getPayrollBaseSalary(emp) / 30
             : Number(deduction.nominal_default || 0);
+
+        return {
+          payroll_item_id: payrollItemId,
+          deduction_type_id: deduction.id,
+          nama: deduction.nama,
+          metode: deduction.metode,
           qty,
           nominal,
           subtotal,

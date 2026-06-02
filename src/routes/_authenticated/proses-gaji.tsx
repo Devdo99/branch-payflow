@@ -207,10 +207,12 @@ function AppProsesGajiPage() {
 
   useEffect(() => {
     if (dbEmployees) {
-      setEmployees(
+      setEmployees((prevEmployees) =>
         dbEmployees.map((emp) => {
-          const component_inputs: any = {};
-          const custom_allowances: any[] = [];
+          const prevEmp = prevEmployees.find((prev) => prev.id === emp.id) ?? {};
+          const component_inputs: any = prevEmp.component_inputs || {};
+          const custom_allowances: any[] = prevEmp.custom_allowances || [];
+          const salary_increase_manual = Number(prevEmp.salary_increase_manual || 0);
           const salaryAdjustment = getApprovedSalaryAdjustment(emp);
           const evaluationInfo = getEvaluationInfo(emp);
           const gajiPokok = (Number(emp.gaji_pokok) || 0) + salaryAdjustment;
@@ -267,7 +269,7 @@ function AppProsesGajiPage() {
             jabatan: jabatanName,
             jabatan_tunjangan: jabatanTunjangan,
             salary_adjustment: salaryAdjustment,
-            salary_increase_manual: 0,
+            salary_increase_manual,
             evaluation_info: evaluationInfo,
             component_inputs,
             custom_allowances,

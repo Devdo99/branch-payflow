@@ -1223,7 +1223,7 @@ function AppProsesGajiPage() {
 
                       {allowanceTypes.map((alw) => {
                         const isEligible = checkIsEligible(alw.catatan, emp.jabatan);
-                        const inputVal = emp.component_inputs[alw.id] ?? "";
+                        const inputVal = emp.component_inputs?.[alw.id] ?? "";
                         const finalVal = getComponentCalculatedValue(alw, emp);
 
                         return (
@@ -1300,7 +1300,7 @@ function AppProsesGajiPage() {
 
                       {deductionTypes.map((ded) => {
                         const isEligible = checkIsEligible(ded.catatan, emp.jabatan);
-                        const inputVal = emp.component_inputs[ded.id] ?? "";
+                        const inputVal = emp.component_inputs?.[ded.id] ?? "";
                         const finalVal = getComponentCalculatedValue(ded, emp);
 
                         return (

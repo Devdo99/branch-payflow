@@ -815,18 +815,6 @@ function AppProsesGajiPage() {
           </div>
         </div>
 
-        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-2">
-          <div className="rounded-3xl border border-slate-200 bg-slate-50 p-4 shadow-sm">
-            <div className="text-xs uppercase tracking-[0.18em] text-slate-500">Karyawan</div>
-            <div className="mt-3 text-3xl font-semibold text-slate-900">{filteredEmployees.length}</div>
-            <div className="mt-1 text-sm text-slate-500">dari {employees.length} aktif</div>
-          </div>
-          <div className="rounded-3xl border border-slate-200 bg-slate-50 p-4 shadow-sm">
-            <div className="text-xs uppercase tracking-[0.18em] text-slate-500">Total THP</div>
-            <div className="mt-3 text-3xl font-semibold text-slate-900">{formatIDR(totalFilteredTHP)}</div>
-            <div className="mt-1 text-sm text-slate-500">Untuk karyawan terpilih</div>
-          </div>
-        </div>
       </div>
 
       <Dialog open={isConfirmOpen} onOpenChange={setIsConfirmOpen}>

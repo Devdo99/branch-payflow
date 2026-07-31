@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { Fragment, useState, useEffect, useMemo } from "react";
+import { Fragment, useState, useEffect, useMemo, useRef } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { PageHeader } from "@/components/page-header";
@@ -28,9 +28,68 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { formatIDR, formatPeriode } from "@/lib/format";
+import { formatIDR, formatPeriode, formatNumberDots, parseNumberDots } from "@/lib/format";
 import { toast } from "sonner";
-import { Loader2, Calculator, Plus, Trash2, ArrowRight, Store, Search as SearchIcon } from "lucide-react";
+import {
+  Loader2,
+  Calculator,
+  Plus,
+  Trash2,
+  ArrowRight,
+  Store,
+  Search as SearchIcon,
+  Users,
+  Coins,
+  Percent,
+  Wallet,
+  RefreshCw
+} from "lucide-react";
+
+const loadPayrollDraft = (periode: string) => {
+  try {
+    if (typeof window === "undefined") return {};
+    const data = localStorage.getItem(`payroll_draft_${periode}`);
+    return data ? JSON.parse(data) : {};
+  } catch (e) {
+    console.error("Error loading payroll draft from localStorage", e);
+    return {};
+  }
+};
+
+const savePayrollDraft = (periode: string, employeesData: any[]) => {
+  try {
+    if (typeof window === "undefined") return;
+    const draft: Record<string, any> = {};
+    (employeesData || []).forEach((emp) => {
+      const hasComponentInputs = emp.component_inputs && Object.keys(emp.component_inputs).some(k => emp.component_inputs[k] !== "");
+      const hasCustomAllowances = emp.custom_allowances && emp.custom_allowances.length > 0;
+      const hasSalaryIncrease = Number(emp.salary_increase_manual) > 0;
+      
+      if (hasComponentInputs || hasCustomAllowances || hasSalaryIncrease) {
+        draft[emp.id] = {
+          component_inputs: emp.component_inputs || {},
+          custom_allowances: emp.custom_allowances || [],
+          salary_increase_manual: emp.salary_increase_manual || 0,
+        };
+      }
+    });
+    if (Object.keys(draft).length === 0) {
+      localStorage.removeItem(`payroll_draft_${periode}`);
+    } else {
+      localStorage.setItem(`payroll_draft_${periode}`, JSON.stringify(draft));
+    }
+  } catch (e) {
+    console.error("Error saving payroll draft to localStorage", e);
+  }
+};
+
+const checkIsEligible = (catatan: any, empJabatan: any) => {
+  if (!catatan || catatan === "GLOBAL") return true;
+  if (typeof catatan !== "string") return true;
+  const targetJobdesks = catatan.split(",").map((j) => j.toLowerCase().trim());
+  if (typeof empJabatan !== "string") return false;
+  return targetJobdesks.includes(empJabatan.toLowerCase().trim());
+};
 
 export const Route = createFileRoute("/_authenticated/proses-gaji")({
   component: AppProsesGajiPage,
@@ -67,7 +126,13 @@ function AppProsesGajiPage() {
   const [employees, setEmployees] = useState<any[]>([]);
 
   // State Filter Cabang
-  const [selectedBranchId, setSelectedBranchId] = useState<string>("all");
+  const [selectedBranchId, setSelectedBranchId] = useState<string>(() => {
+    try {
+      return (typeof window !== "undefined" && localStorage.getItem("payroll_branch")) || "all";
+    } catch {
+      return "all";
+    }
+  });
 
   const [isConfirmOpen, setIsConfirmOpen] = useState(false);
   const [isDetailOpen, setIsDetailOpen] = useState(false);
@@ -76,9 +141,78 @@ function AppProsesGajiPage() {
   const [customAllowanceEmployeeId, setCustomAllowanceEmployeeId] = useState<string | null>(null);
   const [customAllowanceName, setCustomAllowanceName] = useState("");
   const [customAllowanceNominal, setCustomAllowanceNominal] = useState<number | "">("");
-  const [periodeGaji, setPeriodeGaji] = useState(getCurrentPeriode());
+  const [periodeGaji, setPeriodeGaji] = useState(() => {
+    try {
+      return (typeof window !== "undefined" && localStorage.getItem("payroll_periode")) || getCurrentPeriode();
+    } catch {
+      return getCurrentPeriode();
+    }
+  });
   const [searchQuery, setSearchQuery] = useState("");
   const [isSaving, setIsSaving] = useState(false);
+
+  const prevPeriodeRef = useRef(periodeGaji);
+
+  useEffect(() => {
+    try {
+      if (typeof window !== "undefined") {
+        localStorage.setItem("payroll_periode", periodeGaji);
+      }
+    } catch (e) {
+      console.error("Error writing to localStorage", e);
+    }
+  }, [periodeGaji]);
+
+  useEffect(() => {
+    try {
+      if (typeof window !== "undefined") {
+        localStorage.setItem("payroll_branch", selectedBranchId);
+      }
+    } catch (e) {
+      console.error("Error writing to localStorage", e);
+    }
+  }, [selectedBranchId]);
+
+  useEffect(() => {
+    if (employees.length > 0) {
+      savePayrollDraft(periodeGaji, employees);
+    }
+  }, [employees, periodeGaji]);
+
+  const hasLocalDraft = useMemo(() => {
+    return employees.some((emp) => {
+      const hasComponentInputs = emp.component_inputs && Object.keys(emp.component_inputs).some(k => emp.component_inputs[k] !== "");
+      const hasCustomAllowances = emp.custom_allowances && emp.custom_allowances.length > 0;
+      const hasSalaryIncrease = Number(emp.salary_increase_manual) > 0;
+      return hasComponentInputs || hasCustomAllowances || hasSalaryIncrease;
+    });
+  }, [employees]);
+
+  const handleResetDraft = () => {
+    if (window.confirm("Apakah Anda yakin ingin menghapus semua inputan draf untuk periode ini?")) {
+      try {
+        if (typeof window !== "undefined") {
+          localStorage.removeItem(`payroll_draft_${periodeGaji}`);
+        }
+        setEmployees((prev) =>
+          prev.map((emp) => {
+            const updatedEmp = {
+              ...emp,
+              component_inputs: {},
+              custom_allowances: [],
+              salary_increase_manual: 0,
+            };
+            updatedEmp.grandTotal = calculateTotal(updatedEmp);
+            return updatedEmp;
+          })
+        );
+        toast.success("Draf payroll berhasil di-reset.");
+      } catch (e) {
+        console.error("Error resetting draft", e);
+        toast.error("Gagal meriset draf.");
+      }
+    }
+  };
 
   // Ambil Data Cabang untuk Filter
   const { data: branches = [] } = useQuery({
@@ -157,7 +291,7 @@ function AppProsesGajiPage() {
 
   const getApprovedSalaryEvaluations = (emp: any) => {
     const periodStart = getPeriodDate(periodeGaji);
-    return (salaryEvaluations as any[]).filter((evaluation) => {
+    return (salaryEvaluations || []).filter((evaluation) => {
       if (evaluation.employee_id !== emp.id || !evaluation.tanggal_berlaku) return false;
       return new Date(evaluation.tanggal_berlaku) <= periodStart;
     });
@@ -186,7 +320,7 @@ function AppProsesGajiPage() {
       };
     }
 
-    const latestHistory = (salaryHistory as any[]).find(
+    const latestHistory = (salaryHistory || []).find(
       (history) => history.employee_id === emp.id,
     );
     const baseDate = new Date(latestHistory?.tanggal_berlaku || emp.tanggal_masuk);
@@ -208,19 +342,28 @@ function AppProsesGajiPage() {
 
   useEffect(() => {
     if (dbEmployees) {
+      const isPeriodChanged = prevPeriodeRef.current !== periodeGaji;
+      prevPeriodeRef.current = periodeGaji;
+
+      const draftData = loadPayrollDraft(periodeGaji);
+
       setEmployees((prevEmployees) =>
         dbEmployees.map((emp) => {
-          const prevEmp = prevEmployees.find((prev) => prev.id === emp.id) ?? {};
-          const component_inputs: any = prevEmp.component_inputs || {};
-          const custom_allowances: any[] = prevEmp.custom_allowances || [];
-          const salary_increase_manual = Number(prevEmp.salary_increase_manual || 0);
+          const prevEmp = (!isPeriodChanged && (prevEmployees || []).find((prev) => prev.id === emp.id)) || {};
+          
+          const component_inputs: any = prevEmp.component_inputs ?? draftData[emp.id]?.component_inputs ?? {};
+          const custom_allowances: any[] = prevEmp.custom_allowances ?? draftData[emp.id]?.custom_allowances ?? [];
+          const salary_increase_manual = Number(
+            prevEmp.salary_increase_manual ?? draftData[emp.id]?.salary_increase_manual ?? 0
+          );
+          
           const salaryAdjustment = getApprovedSalaryAdjustment(emp);
           const evaluationInfo = getEvaluationInfo(emp);
           const gajiPokok = (Number(emp.gaji_pokok) || 0) + salaryAdjustment;
 
           // Map jabatan (by id or by name) ke nama jabatan & tunjangan_jabatan jika tersedia
           const empJabatanKey = (emp as any).jabatan_id ?? (emp as any).jabatan;
-          const jab = (listJabatan as any[]).find(
+          const jab = (listJabatan || []).find(
             (j: any) => j.id === empJabatanKey || j.nama_jabatan === empJabatanKey,
           );
           const jabatanName = (jab as any)?.nama_jabatan || "";
@@ -233,32 +376,18 @@ function AppProsesGajiPage() {
           // tambahkan tunjangan_jabatan dari master jabatan
           if (jabatanTunjangan > 0) totalTunjangan += jabatanTunjangan;
 
-          allowanceTypes.forEach((alw: any) => {
+          (allowanceTypes || []).forEach((alw: any) => {
             const metode = alw.metode;
             const nominalDefault = Number(alw.nominal_default || 0);
-            const isEligible =
-              !alw.catatan ||
-              alw.catatan === "GLOBAL" ||
-              (jabatanName &&
-                alw.catatan
-                  .split(",")
-                  .map((j: string) => j.toLowerCase().trim())
-                  .includes(jabatanName.toLowerCase().trim()));
+            const isEligible = checkIsEligible(alw.catatan, jabatanName);
             if (!isEligible) return;
             if (metode === "fixed") totalTunjangan += nominalDefault;
           });
 
-          deductionTypes.forEach((ded: any) => {
+          (deductionTypes || []).forEach((ded: any) => {
             const metode = ded.metode;
             const nominalDefault = Number(ded.nominal_default || 0);
-            const isEligible =
-              !ded.catatan ||
-              ded.catatan === "GLOBAL" ||
-              (jabatanName &&
-                ded.catatan
-                  .split(",")
-                  .map((j: string) => j.toLowerCase().trim())
-                  .includes(jabatanName.toLowerCase().trim()));
+            const isEligible = checkIsEligible(ded.catatan, jabatanName);
             if (!isEligible) return;
             if (metode === "fixed") totalPotongan += nominalDefault;
           });
@@ -291,12 +420,12 @@ function AppProsesGajiPage() {
 
   // Filter Karyawan Berdasarkan Cabang yang Dipilih
   const getBranchName = (branchId: string | null | undefined) => {
-    return branches.find((branch: any) => branch.id === branchId)?.nama || "Cabang belum diatur";
+    return (branches || []).find((branch: any) => branch.id === branchId)?.nama || "Cabang belum diatur";
   };
 
   const filteredEmployees = useMemo(() => {
     const searchTerm = searchQuery.trim().toLowerCase();
-    return employees.filter((emp) => {
+    return (employees || []).filter((emp) => {
       const branchMatch = selectedBranchId === "all" || emp.branch_id === selectedBranchId;
       const searchText = `${emp.nama ?? ""} ${emp.jabatan ?? ""} ${getBranchName(emp.branch_id)}`
         .toLowerCase();
@@ -307,26 +436,21 @@ function AppProsesGajiPage() {
   }, [employees, selectedBranchId, searchQuery, branches]);
 
   const totalFilteredTHP = useMemo(
-    () => filteredEmployees.reduce((sum, emp) => sum + Number(emp.grandTotal || 0), 0),
+    () => (filteredEmployees || []).reduce((sum, emp) => sum + Number(emp.grandTotal || 0), 0),
     [filteredEmployees],
   );
 
   const selectedBranchName = useMemo(() => {
     if (selectedBranchId === "all") return "Semua Cabang";
     return (
-      branches.find((branch: any) => branch.id === selectedBranchId)?.nama || "Cabang Terpilih"
+      (branches || []).find((branch: any) => branch.id === selectedBranchId)?.nama || "Cabang Terpilih"
     );
   }, [branches, selectedBranchId]);
 
   const periodeGajiLabel = periodeGaji ? formatPeriode(periodeGaji) : "";
 
-  const checkIsEligible = (catatan: string | null, empJabatan: string) => {
-    if (!catatan || catatan === "GLOBAL") return true;
-    const targetJobdesks = catatan.split(",").map((j) => j.toLowerCase().trim());
-    return empJabatan && targetJobdesks.includes(empJabatan.toLowerCase().trim());
-  };
-
   const getComponentCalculatedValue = (item: any, emp: any) => {
+    if (!emp) return 0;
     const metode = item.metode;
     const nominalDefault = Number(item.nominal_default || 0);
     const inputVal = Number(emp.component_inputs?.[item.id]) || 0;
@@ -348,18 +472,19 @@ function AppProsesGajiPage() {
   };
 
   const getPayrollBreakdown = (emp: any) => {
+    if (!emp) return { gajiPokok: 0, totalTunjangan: 0, totalPotongan: 0, gajiBersih: 0 };
     let totalTunjangan = 0;
     let totalPotongan = 0;
 
     // include jabatan_tunjangan (from master jabatan) if present
     totalTunjangan += Number(emp.jabatan_tunjangan || 0);
-    allowanceTypes.forEach((alw) => {
+    (allowanceTypes || []).forEach((alw) => {
       totalTunjangan += getComponentCalculatedValue(alw, emp);
     });
     emp.custom_allowances?.forEach((c: any) => {
       totalTunjangan += Number(c.nominal) || 0;
     });
-    deductionTypes.forEach((ded) => {
+    (deductionTypes || []).forEach((ded) => {
       totalPotongan += getComponentCalculatedValue(ded, emp);
     });
 
@@ -370,6 +495,7 @@ function AppProsesGajiPage() {
   };
 
   const getPayrollBaseSalary = (emp: any) => {
+    if (!emp) return 0;
     return (
       (Number(emp.gaji_pokok) || 0) +
       (Number(emp.salary_adjustment) || 0) +
@@ -378,7 +504,8 @@ function AppProsesGajiPage() {
   };
 
   const getDeductionQtySummary = (emp: any) => {
-    return deductionTypes.reduce(
+    if (!emp) return { jumlah_hari: 0, jumlah_izin: 0, jumlah_absen: 0, jumlah_telat: 0 };
+    return (deductionTypes || []).reduce(
       (summary, deduction: any) => {
         const qty = Number(emp.component_inputs?.[deduction.id]) || 0;
         if (qty <= 0 || deduction.metode === "manual" || deduction.metode === "fixed") {
@@ -397,6 +524,30 @@ function AppProsesGajiPage() {
     );
   };
 
+  const stats = useMemo(() => {
+    let totalKaryawan = filteredEmployees.length;
+    let totalGajiPokok = 0;
+    let totalTunjangan = 0;
+    let totalPotongan = 0;
+    let totalTHP = 0;
+
+    filteredEmployees.forEach((emp) => {
+      const breakdown = getPayrollBreakdown(emp);
+      totalGajiPokok += breakdown.gajiPokok;
+      totalTunjangan += breakdown.totalTunjangan;
+      totalPotongan += breakdown.totalPotongan;
+      totalTHP += breakdown.gajiBersih;
+    });
+
+    return {
+      totalKaryawan,
+      totalGajiPokok,
+      totalTunjangan,
+      totalPotongan,
+      totalTHP,
+    };
+  }, [filteredEmployees]);
+
   const buildPayrollItemComponents = (emp: any, payrollItemId: string) => {
     const allowances = [
       ...(Number(emp.jabatan_tunjangan || 0) > 0
@@ -412,7 +563,7 @@ function AppProsesGajiPage() {
             },
           ]
         : []),
-      ...allowanceTypes
+      ...(allowanceTypes || [])
         .map((allowance: any) => {
           const subtotal = getComponentCalculatedValue(allowance, emp);
           if (subtotal <= 0) return null;
@@ -444,7 +595,7 @@ function AppProsesGajiPage() {
       })),
     ];
 
-    const deductions = deductionTypes
+    const deductions = (deductionTypes || [])
       .map((deduction: any) => {
         const subtotal = getComponentCalculatedValue(deduction, emp);
         if (subtotal <= 0) return null;
@@ -499,13 +650,14 @@ function AppProsesGajiPage() {
   };
 
   const handleSalaryIncreaseChange = (empId: string, value: string) => {
+    const numericValue = parseNumberDots(value);
     setEmployees((prev) => {
       const updatedEmployees = prev.map((emp) => {
         if (emp.id !== empId) return emp;
 
         const updatedEmp = {
           ...emp,
-          salary_increase_manual: Number(value) || 0,
+          salary_increase_manual: numericValue,
         };
         updatedEmp.grandTotal = calculateTotal(updatedEmp);
         return updatedEmp;
@@ -720,6 +872,13 @@ function AppProsesGajiPage() {
         `Payroll periode ${formatPeriode(periodeGaji)} berhasil dieksekusi untuk ${selectedBranchName}.`,
       );
 
+      // Clear draft for the period that was just executed
+      try {
+        localStorage.removeItem(`payroll_draft_${periodeGaji}`);
+      } catch (e) {
+        console.error("Error removing draft from localStorage", e);
+      }
+
       setIsConfirmOpen(false);
       setPeriodeGaji(getCurrentPeriode());
       setEmployees((prev) =>
@@ -750,9 +909,17 @@ function AppProsesGajiPage() {
     <div className="space-y-6">
       <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 border-b border-slate-200 pb-5">
         <div className="space-y-1">
-          <h1 className="text-2xl font-semibold tracking-tight text-slate-900">
-            Kalkulasi Payroll
-          </h1>
+          <div className="flex flex-wrap items-center gap-3">
+            <h1 className="text-2xl font-bold tracking-tight text-slate-900">
+              Kalkulasi Payroll
+            </h1>
+            {hasLocalDraft && (
+              <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-semibold bg-amber-50 text-amber-700 border border-amber-200 animate-pulse">
+                <span className="w-1.5 h-1.5 rounded-full bg-amber-500"></span>
+                Ada Draf Inputan
+              </span>
+            )}
+          </div>
           <p className="text-sm text-slate-500 max-w-2xl">
             Tinjau dan sesuaikan komponen gaji bersih karyawan untuk periode berjalan.
           </p>
@@ -804,17 +971,89 @@ function AppProsesGajiPage() {
             </div>
           </div>
 
-          <div className="flex flex-wrap items-center gap-3">
+          <div className="flex flex-wrap items-center gap-2">
+            {hasLocalDraft && (
+              <Button
+                variant="outline"
+                onClick={handleResetDraft}
+                className="h-9 border-rose-200 text-rose-700 hover:bg-rose-50 hover:text-rose-800 shadow-sm"
+              >
+                <RefreshCw className="w-4 h-4 mr-2" /> Reset Draf
+              </Button>
+            )}
             <Button
               onClick={() => setIsConfirmOpen(true)}
               disabled={isLoading || filteredEmployees.length === 0}
-              className="shadow-sm h-9"
+              className="shadow-sm h-9 bg-slate-900 text-white hover:bg-slate-800"
             >
               <Calculator className="w-4 h-4 mr-2" /> Eksekusi Payroll
             </Button>
           </div>
         </div>
 
+      </div>
+
+      {/* Summary Stats cards */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        {/* Card 1: Total Karyawan */}
+        <div className="relative overflow-hidden bg-white border border-slate-100 rounded-xl p-5 shadow-sm hover:shadow-md transition-all duration-300 group hover:-translate-y-1">
+          <div className="absolute top-0 right-0 -mt-4 -mr-4 w-24 h-24 bg-blue-50 rounded-full transition-all duration-500 group-hover:scale-110 opacity-50 z-0"></div>
+          <div className="relative z-10 flex items-center justify-between">
+            <div className="space-y-1">
+              <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Karyawan Diproses</span>
+              <h3 className="text-2xl font-bold text-slate-800">{stats.totalKaryawan} Orang</h3>
+              <p className="text-xs text-slate-400">Aktif & siap menerima gaji</p>
+            </div>
+            <div className="p-3 bg-blue-50 text-blue-600 rounded-xl group-hover:bg-blue-100 group-hover:text-blue-700 transition-colors duration-300">
+              <Users className="w-5 h-5" />
+            </div>
+          </div>
+        </div>
+
+        {/* Card 2: Total Gaji Pokok & Tunjangan */}
+        <div className="relative overflow-hidden bg-white border border-slate-100 rounded-xl p-5 shadow-sm hover:shadow-md transition-all duration-300 group hover:-translate-y-1">
+          <div className="absolute top-0 right-0 -mt-4 -mr-4 w-24 h-24 bg-emerald-50 rounded-full transition-all duration-500 group-hover:scale-110 opacity-50 z-0"></div>
+          <div className="relative z-10 flex items-center justify-between">
+            <div className="space-y-1">
+              <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Total Pendapatan</span>
+              <h3 className="text-2xl font-bold text-slate-800">{formatIDR(stats.totalGajiPokok + stats.totalTunjangan)}</h3>
+              <p className="text-xs text-emerald-600 font-medium">Gaji pokok + tunjangan</p>
+            </div>
+            <div className="p-3 bg-emerald-50 text-emerald-600 rounded-xl group-hover:bg-emerald-100 group-hover:text-emerald-700 transition-colors duration-300">
+              <Coins className="w-5 h-5" />
+            </div>
+          </div>
+        </div>
+
+        {/* Card 3: Total Potongan */}
+        <div className="relative overflow-hidden bg-white border border-slate-100 rounded-xl p-5 shadow-sm hover:shadow-md transition-all duration-300 group hover:-translate-y-1">
+          <div className="absolute top-0 right-0 -mt-4 -mr-4 w-24 h-24 bg-rose-50 rounded-full transition-all duration-500 group-hover:scale-110 opacity-50 z-0"></div>
+          <div className="relative z-10 flex items-center justify-between">
+            <div className="space-y-1">
+              <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Total Potongan</span>
+              <h3 className="text-2xl font-bold text-slate-800">{formatIDR(stats.totalPotongan)}</h3>
+              <p className="text-xs text-rose-600 font-medium">Sanksi absen, telat & cuti</p>
+            </div>
+            <div className="p-3 bg-rose-50 text-rose-600 rounded-xl group-hover:bg-rose-100 group-hover:text-rose-700 transition-colors duration-300">
+              <Percent className="w-5 h-5" />
+            </div>
+          </div>
+        </div>
+
+        {/* Card 4: Total Bersih (THP) */}
+        <div className="relative overflow-hidden bg-gradient-to-br from-slate-900 via-indigo-950 to-slate-950 rounded-xl p-5 shadow-md hover:shadow-lg transition-all duration-300 group hover:-translate-y-1 text-white border border-slate-800">
+          <div className="absolute top-0 right-0 -mt-4 -mr-4 w-24 h-24 bg-white/10 rounded-full transition-all duration-500 group-hover:scale-110 opacity-50 z-0"></div>
+          <div className="relative z-10 flex items-center justify-between">
+            <div className="space-y-1">
+              <span className="text-xs font-medium text-slate-300 uppercase tracking-wider">Total Net Transfer</span>
+              <h3 className="text-2xl font-black text-transparent bg-clip-text bg-gradient-to-r from-teal-200 via-white to-indigo-200">{formatIDR(stats.totalTHP)}</h3>
+              <p className="text-xs text-indigo-200 font-medium">Total Take Home Pay bersih</p>
+            </div>
+            <div className="p-3 bg-white/10 text-white rounded-xl group-hover:bg-white/20 transition-colors duration-300">
+              <Wallet className="w-5 h-5" />
+            </div>
+          </div>
+        </div>
       </div>
 
       <Dialog open={isConfirmOpen} onOpenChange={setIsConfirmOpen}>
@@ -894,10 +1133,13 @@ function AppProsesGajiPage() {
             <div className="space-y-2">
               <Label>Nominal (Rp)</Label>
               <Input
-                type="number"
-                value={customAllowanceNominal}
-                onChange={(e) => setCustomAllowanceNominal(Number(e.target.value) || "")}
-                placeholder="500000"
+                type="text"
+                value={formatNumberDots(customAllowanceNominal)}
+                onChange={(e) => {
+                  const parsed = parseNumberDots(e.target.value);
+                  setCustomAllowanceNominal(parsed === 0 ? "" : parsed);
+                }}
+                placeholder="500.000"
               />
             </div>
           </div>
@@ -925,36 +1167,87 @@ function AppProsesGajiPage() {
         open={isDetailOpen}
         onOpenChange={(open) => (!open ? closeDetail() : setIsDetailOpen(true))}
       >
-        <DialogContent className="sm:max-w-[420px]">
-          <DialogHeader>
-            <DialogTitle>Detail {detailEmp?.nama || "Karyawan"}</DialogTitle>
-            <DialogDescription>Ringkasan payroll untuk karyawan ini.</DialogDescription>
+        <DialogContent className="sm:max-w-[460px] max-h-[90vh] overflow-y-auto rounded-2xl shadow-xl">
+          <DialogHeader className="border-b pb-3">
+            <DialogTitle className="text-lg font-bold text-slate-900">Rincian Slip Gaji</DialogTitle>
+            <DialogDescription>Visualisasi rincian payroll berjalan untuk karyawan ini.</DialogDescription>
           </DialogHeader>
-          <div className="space-y-3 py-2">
-            <div className="rounded-xl border border-slate-200 bg-slate-50 p-3 space-y-2">
-              <div className="text-sm font-medium text-slate-700">
-                {detailEmp?.jabatan || "Tidak ada posisi"}
-              </div>
-              <div className="text-xs text-slate-500">
-                Gaji Pokok Payroll: {formatIDR(detailBreakdown?.gajiPokok || 0)}
-              </div>
-              {Number(detailEmp?.salary_adjustment || 0) > 0 && (
-                <div className="text-xs text-emerald-700">
-                  Termasuk kenaikan: {formatIDR(detailEmp?.salary_adjustment || 0)}
+          {detailEmp && (
+            <>
+              <div className="space-y-4 py-2">
+            {/* Header info card */}
+            <div className="bg-slate-900 text-white rounded-2xl p-4 shadow-sm relative overflow-hidden">
+              <div className="absolute top-0 right-0 -mt-4 -mr-4 w-20 h-20 bg-white/5 rounded-full z-0"></div>
+              <div className="relative z-10">
+                <h4 className="text-lg font-bold truncate">{detailEmp?.nama}</h4>
+                <p className="text-xs text-slate-300 font-medium">{detailEmp?.jabatan || "Tidak ada posisi"}</p>
+                <div className="mt-3 flex items-baseline justify-between border-t border-slate-800 pt-3">
+                  <span className="text-xs text-slate-400">Take Home Pay Bersih:</span>
+                  <span className="text-lg font-black text-emerald-400">{formatIDR(detailBreakdown?.gajiBersih || 0)}</span>
                 </div>
-              )}
+              </div>
+            </div>
+
+            {/* Quick breakdown metrics */}
+            <div className="grid grid-cols-3 gap-2">
+              <div className="bg-slate-50 border border-slate-100 rounded-xl p-2.5 text-center">
+                <span className="text-[10px] font-bold text-slate-400 block uppercase tracking-wider">Pokok</span>
+                <span className="text-xs font-bold text-slate-800 block mt-1">{formatIDR(detailBreakdown?.gajiPokok || 0)}</span>
+              </div>
+              <div className="bg-emerald-50/60 border border-emerald-100/50 rounded-xl p-2.5 text-center">
+                <span className="text-[10px] font-bold text-emerald-600 block uppercase tracking-wider">Tunjangan</span>
+                <span className="text-xs font-bold text-emerald-700 block mt-1">+{formatIDR(detailBreakdown?.totalTunjangan || 0)}</span>
+              </div>
+              <div className="bg-rose-50/60 border border-rose-100/50 rounded-xl p-2.5 text-center">
+                <span className="text-[10px] font-bold text-rose-600 block uppercase tracking-wider">Potongan</span>
+                <span className="text-xs font-bold text-rose-700 block mt-1">-{formatIDR(detailBreakdown?.totalPotongan || 0)}</span>
+              </div>
+            </div>
+
+            {/* Visual Balance Bar */}
+            <div className="space-y-1">
+              <div className="flex justify-between text-[10px] font-bold text-slate-400 tracking-wider">
+                <span>KOMPOSISI GAJI</span>
+                <span>TOTAL PENDAPATAN KOTOR</span>
+              </div>
+              <div className="h-2.5 w-full bg-slate-100 rounded-full overflow-hidden flex">
+                {detailBreakdown && (detailBreakdown.gajiPokok + detailBreakdown.totalTunjangan) > 0 ? (
+                  <>
+                    <div 
+                      className="bg-slate-700 h-full transition-all" 
+                      style={{ width: `${(detailBreakdown.gajiPokok / (detailBreakdown.gajiPokok + detailBreakdown.totalTunjangan)) * 100}%` }}
+                      title="Gaji Pokok"
+                    ></div>
+                    <div 
+                      className="bg-emerald-500 h-full transition-all" 
+                      style={{ width: `${(detailBreakdown.totalTunjangan / (detailBreakdown.gajiPokok + detailBreakdown.totalTunjangan)) * 100}%` }}
+                      title="Tunjangan"
+                    ></div>
+                  </>
+                ) : (
+                  <div className="bg-slate-300 h-full w-full"></div>
+                )}
+              </div>
+            </div>
+
+            {/* Inputs & Configurations */}
+            <div className="space-y-3">
               {detailEmp?.evaluation_info?.isDue && (
-                <div className="space-y-2 rounded-lg border border-amber-200 bg-amber-50 p-2">
-                  <div className="text-xs text-amber-700">
-                    Sudah masuk jadwal evaluasi gaji sejak {detailEmp.evaluation_info.nextDate}.
+                <div className="space-y-2 rounded-xl border border-amber-200 bg-amber-50/80 p-3 shadow-sm">
+                  <div className="text-xs text-amber-800 font-semibold flex items-center gap-1.5">
+                    <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-ping"></span>
+                    Jadwal Evaluasi Gaji
                   </div>
-                  <div className="flex items-center gap-2">
-                    <Label className="w-24 text-xs text-amber-800">Kenaikan</Label>
+                  <p className="text-[11px] text-amber-700 leading-normal">
+                    Karyawan ini telah masuk jadwal penyesuaian gaji sejak {detailEmp.evaluation_info.nextDate}.
+                  </p>
+                  <div className="flex items-center gap-2 mt-2">
+                    <Label className="text-xs font-semibold text-amber-900 w-24">Nominal Naik</Label>
                     <Input
-                      type="number"
-                      className="h-8 text-right text-xs"
+                      type="text"
+                      className="h-8 text-right text-xs bg-white border-amber-300 focus-visible:ring-amber-500"
                       placeholder="Rp"
-                      value={detailEmp?.salary_increase_manual || ""}
+                      value={formatNumberDots(detailEmp?.salary_increase_manual)}
                       onChange={(e) =>
                         detailEmp && handleSalaryIncreaseChange(detailEmp.id, e.target.value)
                       }
@@ -962,90 +1255,118 @@ function AppProsesGajiPage() {
                   </div>
                 </div>
               )}
-              {!detailEmp?.evaluation_info?.isDue && detailEmp?.evaluation_info?.nextDate && (
-                <div className="text-xs text-slate-500">
-                  Evaluasi berikutnya: {detailEmp.evaluation_info.nextDate}
+
+              {/* Master reference salary info */}
+              <div className="border border-slate-100 rounded-xl p-3 bg-slate-50/50 space-y-1.5 text-xs text-slate-600">
+                <div className="flex justify-between">
+                  <span>Gaji Pokok Karyawan:</span>
+                  <span className="font-semibold text-slate-800">{formatIDR(detailEmp?.gaji_pokok || 0)}</span>
                 </div>
-              )}
-              <div className="text-xs text-slate-500">
-                Gaji Pokok Master: {formatIDR(detailEmp?.gaji_pokok || 0)}
-              </div>
-              <div className="text-xs text-slate-500">
-                Tunjangan Jabatan: {formatIDR(detailEmp?.jabatan_tunjangan || 0)}
-              </div>
-              <div className="text-xs text-slate-500">
-                Total Tunjangan: {formatIDR(detailBreakdown?.totalTunjangan || 0)}
-              </div>
-              <div className="text-xs text-slate-500">
-                Total Potongan: {formatIDR(detailBreakdown?.totalPotongan || 0)}
-              </div>
-              <div className="text-xs font-semibold text-slate-900">
-                Total Bersih: {formatIDR(detailBreakdown?.gajiBersih || 0)}
+                {Number(detailEmp?.salary_adjustment || 0) > 0 && (
+                  <div className="flex justify-between text-emerald-600">
+                    <span>Kenaikan Otomatis Berlaku:</span>
+                    <span className="font-semibold">+{formatIDR(detailEmp?.salary_adjustment || 0)}</span>
+                  </div>
+                )}
+                {detailEmp?.jabatan_tunjangan > 0 && (
+                  <div className="flex justify-between">
+                    <span>Tunjangan Jabatan:</span>
+                    <span className="font-semibold text-slate-800">{formatIDR(detailEmp?.jabatan_tunjangan || 0)}</span>
+                  </div>
+                )}
               </div>
             </div>
+
             <div className="space-y-2">
-              <div className="text-xs font-semibold text-slate-700">
-                Masukan nilai manual/per-faktor
-              </div>
-              {allowanceTypes
+              <div className="text-xs font-bold text-slate-400 tracking-wider uppercase">Tunjangan Dinamis</div>
+              {(allowanceTypes || [])
                 .filter((alw) => checkIsEligible(alw.catatan, detailEmp?.jabatan ?? ""))
                 .map((alw) => (
                   <div
                     key={alw.id}
-                    className="flex items-center justify-between gap-2 rounded-lg border border-slate-200 bg-white px-2 py-2"
+                    className="flex items-center justify-between gap-2 rounded-xl border border-slate-100 bg-white px-3 py-2 shadow-sm hover:border-emerald-200 transition-colors"
                   >
-                    <div className="text-xs text-slate-600">{alw.nama}</div>
+                    <div>
+                      <div className="text-xs font-semibold text-slate-700">{alw.nama}</div>
+                      <div className="text-[10px] text-slate-400 font-medium capitalize">{alw.metode === "fixed" ? "Tetap" : alw.metode === "per_day" ? "Per Hari" : alw.metode === "per_hour" ? "Per Jam" : "Nominal Bebas"}</div>
+                    </div>
                     {alw.metode === "fixed" ? (
-                      <div className="text-xs font-medium text-slate-700">
+                      <div className="text-xs font-semibold text-slate-700">
                         {formatIDR(alw.nominal_default)}
                       </div>
                     ) : (
-                      <Input
-                        type="number"
-                        className="h-8 w-24 text-right text-xs"
-                        placeholder={
-                          alw.metode === "manual" ? "Rp" : alw.metode === "per_day" ? "Hari" : "Jam"
-                        }
-                        value={detailEmp?.component_inputs?.[alw.id] ?? ""}
-                        onChange={(e) =>
-                          detailEmp && handleInputChange(detailEmp.id, alw.id, e.target.value)
-                        }
-                      />
+                      <div className="flex items-center gap-2">
+                        <Input
+                          type={alw.metode === "manual" ? "text" : "number"}
+                          className="h-8 w-24 text-right text-xs focus-visible:ring-emerald-400"
+                          placeholder={
+                            alw.metode === "manual" ? "Rp" : alw.metode === "per_day" ? "Hari" : "Jam"
+                          }
+                          value={
+                            alw.metode === "manual"
+                              ? formatNumberDots(detailEmp?.component_inputs?.[alw.id])
+                              : (detailEmp?.component_inputs?.[alw.id] ?? "")
+                          }
+                          onChange={(e) => {
+                            if (detailEmp) {
+                              const val = alw.metode === "manual"
+                                ? (parseNumberDots(e.target.value) === 0 && e.target.value === "" ? "" : String(parseNumberDots(e.target.value)))
+                                : e.target.value;
+                              handleInputChange(detailEmp.id, alw.id, val);
+                            }
+                          }}
+                        />
+                        {alw.metode !== "manual" && getComponentCalculatedValue(alw, detailEmp) > 0 && (
+                          <div className="text-xs font-bold text-emerald-600 w-24 text-right">
+                            {formatIDR(getComponentCalculatedValue(alw, detailEmp))}
+                          </div>
+                        )}
+                      </div>
                     )}
                   </div>
                 ))}
             </div>
             <div className="space-y-2">
-              <div className="text-xs font-semibold text-slate-700">Potongan</div>
-              {deductionTypes
+              <div className="text-xs font-bold text-slate-400 tracking-wider uppercase">Potongan Dinamis</div>
+              {(deductionTypes || [])
                 .filter((ded) => checkIsEligible(ded.catatan, detailEmp?.jabatan ?? ""))
                 .map((ded) => {
                   const finalVal = detailEmp ? getComponentCalculatedValue(ded, detailEmp) : 0;
                   return (
                     <div
                       key={ded.id}
-                      className="flex items-center justify-between gap-2 rounded-lg border border-slate-200 bg-white px-2 py-2"
+                      className="flex items-center justify-between gap-2 rounded-xl border border-slate-100 bg-white px-3 py-2 shadow-sm hover:border-rose-200 transition-colors"
                     >
                       <div>
-                        <div className="text-xs text-slate-600">{ded.nama}</div>
+                        <div className="text-xs font-semibold text-slate-700">{ded.nama}</div>
+                        <div className="text-[10px] text-slate-400 font-medium capitalize">{ded.metode === "fixed" ? "Tetap" : ded.metode === "per_day" ? "Per Hari" : "Nominal Bebas"}</div>
                         {ded.metode === "per_day" && Number(ded.nominal_default || 0) === 0 && (
-                          <div className="text-[10px] text-slate-400">Gaji pokok / 30 x jumlah</div>
+                          <div className="text-[9px] text-slate-400">Gaji pokok / 30 x jumlah</div>
                         )}
                       </div>
                       {ded.metode === "fixed" ? (
-                        <div className="text-xs font-medium text-rose-600">
+                        <div className="text-xs font-semibold text-rose-600">
                           {formatIDR(ded.nominal_default)}
                         </div>
                       ) : (
                         <div className="flex items-center gap-2">
                           <Input
-                            type="number"
-                            className="h-8 w-24 text-right text-xs"
+                            type={ded.metode === "manual" ? "text" : "number"}
+                            className="h-8 w-24 text-right text-xs focus-visible:ring-rose-400"
                             placeholder={ded.metode === "manual" ? "Rp" : "Jumlah"}
-                            value={detailEmp?.component_inputs?.[ded.id] ?? ""}
-                            onChange={(e) =>
-                              detailEmp && handleInputChange(detailEmp.id, ded.id, e.target.value)
+                            value={
+                              ded.metode === "manual"
+                                ? formatNumberDots(detailEmp?.component_inputs?.[ded.id])
+                                : (detailEmp?.component_inputs?.[ded.id] ?? "")
                             }
+                            onChange={(e) => {
+                              if (detailEmp) {
+                                const val = ded.metode === "manual"
+                                  ? (parseNumberDots(e.target.value) === 0 && e.target.value === "" ? "" : String(parseNumberDots(e.target.value)))
+                                  : e.target.value;
+                                handleInputChange(detailEmp.id, ded.id, val);
+                              }
+                            }}
                           />
                           {finalVal > 0 && (
                             <div className="w-24 text-right text-xs font-semibold text-rose-600">
@@ -1058,15 +1379,14 @@ function AppProsesGajiPage() {
                   );
                 })}
             </div>
-          </div>
-          <div className="flex justify-end gap-2 pt-2 border-t mt-2">
-            <Button variant="ghost" onClick={closeDetail}>
-              Tutup
-            </Button>
-            <Button onClick={closeDetail} className="bg-slate-900 text-white hover:bg-slate-800">
-              Tutup
-            </Button>
-          </div>
+              </div>
+              <div className="flex justify-end gap-2 pt-2 border-t mt-2">
+                <Button onClick={closeDetail} className="bg-slate-900 text-white hover:bg-slate-800 w-full sm:w-auto rounded-xl">
+                  Selesai & Tutup
+                </Button>
+              </div>
+            </>
+          )}
         </DialogContent>
       </Dialog>
 
@@ -1080,7 +1400,7 @@ function AppProsesGajiPage() {
                 </TableHead>
                 <TableHead className="font-semibold text-slate-700">Gaji Pokok</TableHead>
 
-                {allowanceTypes.map((alw) => (
+                {(allowanceTypes || []).map((alw) => (
                   <TableHead
                     key={alw.id}
                     className="hidden md:table-cell text-center min-w-[120px] border-t-2 border-t-emerald-400 bg-emerald-50/30"
@@ -1105,7 +1425,7 @@ function AppProsesGajiPage() {
                   </div>
                 </TableHead>
 
-                {deductionTypes.map((ded) => (
+                {(deductionTypes || []).map((ded) => (
                   <TableHead
                     key={ded.id}
                     className="hidden md:table-cell text-center min-w-[120px] border-t-2 border-t-rose-400 bg-rose-50/30"
@@ -1131,7 +1451,7 @@ function AppProsesGajiPage() {
               {isLoading ? (
                 <TableRow>
                   <TableCell
-                    colSpan={allowanceTypes.length + deductionTypes.length + 4}
+                    colSpan={(allowanceTypes || []).length + (deductionTypes || []).length + 4}
                     className="h-32 text-center"
                   >
                     <Loader2 className="mx-auto h-6 w-6 animate-spin text-slate-400" />
@@ -1140,74 +1460,88 @@ function AppProsesGajiPage() {
               ) : filteredEmployees.length === 0 ? (
                 <TableRow>
                   <TableCell
-                    colSpan={allowanceTypes.length + deductionTypes.length + 4}
+                    colSpan={(allowanceTypes || []).length + (deductionTypes || []).length + 4}
                     className="h-32 text-center text-slate-500"
                   >
                     Tidak ada karyawan di cabang ini.
                   </TableCell>
                 </TableRow>
               ) : (
-                filteredEmployees.map((emp) => (
-                  <Fragment key={emp.id}>
-                      <TableRow className="group hover:bg-slate-50/50 transition-colors">
-                      <TableCell className="sticky left-0 bg-white group-hover:bg-slate-50/95 z-10 space-y-2 border-r border-slate-100 transition-colors">
-                        <div>
-                          <div className="font-medium text-slate-900">{emp.nama}</div>
-                          <div className="text-[11px] text-slate-500 leading-tight mt-0.5">
-                            {emp.jabatan ? emp.jabatan : "Tidak ada posisi"}
-                            <div className="text-[11px] text-slate-500 mt-1">
-                              Cabang: {getBranchName(emp.branch_id)}
+                filteredEmployees.map((emp) => {
+                  const hasEdits =
+                    (emp.component_inputs && Object.keys(emp.component_inputs).some(k => emp.component_inputs[k] !== "")) ||
+                    (emp.custom_allowances && emp.custom_allowances.length > 0) ||
+                    Number(emp.salary_increase_manual) > 0;
+
+                  return (
+                    <Fragment key={emp.id}>
+                      <TableRow className={`group ${hasEdits ? 'bg-indigo-50/10 hover:bg-indigo-50/20' : 'hover:bg-slate-50/50'} border-l-2 ${hasEdits ? 'border-l-indigo-500' : 'border-l-transparent'} transition-colors`}>
+                        <TableCell className={`sticky left-0 ${hasEdits ? 'bg-indigo-50/20 group-hover:bg-indigo-50/30' : 'bg-white group-hover:bg-slate-50/95'} z-10 space-y-2 border-r border-slate-100 transition-colors`}>
+                          <div>
+                            <div className="flex items-center gap-1.5">
+                              <div className="font-semibold text-slate-900">{emp.nama}</div>
+                              {hasEdits && (
+                                <span className="inline-flex items-center gap-0.5 px-1.5 py-0.2 rounded-md text-[9px] font-semibold bg-indigo-50 text-indigo-700 border border-indigo-100">
+                                  <span className="w-1.5 h-1.5 rounded-full bg-indigo-500 animate-pulse"></span>
+                                  Draf
+                                </span>
+                              )}
                             </div>
-                            {emp.jabatan_tunjangan > 0 && (
-                              <div className="text-[11px] text-teal-700 font-medium mt-1">
-                                Tunjangan: {formatIDR(emp.jabatan_tunjangan)}
+                            <div className="text-[11px] text-slate-500 leading-tight mt-0.5">
+                              {emp.jabatan ? emp.jabatan : "Tidak ada posisi"}
+                              <div className="text-[11px] text-slate-500 mt-1">
+                                Cabang: {getBranchName(emp.branch_id)}
                               </div>
-                            )}
-                            {Number(emp.salary_adjustment || 0) > 0 && (
-                              <div className="text-[11px] text-emerald-700 font-medium mt-1">
-                                Kenaikan berlaku: +{formatIDR(emp.salary_adjustment)}
-                              </div>
-                            )}
-                            {emp.evaluation_info?.isDue && (
-                              <div className="mt-2 space-y-1 rounded-md border border-amber-200 bg-amber-50 p-2">
-                                <div className="text-[11px] text-amber-700 font-medium">
-                                  Perlu evaluasi gaji
+                              {emp.jabatan_tunjangan > 0 && (
+                                <div className="text-[11px] text-teal-700 font-medium mt-1">
+                                  Tunjangan: {formatIDR(emp.jabatan_tunjangan)}
                                 </div>
-                                <Input
-                                  type="number"
-                                  className="h-7 text-xs text-right bg-white"
-                                  placeholder="Kenaikan Rp"
-                                  value={emp.salary_increase_manual || ""}
-                                  onChange={(e) =>
-                                    handleSalaryIncreaseChange(emp.id, e.target.value)
-                                  }
-                                />
-                              </div>
-                            )}
+                              )}
+                              {Number(emp.salary_adjustment || 0) > 0 && (
+                                <div className="text-[11px] text-emerald-700 font-medium mt-1">
+                                  Kenaikan berlaku: +{formatIDR(emp.salary_adjustment)}
+                                </div>
+                              )}
+                              {emp.evaluation_info?.isDue && (
+                                <div className="mt-2 space-y-1 rounded-md border border-amber-200 bg-amber-50 p-2">
+                                  <div className="text-[11px] text-amber-700 font-medium">
+                                    Perlu evaluasi gaji
+                                  </div>
+                                  <Input
+                                    type="text"
+                                    className="h-7 text-xs text-right bg-white"
+                                    placeholder="Kenaikan Rp"
+                                    value={formatNumberDots(emp.salary_increase_manual)}
+                                    onChange={(e) =>
+                                      handleSalaryIncreaseChange(emp.id, e.target.value)
+                                    }
+                                  />
+                                </div>
+                              )}
+                            </div>
                           </div>
-                        </div>
 
-                        <div className="flex flex-col gap-2">
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            className="h-6 px-2 text-[10px] shadow-none border-teal-200 text-teal-700 bg-teal-50/30 hover:bg-teal-100"
-                            onClick={() => handleAddCustomAllowance(emp.id)}
-                          >
-                            <Plus className="w-3 h-3 mr-1" /> Penyesuaian
-                          </Button>
-                          <Button
-                            variant="secondary"
-                            size="sm"
-                            className="h-6 px-2 text-[10px] shadow-none border-slate-200 text-slate-700 hover:bg-slate-100 md:hidden"
-                            onClick={() => openDetail(emp)}
-                          >
-                            Detail
-                          </Button>
-                        </div>
-                      </TableCell>
+                          <div className="flex flex-col gap-2">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="h-6 px-2 text-[10px] shadow-none border-teal-200 text-teal-700 bg-teal-50/30 hover:bg-teal-100"
+                              onClick={() => handleAddCustomAllowance(emp.id)}
+                            >
+                              <Plus className="w-3 h-3 mr-1" /> Penyesuaian
+                            </Button>
+                            <Button
+                              variant="secondary"
+                              size="sm"
+                              className="h-6 px-2 text-[10px] shadow-none border-slate-200 text-slate-700 hover:bg-slate-100 md:hidden"
+                              onClick={() => openDetail(emp)}
+                            >
+                              Detail
+                            </Button>
+                          </div>
+                        </TableCell>
 
-                      <TableCell className="text-slate-600 text-sm font-medium">
+                        <TableCell className="text-slate-600 text-sm font-medium">
                         <div>{formatIDR(getPayrollBaseSalary(emp))}</div>
                         {Number(emp.salary_adjustment || 0) > 0 && (
                           <div className="text-[10px] font-semibold text-emerald-600">
@@ -1221,7 +1555,7 @@ function AppProsesGajiPage() {
                         )}
                       </TableCell>
 
-                      {allowanceTypes.map((alw) => {
+                      {(allowanceTypes || []).map((alw) => {
                         const isEligible = checkIsEligible(alw.catatan, emp.jabatan);
                         const inputVal = emp.component_inputs?.[alw.id] ?? "";
                         const finalVal = getComponentCalculatedValue(alw, emp);
@@ -1240,7 +1574,7 @@ function AppProsesGajiPage() {
                             ) : (
                               <div className="flex flex-col items-center gap-1.5">
                                 <Input
-                                  type="number"
+                                  type={alw.metode === "manual" ? "text" : "number"}
                                   className={`h-7 text-center text-xs shadow-none transition-all ${alw.metode === "manual" ? "w-24" : "w-16"} border-slate-200 focus-visible:ring-1 focus-visible:ring-emerald-400`}
                                   placeholder={
                                     alw.metode === "manual"
@@ -1249,10 +1583,17 @@ function AppProsesGajiPage() {
                                         ? "Hari"
                                         : "Jam"
                                   }
-                                  value={inputVal}
-                                  onChange={(e) =>
-                                    handleInputChange(emp.id, alw.id, e.target.value)
+                                  value={
+                                    alw.metode === "manual"
+                                      ? formatNumberDots(inputVal)
+                                      : inputVal
                                   }
+                                  onChange={(e) => {
+                                    const val = alw.metode === "manual"
+                                      ? (parseNumberDots(e.target.value) === 0 && e.target.value === "" ? "" : String(parseNumberDots(e.target.value)))
+                                      : e.target.value;
+                                    handleInputChange(emp.id, alw.id, val);
+                                  }}
                                 />
                                 {finalVal > 0 && (
                                   <span className="text-[10px] text-emerald-600 font-semibold">
@@ -1298,7 +1639,7 @@ function AppProsesGajiPage() {
                         </div>
                       </TableCell>
 
-                      {deductionTypes.map((ded) => {
+                      {(deductionTypes || []).map((ded) => {
                         const isEligible = checkIsEligible(ded.catatan, emp.jabatan);
                         const inputVal = emp.component_inputs?.[ded.id] ?? "";
                         const finalVal = getComponentCalculatedValue(ded, emp);
@@ -1317,13 +1658,20 @@ function AppProsesGajiPage() {
                             ) : (
                               <div className="flex flex-col items-center gap-1.5">
                                 <Input
-                                  type="number"
+                                  type={ded.metode === "manual" ? "text" : "number"}
                                   className={`h-7 text-center text-xs shadow-none transition-all ${ded.metode === "manual" ? "w-24" : "w-16"} border-slate-200 focus-visible:ring-1 focus-visible:ring-rose-400`}
                                   placeholder={ded.metode === "manual" ? "Rp" : "Hari"}
-                                  value={inputVal}
-                                  onChange={(e) =>
-                                    handleInputChange(emp.id, ded.id, e.target.value)
+                                  value={
+                                    ded.metode === "manual"
+                                      ? formatNumberDots(inputVal)
+                                      : inputVal
                                   }
+                                  onChange={(e) => {
+                                    const val = ded.metode === "manual"
+                                      ? (parseNumberDots(e.target.value) === 0 && e.target.value === "" ? "" : String(parseNumberDots(e.target.value)))
+                                      : e.target.value;
+                                    handleInputChange(emp.id, ded.id, val);
+                                  }}
                                 />
                                 {ded.metode === "per_day" &&
                                   Number(ded.nominal_default || 0) === 0 && (
@@ -1340,7 +1688,7 @@ function AppProsesGajiPage() {
                         );
                       })}
 
-                      <TableCell className="font-bold text-right sticky right-0 bg-white group-hover:bg-slate-50/95 z-10 border-l border-slate-100 transition-colors align-middle">
+                      <TableCell className={`font-bold text-right sticky right-0 ${hasEdits ? 'bg-indigo-50/20 group-hover:bg-indigo-50/30' : 'bg-white group-hover:bg-slate-50/95'} z-10 border-l border-slate-100 transition-colors align-middle`}>
                         <div className="flex items-center justify-end gap-2 text-base text-slate-900">
                           {formatIDR(emp.grandTotal)}
                           <ArrowRight className="w-4 h-4 text-slate-300" />
@@ -1349,7 +1697,7 @@ function AppProsesGajiPage() {
                     </TableRow>
                     <TableRow className="md:hidden bg-slate-50/60">
                       <TableCell
-                        colSpan={allowanceTypes.length + deductionTypes.length + 5}
+                        colSpan={(allowanceTypes || []).length + (deductionTypes || []).length + 5}
                         className="py-3 px-3 text-xs text-slate-600"
                       >
                         <div className="grid gap-2">
@@ -1404,8 +1752,8 @@ function AppProsesGajiPage() {
                       </TableCell>
                     </TableRow>
                   </Fragment>
-                ))
-              )}
+                );
+              }))}
             </TableBody>
           </Table>
         </div>

@@ -33,3 +33,20 @@ export function currentPeriode(): string {
   const d = new Date();
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
 }
+
+export function formatNumberDots(value: number | string | null | undefined): string {
+  if (value === null || value === undefined || value === "") return "";
+  // Strip non-digits to handle existing dots or formatted strings
+  const cleanValue = String(value).replace(/\D/g, "");
+  if (!cleanValue) return "";
+  const num = parseInt(cleanValue, 10);
+  return num.toLocaleString("id-ID");
+}
+
+export function parseNumberDots(value: string): number {
+  if (!value) return 0;
+  const cleanValue = value.replace(/\./g, "");
+  const num = parseInt(cleanValue, 10);
+  return isNaN(num) ? 0 : num;
+}
+

@@ -21,10 +21,22 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { formatIDR } from "@/lib/format";
-import { Download, FileDown, Loader2, Send } from "lucide-react";
+import { Download, FileDown, Loader2, Send, FileSpreadsheet, TrendingUp, BarChart3 } from "lucide-react";
 import { toast } from "sonner";
-import html2canvas from "html2canvas";
+import { toCanvas } from "html-to-image";
 import { jsPDF } from "jspdf";
+import {
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip as RechartsTooltip,
+  ResponsiveContainer,
+  PieChart,
+  Pie,
+  Cell,
+} from "recharts";
 
 export const Route = createFileRoute("/_authenticated/laporan")({
   component: LaporanPage,
@@ -452,6 +464,36 @@ function LaporanPage() {
       return a.nama.localeCompare(b.nama);
     });
 
+  const chartBranchData = useMemo(() => {
+    if (selectedCabang === "all") {
+      const branchTotals: Record<string, number> = {};
+      detailRows.forEach((row) => {
+        const bName = getBranchName(row.branch_id);
+        branchTotals[bName] = (branchTotals[bName] || 0) + row.gaji_bersih;
+      });
+      return Object.entries(branchTotals).map(([name, total]) => ({
+        name,
+        "Total Gaji": total,
+      }));
+    } else {
+      const sortedEmployees = [...detailRows]
+        .sort((a, b) => b.gaji_bersih - a.gaji_bersih)
+        .slice(0, 8);
+      return sortedEmployees.map((row) => ({
+        name: row.nama,
+        "Total Gaji": row.gaji_bersih,
+      }));
+    }
+  }, [detailRows, selectedCabang, cabangList]);
+
+  const chartComponentData = useMemo(() => {
+    return [
+      { name: "Gaji Pokok", value: grandTotal.gaji_pokok, color: "#10b981" },
+      { name: "Tunjangan", value: grandTotal.tunjangan, color: "#3b82f6" },
+      { name: "Potongan", value: grandTotal.potongan, color: "#ef4444" },
+    ].filter((item) => item.value > 0);
+  }, [grandTotal]);
+
   const selectedBranchName =
     selectedCabang === "all"
       ? "Semua Cabang"
@@ -500,16 +542,37 @@ function LaporanPage() {
       return;
     }
 
+    // Save original styles to restore later
+    const originalWidth = element.style.width;
+    const originalMaxWidth = element.style.maxWidth;
+    const originalPadding = element.style.padding;
+    const originalBackground = element.style.background;
+
+    // Apply clean print/export styles to ensure a crisp, wide layout on any screen size
+    element.style.width = "1200px";
+    element.style.maxWidth = "none";
+    element.style.padding = "24px";
+    element.style.background = "#ffffff";
+
+    // Wait for the browser to apply styles and recalculate layout before capturing
+    await new Promise<void>((resolve) => {
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => resolve());
+      });
+    });
+
     try {
-      const canvas = await html2canvas(element, {
-        scale: 1.5,
+      const canvas = await toCanvas(element, {
+        pixelRatio: 1.5,
         backgroundColor: "#ffffff",
-        useCORS: true,
-        logging: false,
-        windowWidth: element.scrollWidth,
+        cacheBust: true,
       });
 
-      const imgData = canvas.toDataURL("image/jpeg", 0.95);
+      if (!canvas.width || !canvas.height) {
+        throw new Error("Canvas width or height is 0");
+      }
+
+      const imgData = canvas.toDataURL("image/png");
       const pdf = new jsPDF({
         orientation: "landscape",
         unit: "mm",
@@ -524,16 +587,20 @@ function LaporanPage() {
       const imgWidth = usableWidth;
       const imgHeight = (canvas.height * imgWidth) / canvas.width;
 
+      if (Number.isNaN(imgHeight) || imgHeight <= 0) {
+        throw new Error("Tinggi gambar tidak valid");
+      }
+
       let remainingHeight = imgHeight;
       let position = margin;
 
-      pdf.addImage(imgData, "JPEG", margin, position, imgWidth, imgHeight);
+      pdf.addImage(imgData, "PNG", margin, position, imgWidth, imgHeight);
       remainingHeight -= usableHeight;
 
       while (remainingHeight > 0) {
         position = margin - (imgHeight - remainingHeight);
         pdf.addPage();
-        pdf.addImage(imgData, "JPEG", margin, position, imgWidth, imgHeight);
+        pdf.addImage(imgData, "PNG", margin, position, imgWidth, imgHeight);
         remainingHeight -= usableHeight;
       }
 
@@ -544,9 +611,94 @@ function LaporanPage() {
       toast.success("Laporan PDF berhasil diunduh");
     } catch (error) {
       console.error("Gagal membuat PDF laporan:", error);
-      toast.error("Gagal membuat PDF laporan");
+      // Tampilkan detail error ke user untuk debugging
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      toast.error(`Gagal membuat PDF: ${errorMessage}`);
     } finally {
+      // Restore original styles in all cases
+      element.style.width = originalWidth;
+      element.style.maxWidth = originalMaxWidth;
+      element.style.padding = originalPadding;
+      element.style.background = originalBackground;
       setIsDownloading(false);
+    }
+  };
+
+  const handleExportCSV = () => {
+    if (!reportData || reportData.length === 0) {
+      toast.error("Tidak ada data laporan untuk diekspor.");
+      return;
+    }
+
+    try {
+      const headers = [
+        "Periode",
+        "Nama Karyawan",
+        "Jabatan",
+        "Cabang",
+        "Gaji Pokok",
+        "Total Tunjangan",
+        "Total Potongan",
+        "Gaji Bersih (THP)",
+        "Nama Bank",
+        "Nomor Rekening",
+        "Hari Kerja",
+        "Izin",
+        "Absen",
+        "Telat",
+        "Catatan",
+      ];
+
+      const rows = detailRows.map((row) => [
+        row.periode,
+        row.nama,
+        row.jabatan,
+        getBranchName(row.branch_id),
+        row.gaji_pokok,
+        row.total_tunjangan,
+        row.total_potongan,
+        row.gaji_bersih,
+        row.nama_bank,
+        row.nomor_rekening,
+        row.jumlah_hari,
+        row.jumlah_izin,
+        row.jumlah_absen,
+        row.jumlah_telat,
+        row.catatan,
+      ]);
+
+      const csvContent = [
+        headers.join(","),
+        ...rows.map((row) =>
+          row
+            .map((val) => {
+              const str = String(val ?? "");
+              if (str.includes(",") || str.includes('"') || str.includes("\n")) {
+                return `"${str.replace(/"/g, '""')}"`;
+              }
+              return str;
+            })
+            .join(","),
+        ),
+      ].join("\n");
+
+      // Prepend UTF-8 BOM so Excel opens it with correct characters
+      const blob = new Blob(["\uFEFF" + csvContent], { type: "text/csv;charset=utf-8;" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      const monthSuffix = selectedMonth === "all" ? "Semua_Bulan" : selectedMonth;
+      link.setAttribute("href", url);
+      link.setAttribute(
+        "download",
+        `Laporan_Gaji_${selectedBranchName.replace(/\s+/g, "_")}_${selectedYear}_${monthSuffix}.csv`,
+      );
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      toast.success("Laporan CSV berhasil diunduh");
+    } catch (error) {
+      console.error("Gagal mengekspor CSV:", error);
+      toast.error("Gagal mengekspor CSV");
     }
   };
 
@@ -726,12 +878,27 @@ function LaporanPage() {
       if (row.catatan) {
         const notes = pdf.splitTextToSize(`Catatan: ${row.catatan}`, contentWidth);
         addText(notes.join("\n"), margin, y, { size: 9, color: muted });
+        y += notes.length * 5;
       }
+
+      // Add Signature Block (Tanda Tangan)
+      y += 12;
+      if (y + 35 > pageHeight - 15) {
+        pdf.addPage();
+        y = 20;
+      }
+
+      const sigY = y;
+      addText("Dibuat Oleh,", margin + 10, sigY, { size: 9, style: "bold" });
+      addText("Penerima,", pageWidth - margin - 35, sigY, { size: 9, style: "bold" });
+
+      addText("( HRD / Finance )", margin + 10, sigY + 22, { size: 9, color: muted });
+      addText(`( ${row.nama} )`, pageWidth - margin - 35, sigY + 22, { size: 9, color: muted });
 
       addText(
         "Dokumen ini dibuat dari menu Laporan Penggajian Branch Payflow.",
         margin,
-        pageHeight - 12,
+        pageHeight - 8,
         {
           size: 8,
           color: muted,
@@ -776,6 +943,15 @@ function LaporanPage() {
               <Download className="mr-2 h-4 w-4" />
             )}
             Download Laporan
+          </Button>
+          <Button
+            onClick={handleExportCSV}
+            variant="outline"
+            className="border-emerald-200 hover:bg-emerald-50 hover:text-emerald-700"
+            disabled={isLoading || isDownloading}
+          >
+            <FileSpreadsheet className="mr-2 h-4 w-4 text-emerald-600" />
+            Ekspor CSV
           </Button>
           <Button
             onClick={handleSendWhatsApp}
@@ -841,6 +1017,107 @@ function LaporanPage() {
           </Select>
         </div>
       </div>
+
+      {/* Visualisasi Data Section */}
+      {!isLoading && detailRows.length > 0 && (
+        <div className="grid gap-6 md:grid-cols-2">
+          <Card className="shadow-sm">
+            <CardHeader className="flex flex-row items-center justify-between pb-4">
+              <div className="space-y-0.5">
+                <CardTitle className="text-sm font-semibold text-slate-950">
+                  {selectedCabang === "all" ? "Distribusi Gaji per Cabang" : "Top Karyawan Berdasarkan Take Home Pay"}
+                </CardTitle>
+                <p className="text-xs text-muted-foreground">
+                  Perbandingan total pembayaran bersih (rupiah)
+                </p>
+              </div>
+              <BarChart3 className="h-4 w-4 text-emerald-600" />
+            </CardHeader>
+            <CardContent>
+              <div className="h-[260px] w-full">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={chartBranchData} margin={{ top: 10, right: 10, left: 10, bottom: 20 }}>
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                    <XAxis 
+                      dataKey="name" 
+                      tickLine={false} 
+                      axisLine={false} 
+                      fontSize={11}
+                      tick={{ fill: "#64748b" }}
+                      angle={-15}
+                      textAnchor="end"
+                    />
+                    <YAxis 
+                      tickLine={false} 
+                      axisLine={false} 
+                      fontSize={10}
+                      tick={{ fill: "#64748b" }}
+                      tickFormatter={(val) => `Rp ${(val / 1000000).toFixed(1)}jt`}
+                    />
+                    <RechartsTooltip 
+                      formatter={(value: any) => [formatIDR(Number(value)), "Total Gaji"]}
+                      contentStyle={{ background: "#ffffff", border: "1px solid #e2e8f0", borderRadius: "8px" }}
+                    />
+                    <Bar dataKey="Total Gaji" fill="#10b981" radius={[4, 4, 0, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="shadow-sm">
+            <CardHeader className="flex flex-row items-center justify-between pb-4">
+              <div className="space-y-0.5">
+                <CardTitle className="text-sm font-semibold text-slate-950">
+                  Proporsi Komponen Biaya Payroll
+                </CardTitle>
+                <p className="text-xs text-muted-foreground">
+                  Rasio perbandingan gaji pokok, tunjangan, dan potongan
+                </p>
+              </div>
+              <TrendingUp className="h-4 w-4 text-emerald-600" />
+            </CardHeader>
+            <CardContent className="flex flex-col sm:flex-row items-center justify-center gap-6">
+              <div className="h-[200px] w-[200px] shrink-0">
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <Pie
+                      data={chartComponentData}
+                      cx="50%"
+                      cy="50%"
+                      innerRadius={60}
+                      outerRadius={80}
+                      paddingAngle={4}
+                      dataKey="value"
+                    >
+                      {chartComponentData.map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={entry.color} />
+                      ))}
+                    </Pie>
+                    <RechartsTooltip 
+                      formatter={(value: any) => [formatIDR(Number(value)), "Total"]}
+                      contentStyle={{ background: "#ffffff", border: "1px solid #e2e8f0", borderRadius: "8px" }}
+                    />
+                  </PieChart>
+                </ResponsiveContainer>
+              </div>
+              <div className="flex flex-col gap-3 w-full sm:w-auto">
+                {chartComponentData.map((item) => (
+                  <div key={item.name} className="flex items-center gap-3 text-xs">
+                    <div className="h-3 w-3 rounded-full shrink-0" style={{ backgroundColor: item.color }} />
+                    <div className="grid gap-0.5">
+                      <span className="font-medium text-slate-700">{item.name}</span>
+                      <span className="text-muted-foreground font-semibold">
+                        {formatIDR(item.value)} ({(item.value / (grandTotal.gaji_pokok + grandTotal.tunjangan + grandTotal.potongan) * 100 || 0).toFixed(1)}%)
+                      </span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
 
       <div id="report-container" className="space-y-5 bg-white p-1">
         <div className="rounded-md border border-emerald-100 bg-emerald-50/70 p-5 shadow-sm">

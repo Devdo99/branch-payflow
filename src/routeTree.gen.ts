@@ -9,93 +9,46 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
-import { Route as LoginRouteImport } from './routes/login'
-import { Route as AuthenticatedRouteImport } from './routes/_authenticated'
 import { Route as IndexRouteImport } from './routes/index'
-import { Route as AuthenticatedTunjanganRouteImport } from './routes/_authenticated/tunjangan'
-import { Route as AuthenticatedSlipGajiRouteImport } from './routes/_authenticated/slip-gaji'
-import { Route as AuthenticatedRingkasanWhatsappRouteImport } from './routes/_authenticated/ringkasan-whatsapp'
-import { Route as AuthenticatedRekeningBankRouteImport } from './routes/_authenticated/rekening-bank'
-import { Route as AuthenticatedProsesGajiRouteImport } from './routes/_authenticated/proses-gaji'
-import { Route as AuthenticatedPotonganRouteImport } from './routes/_authenticated/potongan'
-import { Route as AuthenticatedPengaturanRouteImport } from './routes/_authenticated/pengaturan'
-import { Route as AuthenticatedLaporanRouteImport } from './routes/_authenticated/laporan'
-import { Route as AuthenticatedKaryawanRouteImport } from './routes/_authenticated/karyawan'
-import { Route as AuthenticatedJabatanRouteImport } from './routes/_authenticated/jabatan'
-import { Route as AuthenticatedGajiPokokRouteImport } from './routes/_authenticated/gaji-pokok'
-import { Route as AuthenticatedFormatWhatsappRouteImport } from './routes/_authenticated/format-whatsapp'
-import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
+import { Route as AuthenticatedRouteImport } from './routes/_authenticated'
+import { Route as LoginRouteImport } from './routes/login'
 import { Route as AuthenticatedCabangRouteImport } from './routes/_authenticated/cabang'
+import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
+import { Route as AuthenticatedFormatWhatsappRouteImport } from './routes/_authenticated/format-whatsapp'
+import { Route as AuthenticatedGajiPokokRouteImport } from './routes/_authenticated/gaji-pokok'
+import { Route as AuthenticatedJabatanRouteImport } from './routes/_authenticated/jabatan'
+import { Route as AuthenticatedKaryawanRouteImport } from './routes/_authenticated/karyawan'
+import { Route as AuthenticatedLaporanRouteImport } from './routes/_authenticated/laporan'
+import { Route as AuthenticatedPengaturanRouteImport } from './routes/_authenticated/pengaturan'
+import { Route as AuthenticatedPotonganRouteImport } from './routes/_authenticated/potongan'
+import { Route as AuthenticatedProsesGajiRouteImport } from './routes/_authenticated/proses-gaji'
+import { Route as AuthenticatedRekeningBankRouteImport } from './routes/_authenticated/rekening-bank'
+import { Route as AuthenticatedRingkasanWhatsappRouteImport } from './routes/_authenticated/ringkasan-whatsapp'
+import { Route as AuthenticatedSlipGajiRouteImport } from './routes/_authenticated/slip-gaji'
+import { Route as AuthenticatedTunjanganRouteImport } from './routes/_authenticated/tunjangan'
 
-const LoginRoute = LoginRouteImport.update({
-  id: '/login',
-  path: '/login',
+const IndexRoute = IndexRouteImport.update({
+  id: '/',
+  path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AuthenticatedRoute = AuthenticatedRouteImport.update({
   id: '/_authenticated',
   getParentRoute: () => rootRouteImport,
 } as any)
-const IndexRoute = IndexRouteImport.update({
-  id: '/',
-  path: '/',
+const LoginRoute = LoginRouteImport.update({
+  id: '/login',
+  path: '/login',
   getParentRoute: () => rootRouteImport,
 } as any)
-const AuthenticatedTunjanganRoute = AuthenticatedTunjanganRouteImport.update({
-  id: '/tunjangan',
-  path: '/tunjangan',
+const AuthenticatedCabangRoute = AuthenticatedCabangRouteImport.update({
+  id: '/cabang',
+  path: '/cabang',
   getParentRoute: () => AuthenticatedRoute,
 } as any)
-const AuthenticatedSlipGajiRoute = AuthenticatedSlipGajiRouteImport.update({
-  id: '/slip-gaji',
-  path: '/slip-gaji',
-  getParentRoute: () => AuthenticatedRoute,
-} as any)
-const AuthenticatedRingkasanWhatsappRoute =
-  AuthenticatedRingkasanWhatsappRouteImport.update({
-    id: '/ringkasan-whatsapp',
-    path: '/ringkasan-whatsapp',
-    getParentRoute: () => AuthenticatedRoute,
-  } as any)
-const AuthenticatedRekeningBankRoute =
-  AuthenticatedRekeningBankRouteImport.update({
-    id: '/rekening-bank',
-    path: '/rekening-bank',
-    getParentRoute: () => AuthenticatedRoute,
-  } as any)
-const AuthenticatedProsesGajiRoute = AuthenticatedProsesGajiRouteImport.update({
-  id: '/proses-gaji',
-  path: '/proses-gaji',
-  getParentRoute: () => AuthenticatedRoute,
-} as any)
-const AuthenticatedPotonganRoute = AuthenticatedPotonganRouteImport.update({
-  id: '/potongan',
-  path: '/potongan',
-  getParentRoute: () => AuthenticatedRoute,
-} as any)
-const AuthenticatedPengaturanRoute = AuthenticatedPengaturanRouteImport.update({
-  id: '/pengaturan',
-  path: '/pengaturan',
-  getParentRoute: () => AuthenticatedRoute,
-} as any)
-const AuthenticatedLaporanRoute = AuthenticatedLaporanRouteImport.update({
-  id: '/laporan',
-  path: '/laporan',
-  getParentRoute: () => AuthenticatedRoute,
-} as any)
-const AuthenticatedKaryawanRoute = AuthenticatedKaryawanRouteImport.update({
-  id: '/karyawan',
-  path: '/karyawan',
-  getParentRoute: () => AuthenticatedRoute,
-} as any)
-const AuthenticatedJabatanRoute = AuthenticatedJabatanRouteImport.update({
-  id: '/jabatan',
-  path: '/jabatan',
-  getParentRoute: () => AuthenticatedRoute,
-} as any)
-const AuthenticatedGajiPokokRoute = AuthenticatedGajiPokokRouteImport.update({
-  id: '/gaji-pokok',
-  path: '/gaji-pokok',
+const AuthenticatedDashboardRoute = AuthenticatedDashboardRouteImport.update({
+  id: '/dashboard',
+  path: '/dashboard',
   getParentRoute: () => AuthenticatedRoute,
 } as any)
 const AuthenticatedFormatWhatsappRoute =
@@ -104,14 +57,61 @@ const AuthenticatedFormatWhatsappRoute =
     path: '/format-whatsapp',
     getParentRoute: () => AuthenticatedRoute,
   } as any)
-const AuthenticatedDashboardRoute = AuthenticatedDashboardRouteImport.update({
-  id: '/dashboard',
-  path: '/dashboard',
+const AuthenticatedGajiPokokRoute = AuthenticatedGajiPokokRouteImport.update({
+  id: '/gaji-pokok',
+  path: '/gaji-pokok',
   getParentRoute: () => AuthenticatedRoute,
 } as any)
-const AuthenticatedCabangRoute = AuthenticatedCabangRouteImport.update({
-  id: '/cabang',
-  path: '/cabang',
+const AuthenticatedJabatanRoute = AuthenticatedJabatanRouteImport.update({
+  id: '/jabatan',
+  path: '/jabatan',
+  getParentRoute: () => AuthenticatedRoute,
+} as any)
+const AuthenticatedKaryawanRoute = AuthenticatedKaryawanRouteImport.update({
+  id: '/karyawan',
+  path: '/karyawan',
+  getParentRoute: () => AuthenticatedRoute,
+} as any)
+const AuthenticatedLaporanRoute = AuthenticatedLaporanRouteImport.update({
+  id: '/laporan',
+  path: '/laporan',
+  getParentRoute: () => AuthenticatedRoute,
+} as any)
+const AuthenticatedPengaturanRoute = AuthenticatedPengaturanRouteImport.update({
+  id: '/pengaturan',
+  path: '/pengaturan',
+  getParentRoute: () => AuthenticatedRoute,
+} as any)
+const AuthenticatedPotonganRoute = AuthenticatedPotonganRouteImport.update({
+  id: '/potongan',
+  path: '/potongan',
+  getParentRoute: () => AuthenticatedRoute,
+} as any)
+const AuthenticatedProsesGajiRoute = AuthenticatedProsesGajiRouteImport.update({
+  id: '/proses-gaji',
+  path: '/proses-gaji',
+  getParentRoute: () => AuthenticatedRoute,
+} as any)
+const AuthenticatedRekeningBankRoute =
+  AuthenticatedRekeningBankRouteImport.update({
+    id: '/rekening-bank',
+    path: '/rekening-bank',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
+const AuthenticatedRingkasanWhatsappRoute =
+  AuthenticatedRingkasanWhatsappRouteImport.update({
+    id: '/ringkasan-whatsapp',
+    path: '/ringkasan-whatsapp',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
+const AuthenticatedSlipGajiRoute = AuthenticatedSlipGajiRouteImport.update({
+  id: '/slip-gaji',
+  path: '/slip-gaji',
+  getParentRoute: () => AuthenticatedRoute,
+} as any)
+const AuthenticatedTunjanganRoute = AuthenticatedTunjanganRouteImport.update({
+  id: '/tunjangan',
+  path: '/tunjangan',
   getParentRoute: () => AuthenticatedRoute,
 } as any)
 
@@ -237,11 +237,11 @@ export interface RootRouteChildren {
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
-    '/login': {
-      id: '/login'
-      path: '/login'
-      fullPath: '/login'
-      preLoaderRoute: typeof LoginRouteImport
+    '/': {
+      id: '/'
+      path: '/'
+      fullPath: '/'
+      preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/_authenticated': {
@@ -251,95 +251,18 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/': {
-      id: '/'
-      path: '/'
-      fullPath: '/'
-      preLoaderRoute: typeof IndexRouteImport
+    '/login': {
+      id: '/login'
+      path: '/login'
+      fullPath: '/login'
+      preLoaderRoute: typeof LoginRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/_authenticated/tunjangan': {
-      id: '/_authenticated/tunjangan'
-      path: '/tunjangan'
-      fullPath: '/tunjangan'
-      preLoaderRoute: typeof AuthenticatedTunjanganRouteImport
-      parentRoute: typeof AuthenticatedRoute
-    }
-    '/_authenticated/slip-gaji': {
-      id: '/_authenticated/slip-gaji'
-      path: '/slip-gaji'
-      fullPath: '/slip-gaji'
-      preLoaderRoute: typeof AuthenticatedSlipGajiRouteImport
-      parentRoute: typeof AuthenticatedRoute
-    }
-    '/_authenticated/ringkasan-whatsapp': {
-      id: '/_authenticated/ringkasan-whatsapp'
-      path: '/ringkasan-whatsapp'
-      fullPath: '/ringkasan-whatsapp'
-      preLoaderRoute: typeof AuthenticatedRingkasanWhatsappRouteImport
-      parentRoute: typeof AuthenticatedRoute
-    }
-    '/_authenticated/rekening-bank': {
-      id: '/_authenticated/rekening-bank'
-      path: '/rekening-bank'
-      fullPath: '/rekening-bank'
-      preLoaderRoute: typeof AuthenticatedRekeningBankRouteImport
-      parentRoute: typeof AuthenticatedRoute
-    }
-    '/_authenticated/proses-gaji': {
-      id: '/_authenticated/proses-gaji'
-      path: '/proses-gaji'
-      fullPath: '/proses-gaji'
-      preLoaderRoute: typeof AuthenticatedProsesGajiRouteImport
-      parentRoute: typeof AuthenticatedRoute
-    }
-    '/_authenticated/potongan': {
-      id: '/_authenticated/potongan'
-      path: '/potongan'
-      fullPath: '/potongan'
-      preLoaderRoute: typeof AuthenticatedPotonganRouteImport
-      parentRoute: typeof AuthenticatedRoute
-    }
-    '/_authenticated/pengaturan': {
-      id: '/_authenticated/pengaturan'
-      path: '/pengaturan'
-      fullPath: '/pengaturan'
-      preLoaderRoute: typeof AuthenticatedPengaturanRouteImport
-      parentRoute: typeof AuthenticatedRoute
-    }
-    '/_authenticated/laporan': {
-      id: '/_authenticated/laporan'
-      path: '/laporan'
-      fullPath: '/laporan'
-      preLoaderRoute: typeof AuthenticatedLaporanRouteImport
-      parentRoute: typeof AuthenticatedRoute
-    }
-    '/_authenticated/karyawan': {
-      id: '/_authenticated/karyawan'
-      path: '/karyawan'
-      fullPath: '/karyawan'
-      preLoaderRoute: typeof AuthenticatedKaryawanRouteImport
-      parentRoute: typeof AuthenticatedRoute
-    }
-    '/_authenticated/jabatan': {
-      id: '/_authenticated/jabatan'
-      path: '/jabatan'
-      fullPath: '/jabatan'
-      preLoaderRoute: typeof AuthenticatedJabatanRouteImport
-      parentRoute: typeof AuthenticatedRoute
-    }
-    '/_authenticated/gaji-pokok': {
-      id: '/_authenticated/gaji-pokok'
-      path: '/gaji-pokok'
-      fullPath: '/gaji-pokok'
-      preLoaderRoute: typeof AuthenticatedGajiPokokRouteImport
-      parentRoute: typeof AuthenticatedRoute
-    }
-    '/_authenticated/format-whatsapp': {
-      id: '/_authenticated/format-whatsapp'
-      path: '/format-whatsapp'
-      fullPath: '/format-whatsapp'
-      preLoaderRoute: typeof AuthenticatedFormatWhatsappRouteImport
+    '/_authenticated/cabang': {
+      id: '/_authenticated/cabang'
+      path: '/cabang'
+      fullPath: '/cabang'
+      preLoaderRoute: typeof AuthenticatedCabangRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
     '/_authenticated/dashboard': {
@@ -349,11 +272,88 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedDashboardRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
-    '/_authenticated/cabang': {
-      id: '/_authenticated/cabang'
-      path: '/cabang'
-      fullPath: '/cabang'
-      preLoaderRoute: typeof AuthenticatedCabangRouteImport
+    '/_authenticated/format-whatsapp': {
+      id: '/_authenticated/format-whatsapp'
+      path: '/format-whatsapp'
+      fullPath: '/format-whatsapp'
+      preLoaderRoute: typeof AuthenticatedFormatWhatsappRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/gaji-pokok': {
+      id: '/_authenticated/gaji-pokok'
+      path: '/gaji-pokok'
+      fullPath: '/gaji-pokok'
+      preLoaderRoute: typeof AuthenticatedGajiPokokRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/jabatan': {
+      id: '/_authenticated/jabatan'
+      path: '/jabatan'
+      fullPath: '/jabatan'
+      preLoaderRoute: typeof AuthenticatedJabatanRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/karyawan': {
+      id: '/_authenticated/karyawan'
+      path: '/karyawan'
+      fullPath: '/karyawan'
+      preLoaderRoute: typeof AuthenticatedKaryawanRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/laporan': {
+      id: '/_authenticated/laporan'
+      path: '/laporan'
+      fullPath: '/laporan'
+      preLoaderRoute: typeof AuthenticatedLaporanRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/pengaturan': {
+      id: '/_authenticated/pengaturan'
+      path: '/pengaturan'
+      fullPath: '/pengaturan'
+      preLoaderRoute: typeof AuthenticatedPengaturanRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/potongan': {
+      id: '/_authenticated/potongan'
+      path: '/potongan'
+      fullPath: '/potongan'
+      preLoaderRoute: typeof AuthenticatedPotonganRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/proses-gaji': {
+      id: '/_authenticated/proses-gaji'
+      path: '/proses-gaji'
+      fullPath: '/proses-gaji'
+      preLoaderRoute: typeof AuthenticatedProsesGajiRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/rekening-bank': {
+      id: '/_authenticated/rekening-bank'
+      path: '/rekening-bank'
+      fullPath: '/rekening-bank'
+      preLoaderRoute: typeof AuthenticatedRekeningBankRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/ringkasan-whatsapp': {
+      id: '/_authenticated/ringkasan-whatsapp'
+      path: '/ringkasan-whatsapp'
+      fullPath: '/ringkasan-whatsapp'
+      preLoaderRoute: typeof AuthenticatedRingkasanWhatsappRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/slip-gaji': {
+      id: '/_authenticated/slip-gaji'
+      path: '/slip-gaji'
+      fullPath: '/slip-gaji'
+      preLoaderRoute: typeof AuthenticatedSlipGajiRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/tunjangan': {
+      id: '/_authenticated/tunjangan'
+      path: '/tunjangan'
+      fullPath: '/tunjangan'
+      preLoaderRoute: typeof AuthenticatedTunjanganRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
   }

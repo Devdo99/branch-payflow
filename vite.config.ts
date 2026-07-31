@@ -17,5 +17,19 @@ export default defineConfig({
     alias: {
       "@": fileURLToPath(new URL("./src", import.meta.url)),
     },
+    dedupe: ["react", "react-dom", "@tanstack/react-router"],
+  },
+
+  environments: {
+    ssr: {
+      optimizeDeps: {
+        include: [
+          "react",
+          "react-dom",
+          "react-dom/server",
+          "@tanstack/react-router",
+        ],
+      },
+    },
   },
 });

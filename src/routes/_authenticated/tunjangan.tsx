@@ -61,7 +61,7 @@ function TunjanganPage() {
 
   const [nama, setNama] = useState("");
   const [nominal, setNominal] = useState<number | "">("");
-  const [metode, setMetode] = useState<string>("fixed");
+  const [metode, setMetode] = useState<"fixed" | "per_day" | "per_hour" | "per_event" | "manual">("fixed");
   const [aktif, setAktif] = useState(true);
 
   // Relasi Jobdesk Explicit
@@ -196,7 +196,7 @@ function TunjanganPage() {
 
               <div className="space-y-2">
                 <Label>Model Perhitungan</Label>
-                <Select value={metode} onValueChange={setMetode}>
+                <Select value={metode} onValueChange={(val) => setMetode(val as any)}>
                   <SelectTrigger>
                     <SelectValue />
                   </SelectTrigger>

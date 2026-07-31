@@ -44,11 +44,11 @@ const statusLabels: Record<BankStatus, string> = {
 function getStatusBadge(status: BankStatus) {
   switch (status) {
     case "valid":
-      return <Badge className="bg-green-500 hover:bg-green-600">Valid</Badge>;
+      return <Badge className="bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 shadow-sm rounded-lg py-1 px-2.5">Valid</Badge>;
     case "belum_dicek":
-      return <Badge variant="secondary">Belum Dicek</Badge>;
+      return <Badge className="bg-slate-100 hover:bg-slate-200 text-slate-500 border border-slate-200 shadow-sm rounded-lg py-1 px-2.5">Belum Dicek</Badge>;
     case "perlu_dicek_ulang":
-      return <Badge variant="destructive">Perlu Cek Ulang</Badge>;
+      return <Badge className="bg-rose-500/10 hover:bg-rose-500/20 text-rose-600 dark:text-rose-400 border border-rose-500/20 shadow-sm rounded-lg py-1 px-2.5">Perlu Cek Ulang</Badge>;
   }
 }
 
@@ -118,168 +118,172 @@ function RekeningBankPage() {
   };
 
   return (
-    <div className="flex flex-col gap-6 p-6">
-      <div className="flex items-center justify-between">
-        <PageHeader
-          title="Data Rekening Bank"
-          description="Kelola informasi pencairan gaji (bank & e-wallet) untuk karyawan aktif"
-        />
-      </div>
-
-      <Dialog open={isOpen} onOpenChange={setIsOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Update Rekening: {editItem?.nama}</DialogTitle>
-          </DialogHeader>
-          <form onSubmit={handleSubmit} className="flex flex-col gap-4 py-4">
-            <div className="grid grid-cols-2 gap-4">
-              <div className="flex flex-col gap-2">
-                <Label htmlFor="bank">Nama Bank / E-Wallet</Label>
-                <div className="relative">
-                  <Building2 className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+    <>
+      <PageHeader
+        title="Data Rekening Bank"
+        description="Kelola informasi pencairan gaji (bank & e-wallet) untuk karyawan aktif"
+      />
+      <div className="p-4 sm:p-6 space-y-4">
+        <Dialog open={isOpen} onOpenChange={setIsOpen}>
+          <DialogContent className="rounded-2xl max-w-md">
+            <DialogHeader>
+              <DialogTitle className="text-lg font-bold text-slate-900 dark:text-slate-100">
+                Update Rekening: {editItem?.nama}
+              </DialogTitle>
+            </DialogHeader>
+            <form onSubmit={handleSubmit} className="flex flex-col gap-4 py-2">
+              <div className="grid grid-cols-2 gap-4">
+                <div className="flex flex-col gap-1.5">
+                  <Label htmlFor="bank" className="text-xs font-semibold uppercase tracking-wider text-slate-500">Nama Bank / E-Wallet</Label>
+                  <div className="relative">
+                    <Building2 className="absolute left-3 top-3 h-4 w-4 text-slate-400" />
+                    <Input
+                      id="bank"
+                      className="pl-9 h-10 border-slate-200 focus:border-emerald-500/50 focus:ring-emerald-500/20 rounded-xl"
+                      placeholder="BCA, Mandiri, DANA..."
+                      value={namaBank}
+                      onChange={(e) => setNamaBank(e.target.value)}
+                    />
+                  </div>
+                </div>
+                <div className="flex flex-col gap-1.5">
+                  <Label htmlFor="norek" className="text-xs font-semibold uppercase tracking-wider text-slate-500">Nomor Rekening</Label>
                   <Input
-                    id="bank"
-                    className="pl-9"
-                    placeholder="BCA, Mandiri, DANA..."
-                    value={namaBank}
-                    onChange={(e) => setNamaBank(e.target.value)}
+                    id="norek"
+                    className="h-10 border-slate-200 focus:border-emerald-500/50 focus:ring-emerald-500/20 rounded-xl"
+                    placeholder="1234567890"
+                    value={nomorRekening}
+                    onChange={(e) => setNomorRekening(e.target.value)}
                   />
                 </div>
               </div>
-              <div className="flex flex-col gap-2">
-                <Label htmlFor="norek">Nomor Rekening</Label>
+
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="pemilik" className="text-xs font-semibold uppercase tracking-wider text-slate-500">Atas Nama (Pemilik Rekening)</Label>
                 <Input
-                  id="norek"
-                  placeholder="1234567890"
-                  value={nomorRekening}
-                  onChange={(e) => setNomorRekening(e.target.value)}
+                  id="pemilik"
+                  className="h-10 border-slate-200 focus:border-emerald-500/50 focus:ring-emerald-500/20 rounded-xl"
+                  placeholder="Nama sesuai buku tabungan"
+                  value={namaPemilik}
+                  onChange={(e) => setNamaPemilik(e.target.value)}
+                />
+                <p className="text-[10px] text-slate-500 leading-tight">
+                  Pastikan nama di sini sama persis dengan nama di buku tabungan untuk menghindari retur/gagal transfer.
+                </p>
+              </div>
+
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="status" className="text-xs font-semibold uppercase tracking-wider text-slate-500">Status Validasi</Label>
+                <Select
+                  value={statusRekening}
+                  onValueChange={(val) => setStatusRekening(val as BankStatus)}
+                >
+                  <SelectTrigger id="status" className="h-10 border-slate-200 rounded-xl">
+                    <SelectValue placeholder="Pilih status validasi" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {Object.entries(statusLabels).map(([key, label]) => (
+                      <SelectItem key={key} value={key}>
+                        {label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="catatan" className="text-xs font-semibold uppercase tracking-wider text-slate-500">Catatan</Label>
+                <Textarea
+                  id="catatan"
+                  placeholder="Misal: Nomor rekening sedang diurus, atau e-wallet belum premium..."
+                  value={catatan}
+                  onChange={(e) => setCatatan(e.target.value)}
+                  className="border-slate-200 focus:border-emerald-500/50 focus:ring-emerald-500/20 rounded-xl"
+                  rows={2}
                 />
               </div>
-            </div>
 
-            <div className="flex flex-col gap-2">
-              <Label htmlFor="pemilik">Atas Nama (Pemilik Rekening)</Label>
-              <Input
-                id="pemilik"
-                placeholder="Nama sesuai buku tabungan"
-                value={namaPemilik}
-                onChange={(e) => setNamaPemilik(e.target.value)}
-              />
-              <p className="text-[0.8rem] text-muted-foreground">
-                Pastikan nama di sini sama persis dengan nama di buku tabungan untuk menghindari
-                retur/gagal transfer.
-              </p>
-            </div>
+              <Button type="submit" className="mt-4 h-10 bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-white rounded-xl shadow-md border-none font-semibold active:scale-[0.98] transition-all cursor-pointer" disabled={updateMutation.isPending}>
+                {updateMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                Simpan Perubahan
+              </Button>
+            </form>
+          </DialogContent>
+        </Dialog>
 
-            <div className="flex flex-col gap-2">
-              <Label htmlFor="status">Status Validasi</Label>
-              <Select
-                value={statusRekening}
-                onValueChange={(val) => setStatusRekening(val as BankStatus)}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Pilih status validasi" />
-                </SelectTrigger>
-                <SelectContent>
-                  {Object.entries(statusLabels).map(([key, label]) => (
-                    <SelectItem key={key} value={key}>
-                      {label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="flex flex-col gap-2">
-              <Label htmlFor="catatan">Catatan</Label>
-              <Textarea
-                id="catatan"
-                placeholder="Misal: Nomor rekening sedang diurus, atau e-wallet belum premium..."
-                value={catatan}
-                onChange={(e) => setCatatan(e.target.value)}
-              />
-            </div>
-
-            <Button type="submit" className="mt-4" disabled={updateMutation.isPending}>
-              {updateMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              Simpan Perubahan
-            </Button>
-          </form>
-        </DialogContent>
-      </Dialog>
-
-      <div className="rounded-md border bg-card">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Karyawan</TableHead>
-              <TableHead>Bank / E-Wallet</TableHead>
-              <TableHead>No. Rekening & Atas Nama</TableHead>
-              <TableHead className="text-center">Status</TableHead>
-              <TableHead className="text-right">Aksi</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {isLoading ? (
-              <TableRow>
-                <TableCell colSpan={5} className="h-24 text-center">
-                  <Loader2 className="mx-auto h-6 w-6 animate-spin text-muted-foreground" />
-                </TableCell>
+        <div className="premium-card overflow-hidden border border-border/60">
+          <Table>
+            <TableHeader>
+              <TableRow className="bg-slate-50/80 dark:bg-slate-900/60 hover:bg-transparent">
+                <TableHead className="font-semibold text-slate-900 dark:text-slate-100">Karyawan</TableHead>
+                <TableHead className="font-semibold text-slate-900 dark:text-slate-100">Bank / E-Wallet</TableHead>
+                <TableHead className="font-semibold text-slate-900 dark:text-slate-100">No. Rekening & Atas Nama</TableHead>
+                <TableHead className="text-center font-semibold text-slate-900 dark:text-slate-100">Status</TableHead>
+                <TableHead className="text-right font-semibold text-slate-900 dark:text-slate-100">Aksi</TableHead>
               </TableRow>
-            ) : employees?.length === 0 ? (
-              <TableRow>
-                <TableCell colSpan={5} className="h-24 text-center text-muted-foreground">
-                  Belum ada data karyawan aktif.
-                </TableCell>
-              </TableRow>
-            ) : (
-              employees?.map((item) => (
-                <TableRow key={item.id}>
-                  <TableCell className="font-medium">
-                    {item.nama}
-                    {item.kode_karyawan && (
-                      <span className="block text-xs text-muted-foreground font-normal">
-                        ID: {item.kode_karyawan}
-                      </span>
-                    )}
-                  </TableCell>
-                  <TableCell>
-                    {item.nama_bank || (
-                      <span className="text-muted-foreground italic">- Belum diisi -</span>
-                    )}
-                  </TableCell>
-                  <TableCell>
-                    {item.nomor_rekening ? (
-                      <div className="flex flex-col">
-                        <span className="font-mono text-sm">{item.nomor_rekening}</span>
-                        <span className="text-xs text-muted-foreground uppercase">
-                          A.N. {item.nama_pemilik_rekening}
-                        </span>
-                      </div>
-                    ) : (
-                      <span className="text-muted-foreground italic">- Belum diisi -</span>
-                    )}
-                  </TableCell>
-                  <TableCell className="text-center">
-                    {getStatusBadge(item.status_rekening)}
-                  </TableCell>
-                  <TableCell className="text-right">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => handleEdit(item)}
-                      className="gap-2"
-                    >
-                      <Pencil className="h-4 w-4" />
-                      Update
-                    </Button>
+            </TableHeader>
+            <TableBody>
+              {isLoading ? (
+                <TableRow>
+                  <TableCell colSpan={5} className="h-24 text-center">
+                    <Loader2 className="mx-auto h-6 w-6 animate-spin text-emerald-500" />
                   </TableCell>
                 </TableRow>
-              ))
-            )}
-          </TableBody>
-        </Table>
+              ) : employees?.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={5} className="h-24 text-center text-slate-500 py-12">
+                    Belum ada data karyawan aktif.
+                  </TableCell>
+                </TableRow>
+              ) : (
+                employees?.map((item) => (
+                  <TableRow key={item.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-900/50 transition-colors">
+                    <TableCell className="font-semibold text-slate-900 dark:text-slate-100">
+                      {item.nama}
+                      {item.kode_karyawan && (
+                        <span className="block text-[11px] text-slate-400 font-normal">
+                          ID: {item.kode_karyawan}
+                        </span>
+                      )}
+                    </TableCell>
+                    <TableCell className="font-medium text-slate-800 dark:text-slate-200">
+                      {item.nama_bank || (
+                        <span className="text-slate-400 italic font-normal text-xs">- Belum diisi -</span>
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      {item.nomor_rekening ? (
+                        <div className="flex flex-col">
+                          <span className="font-mono text-sm font-semibold text-slate-950 dark:text-slate-100">{item.nomor_rekening}</span>
+                          <span className="text-[10px] text-slate-400 font-bold uppercase mt-0.5">
+                            A.N. {item.nama_pemilik_rekening}
+                          </span>
+                        </div>
+                      ) : (
+                        <span className="text-slate-400 italic text-xs">- Belum diisi -</span>
+                      )}
+                    </TableCell>
+                    <TableCell className="text-center">
+                      {getStatusBadge(item.status_rekening)}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleEdit(item)}
+                        className="gap-2 border-slate-200 hover:bg-slate-50 rounded-xl text-xs"
+                      >
+                        <Pencil className="h-3.5 w-3.5" />
+                        Update
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                ))
+              )}
+            </TableBody>
+          </Table>
+        </div>
       </div>
-    </div>
+    </>
   );
 }

@@ -534,32 +534,17 @@ function LaporanPage() {
     }
 
     setIsDownloading(true);
-    const element = document.getElementById("report-container");
+
+    // Wait for React to render the offscreen PDF container and Recharts charts
+    await new Promise<void>((resolve) => setTimeout(resolve, 500));
+
+    const element = document.getElementById("pdf-export-container");
 
     if (!element) {
       toast.error("Tidak dapat menemukan konten laporan untuk diunduh.");
       setIsDownloading(false);
       return;
     }
-
-    // Save original styles to restore later
-    const originalWidth = element.style.width;
-    const originalMaxWidth = element.style.maxWidth;
-    const originalPadding = element.style.padding;
-    const originalBackground = element.style.background;
-
-    // Apply clean print/export styles to ensure a crisp, wide layout on any screen size
-    element.style.width = "1200px";
-    element.style.maxWidth = "none";
-    element.style.padding = "24px";
-    element.style.background = "#ffffff";
-
-    // Wait for the browser to apply styles and recalculate layout before capturing
-    await new Promise<void>((resolve) => {
-      requestAnimationFrame(() => {
-        requestAnimationFrame(() => resolve());
-      });
-    });
 
     try {
       const canvas = await toCanvas(element, {
@@ -611,15 +596,9 @@ function LaporanPage() {
       toast.success("Laporan PDF berhasil diunduh");
     } catch (error) {
       console.error("Gagal membuat PDF laporan:", error);
-      // Tampilkan detail error ke user untuk debugging
       const errorMessage = error instanceof Error ? error.message : String(error);
       toast.error(`Gagal membuat PDF: ${errorMessage}`);
     } finally {
-      // Restore original styles in all cases
-      element.style.width = originalWidth;
-      element.style.maxWidth = originalMaxWidth;
-      element.style.padding = originalPadding;
-      element.style.background = originalBackground;
       setIsDownloading(false);
     }
   };
@@ -1376,6 +1355,207 @@ function LaporanPage() {
           </Table>
         </div>
       </div>
+
+      {/* Dedicated Container for PDF Export */}
+      {isDownloading && (
+        <div
+          id="pdf-export-container"
+          className="bg-white p-8 space-y-6 text-slate-950 font-sans"
+          style={{
+            position: "absolute",
+            left: "-9999px",
+            top: "0",
+            width: "1200px",
+          }}
+        >
+          {/* Header */}
+          <div className="flex items-center justify-between border-b-2 border-emerald-500 pb-4 mb-6">
+            <div>
+              <h1 className="text-2xl font-bold text-slate-900">Laporan Penggajian Karyawan</h1>
+              <p className="text-sm text-slate-600">
+                {selectedBranchName} • {selectedMonthName} {selectedYear}
+              </p>
+            </div>
+            <div className="text-right text-xs text-slate-500">
+              <p>Tanggal Unduh: {new Date().toLocaleDateString("id-ID", { day: "numeric", month: "long", year: "numeric" })}</p>
+              <p>Sistem: Branch Payflow</p>
+            </div>
+          </div>
+
+          {/* Grafik Section */}
+          <div className="grid grid-cols-2 gap-6">
+            {/* Card 1: Distribusi Gaji */}
+            <div className="rounded-xl border bg-white p-6 shadow-sm">
+              <h3 className="text-sm font-semibold text-slate-950 mb-4">
+                {selectedCabang === "all" ? "Distribusi Gaji per Cabang" : "Top Karyawan Berdasarkan Take Home Pay"}
+              </h3>
+              <div className="h-[250px] w-full">
+                <BarChart width={500} height={240} data={chartBranchData} margin={{ top: 10, right: 10, left: 10, bottom: 20 }}>
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                  <XAxis 
+                    dataKey="name" 
+                    tickLine={false} 
+                    axisLine={false} 
+                    fontSize={10}
+                    tick={{ fill: "#64748b" }}
+                    angle={-15}
+                    textAnchor="end"
+                  />
+                  <YAxis 
+                    tickLine={false} 
+                    axisLine={false} 
+                    fontSize={9}
+                    tick={{ fill: "#64748b" }}
+                    tickFormatter={(val) => `Rp ${(val / 1000000).toFixed(1)}jt`}
+                  />
+                  <Bar dataKey="Total Gaji" fill="#10b981" radius={[4, 4, 0, 0]} />
+                </BarChart>
+              </div>
+            </div>
+
+            {/* Card 2: Proporsi Komponen */}
+            <div className="rounded-xl border bg-white p-6 shadow-sm">
+              <h3 className="text-sm font-semibold text-slate-950 mb-4">
+                Proporsi Komponen Biaya Payroll
+              </h3>
+              <div className="flex items-center gap-6 h-[240px]">
+                <div className="h-[200px] w-[200px] shrink-0">
+                  <PieChart width={200} height={200}>
+                    <Pie
+                      data={chartComponentData}
+                      cx="50%"
+                      cy="50%"
+                      innerRadius={60}
+                      outerRadius={80}
+                      paddingAngle={4}
+                      dataKey="value"
+                    >
+                      {chartComponentData.map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={entry.color} />
+                      ))}
+                    </Pie>
+                  </PieChart>
+                </div>
+                <div className="flex flex-col gap-3 justify-center">
+                  {chartComponentData.map((item) => (
+                    <div key={item.name} className="flex items-center gap-3 text-xs">
+                      <div className="h-3 w-3 rounded-full shrink-0" style={{ backgroundColor: item.color }} />
+                      <div className="grid gap-0.5">
+                        <span className="font-medium text-slate-700">{item.name}</span>
+                        <span className="text-slate-900 font-semibold">
+                          {formatIDR(item.value)}
+                        </span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Rincian Per Karyawan */}
+          <div className="overflow-hidden rounded-md border bg-white shadow-sm mt-6">
+            <div className="border-b border-slate-200 p-4 bg-slate-50">
+              <h3 className="text-sm font-semibold text-slate-950">Rincian Gaji Per Karyawan</h3>
+            </div>
+            <Table>
+              <TableHeader className="bg-slate-50">
+                <TableRow>
+                  <TableHead>Periode</TableHead>
+                  <TableHead>Nama</TableHead>
+                  <TableHead>Cabang</TableHead>
+                  <TableHead>Jabatan</TableHead>
+                  <TableHead className="text-right">Gaji Pokok</TableHead>
+                  <TableHead className="text-right">Tunjangan</TableHead>
+                  <TableHead className="text-right">Potongan</TableHead>
+                  <TableHead className="text-right">THP</TableHead>
+                  <TableHead>Komponen</TableHead>
+                  <TableHead>Rekening</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {detailRows.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={10} className="h-24 text-center text-muted-foreground">
+                      Tidak ada rincian gaji untuk filter ini.
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  detailRows.map((row: DetailRow) => (
+                    <TableRow key={row.id} className="odd:bg-white even:bg-slate-50/60">
+                      <TableCell className="whitespace-nowrap">
+                        {formatPeriode(row.periode)}
+                      </TableCell>
+                      <TableCell className="font-medium">{row.nama}</TableCell>
+                      <TableCell>{getBranchName(row.branch_id)}</TableCell>
+                      <TableCell>{row.jabatan}</TableCell>
+                      <TableCell className="text-right">{formatIDR(row.gaji_pokok)}</TableCell>
+                      <TableCell className="text-right">{formatIDR(row.total_tunjangan)}</TableCell>
+                      <TableCell className="text-right">{formatIDR(row.total_potongan)}</TableCell>
+                      <TableCell className="text-right font-semibold">
+                        {formatIDR(row.gaji_bersih)}
+                      </TableCell>
+                      <TableCell>
+                        <div className="min-w-[220px] space-y-1 text-xs leading-tight">
+                          {row.allowances.length > 0 ? (
+                            <div>
+                              <span className="font-semibold text-emerald-700">Tunjangan: </span>
+                              {row.allowances
+                                .map(
+                                  (item: ComponentItem) =>
+                                    `${item.nama} ${formatIDR(item.subtotal || 0)}`,
+                                )
+                                .join(", ")}
+                            </div>
+                          ) : (
+                            <div>
+                              <span className="font-semibold text-emerald-700">Tunjangan: </span>
+                              {formatIDR(row.total_tunjangan)}
+                            </div>
+                          )}
+                          {row.deductions.length > 0 ? (
+                            <div>
+                              <span className="font-semibold text-rose-700">Potongan: </span>
+                              {row.deductions
+                                .map(
+                                  (item: ComponentItem) =>
+                                    `${item.nama} ${formatIDR(item.subtotal || 0)}`,
+                                )
+                                .join(", ")}
+                            </div>
+                          ) : (
+                            <div>
+                              <span className="font-semibold text-rose-700">Potongan: </span>
+                              {formatIDR(row.total_potongan)}
+                            </div>
+                          )}
+                          {(row.jumlah_izin > 0 ||
+                            row.jumlah_absen > 0 ||
+                            row.jumlah_telat > 0) && (
+                            <div className="text-muted-foreground">
+                              Izin {row.jumlah_izin}, sakit/absen {row.jumlah_absen}, telat{" "}
+                              {row.jumlah_telat}
+                            </div>
+                          )}
+                          {row.catatan && (
+                            <div className="text-muted-foreground">{row.catatan}</div>
+                          )}
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <div className="text-xs leading-tight">
+                          <div>{row.nomor_rekening}</div>
+                          <div className="text-muted-foreground">{row.nama_bank}</div>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))
+                )}
+              </TableBody>
+            </Table>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

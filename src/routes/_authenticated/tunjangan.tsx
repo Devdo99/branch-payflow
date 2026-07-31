@@ -166,214 +166,254 @@ function TunjanganPage() {
     return "Nominal Tetap";
   };
 
+
   return (
-    <div className="space-y-6">
+    <>
       <PageHeader
         title="Master Tunjangan"
         description="Atur komponen tunjangan dan hubungkan dengan spesifik Jobdesk."
-      />
-
-      <div className="flex justify-end">
-        <Dialog open={isOpen} onOpenChange={(open) => (!open ? handleClose() : setIsOpen(true))}>
-          <DialogTrigger asChild>
-            <Button>
-              <Plus className="w-4 h-4 mr-2" /> Tambah Tunjangan
-            </Button>
-          </DialogTrigger>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>{isEditing ? "Edit Tunjangan" : "Tambah Tunjangan"}</DialogTitle>
-            </DialogHeader>
-            <form onSubmit={handleSubmit} className="space-y-4 pt-4">
-              <div className="space-y-2">
-                <Label>Nama Tunjangan</Label>
-                <Input
-                  placeholder="Contoh: Tunjangan Dapur"
-                  value={nama}
-                  onChange={(e) => setNama(e.target.value)}
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label>Model Perhitungan</Label>
-                <Select value={metode} onValueChange={(val) => setMetode(val as any)}>
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="fixed">Nominal Tetap (Otomatis)</SelectItem>
-                    <SelectItem value="per_day">Dikali Jumlah Hari Kerja</SelectItem>
-                    <SelectItem value="per_hour">Dikali Jumlah Jam (Mis: Lembur)</SelectItem>
-                    <SelectItem value="manual">Input Bebas Nominal di Proses Gaji</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              {metode !== "manual" && (
-                <div className="space-y-2">
-                  <Label>Nominal Default (Rp)</Label>
+        actions={
+          <Dialog open={isOpen} onOpenChange={(open) => (!open ? handleClose() : setIsOpen(true))}>
+            <DialogTrigger asChild>
+              <Button className="bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-white border-none rounded-xl shadow-md shadow-emerald-500/10 hover:shadow-emerald-500/20 active:scale-[0.98] transition-all cursor-pointer">
+                <Plus className="w-4 h-4 mr-2" /> Tambah Tunjangan
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="rounded-2xl max-w-md">
+              <DialogHeader>
+                <DialogTitle className="text-lg font-bold text-slate-900 dark:text-slate-100">
+                  {isEditing ? "Edit Tunjangan" : "Tambah Tunjangan"}
+                </DialogTitle>
+              </DialogHeader>
+              <form onSubmit={handleSubmit} className="space-y-4 pt-2">
+                <div className="space-y-1.5">
+                  <Label htmlFor="nama" className="text-xs font-semibold uppercase tracking-wider text-slate-500">Nama Tunjangan</Label>
                   <Input
-                    type="number"
-                    value={nominal}
-                    onChange={(e) => setNominal(Number(e.target.value) || "")}
+                    id="nama"
+                    placeholder="Contoh: Tunjangan Dapur"
+                    value={nama}
+                    onChange={(e) => setNama(e.target.value)}
+                    required
+                    className="h-10 border-slate-200 focus:border-emerald-500/50 focus:ring-emerald-500/20 rounded-xl"
                   />
                 </div>
-              )}
 
-              {/* RELASI JOBDESK EXPLICIT */}
-              <div className="flex items-center justify-between border rounded-lg p-3">
-                <div className="space-y-0.5">
-                  <Label>Berlaku Global</Label>
-                  <p className="text-[11px] text-muted-foreground">Aktif = Semua karyawan dapat.</p>
+                <div className="space-y-1.5">
+                  <Label htmlFor="metode" className="text-xs font-semibold uppercase tracking-wider text-slate-500">Model Perhitungan</Label>
+                  <Select value={metode} onValueChange={(val) => setMetode(val as any)}>
+                    <SelectTrigger id="metode" className="h-10 border-slate-200 rounded-xl">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="fixed">Nominal Tetap (Otomatis)</SelectItem>
+                      <SelectItem value="per_day">Dikali Jumlah Hari Kerja</SelectItem>
+                      <SelectItem value="per_hour">Dikali Jumlah Jam (Mis: Lembur)</SelectItem>
+                      <SelectItem value="manual">Input Bebas Nominal di Proses Gaji</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
-                <Switch checked={isGlobal} onCheckedChange={setIsGlobal} />
-              </div>
 
-              {!isGlobal && (
-                <div className="space-y-2 border rounded-lg p-3 bg-slate-50/50">
-                  <Label className="text-xs text-slate-700">
-                    Pilih Jobdesk Penerima Tunjangan Ini:
-                  </Label>
-                  <div className="grid grid-cols-2 gap-2 mt-2">
-                    {LIST_JOBDESK.map((job) => (
-                      <div
-                        key={job}
-                        className="flex items-center space-x-2 bg-white border px-2 py-1.5 rounded"
-                      >
-                        <Checkbox
-                          id={`job-${job}`}
-                          checked={targetJobdesks.includes(job)}
-                          onCheckedChange={(checked) => {
-                            if (checked) setTargetJobdesks((prev) => [...prev, job]);
-                            else setTargetJobdesks((prev) => prev.filter((j) => j !== job));
-                          }}
-                        />
-                        <label
-                          htmlFor={`job-${job}`}
-                          className="text-[11px] font-medium cursor-pointer flex-1"
-                        >
-                          {job}
-                        </label>
-                      </div>
-                    ))}
+                {metode !== "manual" && (
+                  <div className="space-y-1.5">
+                    <Label htmlFor="nominal" className="text-xs font-semibold uppercase tracking-wider text-slate-500">Nominal Default (Rp)</Label>
+                    <Input
+                      id="nominal"
+                      type="number"
+                      value={nominal}
+                      placeholder="0"
+                      onChange={(e) => setNominal(Number(e.target.value) || "")}
+                      required
+                      className="h-10 border-slate-200 focus:border-emerald-500/50 focus:ring-emerald-500/20 rounded-xl"
+                    />
                   </div>
-                </div>
-              )}
-
-              <div className="flex items-center justify-between border rounded-lg p-3 mt-2">
-                <Label>Status Aktif</Label>
-                <Switch checked={aktif} onCheckedChange={setAktif} />
-              </div>
-
-              <Button type="submit" className="w-full" disabled={saveMutation.isPending}>
-                {saveMutation.isPending ? (
-                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                ) : (
-                  "Simpan Tunjangan"
                 )}
+
+                {/* RELASI JOBDESK EXPLICIT */}
+                <div className="flex items-center justify-between border border-slate-100 rounded-xl p-3 bg-slate-50/30">
+                  <div className="space-y-0.5">
+                    <Label className="text-sm font-semibold">Berlaku Global</Label>
+                    <p className="text-[10px] text-slate-500 leading-tight">Aktif = Semua karyawan dapat.</p>
+                  </div>
+                  <Switch checked={isGlobal} onCheckedChange={setIsGlobal} />
+                </div>
+
+                {!isGlobal && (
+                  <div className="space-y-2 border border-slate-100 rounded-xl p-3 bg-slate-50/50">
+                    <Label className="text-xs font-semibold uppercase tracking-wider text-slate-500">
+                      Pilih Jobdesk Penerima:
+                    </Label>
+                    <div className="grid grid-cols-2 gap-2 mt-2">
+                      {LIST_JOBDESK.map((job) => (
+                        <div
+                          key={job}
+                          className="flex items-center space-x-2 bg-white dark:bg-slate-900 border border-slate-150 px-2.5 py-2 rounded-xl"
+                        >
+                          <Checkbox
+                            id={`job-${job}`}
+                            checked={targetJobdesks.includes(job)}
+                            onCheckedChange={(checked) => {
+                              if (checked) setTargetJobdesks((prev) => [...prev, job]);
+                              else setTargetJobdesks((prev) => prev.filter((j) => j !== job));
+                            }}
+                          />
+                          <label
+                            htmlFor={`job-${job}`}
+                            className="text-xs font-medium cursor-pointer flex-1 select-none text-slate-700 dark:text-slate-300"
+                          >
+                            {job}
+                          </label>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                <div className="flex items-center justify-between border border-slate-100 rounded-xl p-3">
+                  <Label className="text-sm font-semibold">Status Aktif</Label>
+                  <Switch checked={aktif} onCheckedChange={setAktif} />
+                </div>
+
+                <Button 
+                  type="submit" 
+                  className="w-full h-10 mt-2 bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-white rounded-xl shadow-md border-none font-semibold active:scale-[0.98] transition-all cursor-pointer" 
+                  disabled={saveMutation.isPending}
+                >
+                  {saveMutation.isPending ? (
+                    <Loader2 className="w-5 h-5 mr-2 animate-spin mx-auto" />
+                  ) : (
+                    "Simpan Tunjangan"
+                  )}
+                </Button>
+              </form>
+            </DialogContent>
+          </Dialog>
+        }
+      />
+
+      <div className="p-4 sm:p-6 space-y-4">
+        <Dialog
+          open={Boolean(deleteTarget)}
+          onOpenChange={(open) => {
+            if (!open) setDeleteTarget(null);
+          }}
+        >
+          <DialogContent className="rounded-2xl">
+            <DialogHeader>
+              <DialogTitle className="text-lg font-bold text-slate-900 dark:text-slate-100">
+                Hapus Tunjangan
+              </DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4 py-2">
+              <p className="text-sm text-slate-600 dark:text-slate-400 leading-relaxed">
+                Apakah Anda yakin ingin menghapus tunjangan <strong className="text-slate-950 dark:text-white">{deleteTarget?.nama}</strong>?
+                Tindakan ini bersifat permanen dan tidak dapat dibatalkan.
+              </p>
+            </div>
+            <div className="flex justify-end gap-2 pt-2 mt-2">
+              <Button variant="outline" className="rounded-xl h-10" onClick={() => setDeleteTarget(null)}>
+                Batal
               </Button>
-            </form>
+              <Button
+                variant="destructive"
+                className="rounded-xl h-10 bg-rose-600 hover:bg-rose-500 text-white border-none font-semibold"
+                onClick={() => {
+                  if (!deleteTarget) return;
+                  deleteMutation.mutate(deleteTarget.id);
+                  setDeleteTarget(null);
+                }}
+                disabled={deleteMutation.isPending}
+              >
+                {deleteMutation.isPending ? "Menghapus..." : "Hapus Tunjangan"}
+              </Button>
+            </div>
           </DialogContent>
         </Dialog>
-      </div>
 
-      <Dialog
-        open={Boolean(deleteTarget)}
-        onOpenChange={(open) => {
-          if (!open) setDeleteTarget(null);
-        }}
-      >
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Hapus Tunjangan</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4 py-4">
-            <p className="text-sm text-slate-600">
-              Apakah Anda yakin ingin menghapus tunjangan <strong>{deleteTarget?.nama}</strong>?
-              Tindakan ini tidak bisa dibatalkan.
-            </p>
-          </div>
-          <div className="flex justify-end gap-2 pt-2 border-t mt-2">
-            <Button variant="ghost" onClick={() => setDeleteTarget(null)}>
-              Batal
-            </Button>
-            <Button
-              variant="destructive"
-              onClick={() => {
-                if (!deleteTarget) return;
-                deleteMutation.mutate(deleteTarget.id);
-                setDeleteTarget(null);
-              }}
-              disabled={deleteMutation.isPending}
-            >
-              {deleteMutation.isPending ? "Menghapus..." : "Hapus"}
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
-
-      <div className="rounded-md border">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Nama Tunjangan</TableHead>
-              <TableHead>Target Penerima</TableHead>
-              <TableHead>Model</TableHead>
-              <TableHead>Nominal</TableHead>
-              <TableHead className="text-right">Aksi</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {isLoading ? (
-              <TableRow>
-                <TableCell colSpan={5} className="h-24 text-center">
-                  <Loader2 className="mx-auto h-6 w-6 animate-spin text-muted-foreground" />
-                </TableCell>
+        <div className="premium-card overflow-hidden border border-border/60">
+          <Table>
+            <TableHeader>
+              <TableRow className="bg-slate-50/80 dark:bg-slate-900/60 hover:bg-transparent">
+                <TableHead className="font-semibold text-slate-900 dark:text-slate-100">Nama Tunjangan</TableHead>
+                <TableHead className="font-semibold text-slate-900 dark:text-slate-100">Target Penerima</TableHead>
+                <TableHead className="font-semibold text-slate-900 dark:text-slate-100">Model Perhitungan</TableHead>
+                <TableHead className="font-semibold text-slate-900 dark:text-slate-100">Nominal Default</TableHead>
+                <TableHead className="text-right font-semibold text-slate-900 dark:text-slate-100">Aksi</TableHead>
               </TableRow>
-            ) : (
-              allowances?.map((item) => (
-                <TableRow key={item.id}>
-                  <TableCell className="font-medium">{item.nama}</TableCell>
-                  <TableCell>
-                    {!item.catatan || item.catatan === "GLOBAL" ? (
-                      <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200">
-                        <Users className="w-3 h-3 mr-1" /> Global
-                      </Badge>
-                    ) : (
-                      <div className="flex flex-col gap-1 items-start">
-                        <Badge variant="outline" className="bg-slate-50 text-slate-700">
-                          <UserCog className="w-3 h-3 mr-1" /> Khusus
-                        </Badge>
-                        <span className="text-[9px] text-muted-foreground break-words max-w-[150px]">
-                          {item.catatan}
-                        </span>
-                      </div>
-                    )}
-                  </TableCell>
-                  <TableCell>
-                    <Badge variant="secondary">{getMetodeLabel(item.metode)}</Badge>
-                  </TableCell>
-                  <TableCell>
-                    {item.metode === "manual" ? "-" : formatIDR(item.nominal_default)}
-                  </TableCell>
-                  <TableCell className="text-right space-x-2">
-                    <Button variant="ghost" size="icon" onClick={() => handleEdit(item)}>
-                      <Pencil className="w-4 h-4 text-blue-600" />
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => setDeleteTarget({ id: item.id, nama: item.nama })}
-                    >
-                      <Trash2 className="w-4 h-4 text-red-600" />
-                    </Button>
+            </TableHeader>
+            <TableBody>
+              {isLoading ? (
+                <TableRow>
+                  <TableCell colSpan={5} className="text-center py-12">
+                    <div className="flex items-center justify-center gap-2 text-slate-500">
+                      <svg className="animate-spin h-5 w-5 text-emerald-500" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                      </svg>
+                      Memuat data tunjangan...
+                    </div>
                   </TableCell>
                 </TableRow>
-              ))
-            )}
-          </TableBody>
-        </Table>
+              ) : allowances?.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={5} className="text-center py-12 text-sm text-slate-500">
+                    Belum ada tunjangan. Klik "Tambah Tunjangan" untuk membuat.
+                  </TableCell>
+                </TableRow>
+              ) : (
+                allowances?.map((item) => (
+                  <TableRow key={item.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-900/50 transition-colors">
+                    <TableCell className="font-semibold text-slate-900 dark:text-slate-100">{item.nama}</TableCell>
+                    <TableCell>
+                      {!item.catatan || item.catatan === "GLOBAL" ? (
+                        <Badge className="bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20 shadow-sm rounded-lg py-1 px-2.5">
+                          <Users className="w-3 h-3 mr-1" /> Global
+                        </Badge>
+                      ) : (
+                        <div className="flex flex-col gap-1 items-start">
+                          <Badge className="bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20 shadow-sm rounded-lg py-1 px-2.5">
+                            <UserCog className="w-3 h-3 mr-1" /> Khusus
+                          </Badge>
+                          <span className="text-[10px] font-semibold text-slate-500 break-words max-w-[150px]">
+                            {item.catatan}
+                          </span>
+                        </div>
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      <Badge className="bg-slate-100 hover:bg-slate-200 text-slate-600 dark:bg-slate-800 dark:text-slate-300 rounded-lg shadow-sm border border-slate-200/50 py-1 px-2.5">
+                        {getMetodeLabel(item.metode)}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="font-semibold text-slate-900 dark:text-slate-100">
+                      {item.metode === "manual" ? "-" : formatIDR(item.nominal_default)}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <div className="inline-flex gap-1">
+                        <Button 
+                          variant="ghost" 
+                          size="icon" 
+                          className="h-8 w-8 hover:bg-emerald-500/10 hover:text-emerald-600 dark:hover:text-emerald-400 rounded-lg transition-colors"
+                          onClick={() => handleEdit(item)}
+                        >
+                          <Pencil className="w-3.5 h-3.5" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 text-rose-500 hover:bg-rose-500/10 hover:text-rose-600 rounded-lg transition-colors"
+                          onClick={() => setDeleteTarget({ id: item.id, nama: item.nama })}
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </Button>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))
+              )}
+            </TableBody>
+          </Table>
+        </div>
       </div>
-    </div>
+    </>
   );
 }

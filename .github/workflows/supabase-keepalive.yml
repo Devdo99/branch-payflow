@@ -1,0 +1,25 @@
+name: Supabase Keep Alive
+
+on:
+  schedule:
+    # Run every 3 days at 00:00 UTC to prevent database pausing
+    - cron: '0 0 */3 * *'
+  workflow_dispatch: # Allows manual triggering from the GitHub Actions page
+
+jobs:
+  keep-alive:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Ping Supabase Database
+        env:
+          VITE_SUPABASE_URL: ${{ secrets.SUPABASE_URL || 'https://fbnjacadlbpmvxtgmyzl.supabase.co' }}
+          VITE_SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZibmphY2FkbGJwbXZ4dGdteXpsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODAxMTE4NTAsImV4cCI6MjA5NTY4Nzg1MH0.1IDmNKUCeOz-ELmIhecHZbSWlGJKAR22iivNTTQkzNg' }}
+        run: node supabase-keepalive.js

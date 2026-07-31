@@ -14,7 +14,8 @@ import {
   BarChart3,
   Settings,
   LogOut,
-  Briefcase, // Briefcase sudah ditambahkan di sini
+  Briefcase,
+  ShieldCheck,
 } from "lucide-react";
 import {
   Sidebar,
@@ -41,7 +42,7 @@ const groups = [
     items: [
       { title: "Cabang", url: "/cabang", icon: Building2 },
       { title: "Karyawan", url: "/karyawan", icon: Users },
-      { title: "Master Jabatan", url: "/jabatan", icon: Briefcase }, // Menu baru ditambahkan di sini
+      { title: "Master Jabatan", url: "/jabatan", icon: Briefcase },
       { title: "Gaji Pokok", url: "/gaji-pokok", icon: Wallet },
       { title: "Tunjangan", url: "/tunjangan", icon: Plus },
       { title: "Potongan", url: "/potongan", icon: Minus },
@@ -72,35 +73,61 @@ export function AppSidebar() {
   const path = useRouterState({ select: (r) => r.location.pathname });
   const { user, signOut } = useAuth();
 
+  const getInitials = (email: string) => {
+    return email ? email.charAt(0).toUpperCase() : "A";
+  };
+
   return (
-    <Sidebar collapsible="icon">
-      <SidebarHeader className="border-b border-sidebar-border">
-        <div className="flex items-center gap-2 px-2 py-1.5">
-          <div className="flex h-7 w-7 items-center justify-center rounded bg-primary text-primary-foreground text-xs font-semibold">
-            PG
+    <Sidebar collapsible="icon" className="border-r border-sidebar-border/30 bg-slate-950 text-slate-100 font-sans">
+      <SidebarHeader className="border-b border-sidebar-border/30 py-4 px-3 bg-slate-950">
+        <div className="flex items-center gap-3">
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-tr from-emerald-500 to-teal-400 p-0.5 shadow-md shadow-emerald-500/10">
+            <div className="flex h-full w-full items-center justify-center rounded-[10px] bg-slate-900">
+              <ShieldCheck className="h-5 w-5 text-emerald-400" />
+            </div>
           </div>
           {!collapsed && (
             <div className="flex flex-col leading-tight">
-              <span className="text-sm font-semibold">Penggajian</span>
-              <span className="text-[11px] text-muted-foreground">Admin</span>
+              <span className="text-sm font-bold tracking-tight text-white">
+                Pay<span className="text-emerald-400">Flow</span>
+              </span>
+              <span className="text-[10px] uppercase tracking-wider text-slate-400 font-semibold">
+                Premium Admin
+              </span>
             </div>
           )}
         </div>
       </SidebarHeader>
-      <SidebarContent>
+      
+      <SidebarContent className="bg-slate-950 py-3 scrollbar-thin scrollbar-thumb-slate-800 scrollbar-track-transparent">
         {groups.map((g) => (
-          <SidebarGroup key={g.label}>
-            {!collapsed && <SidebarGroupLabel>{g.label}</SidebarGroupLabel>}
+          <SidebarGroup key={g.label} className="py-2">
+            {!collapsed && (
+              <SidebarGroupLabel className="px-3 text-[10px] font-bold uppercase tracking-wider text-slate-500">
+                {g.label}
+              </SidebarGroupLabel>
+            )}
             <SidebarGroupContent>
-              <SidebarMenu>
+              <SidebarMenu className="px-1.5 space-y-0.5">
                 {g.items.map((item) => {
                   const active = path === item.url || path.startsWith(item.url + "/");
                   return (
                     <SidebarMenuItem key={item.url}>
-                      <SidebarMenuButton asChild isActive={active} tooltip={item.title}>
-                        <Link to={item.url} className="flex items-center gap-2">
-                          <item.icon className="h-4 w-4 shrink-0" />
-                          {!collapsed && <span>{item.title}</span>}
+                      <SidebarMenuButton 
+                        asChild 
+                        isActive={active} 
+                        tooltip={item.title}
+                        className={`w-full flex items-center gap-3 px-3 py-2 rounded-xl transition-all duration-200 group ${
+                          active 
+                            ? "bg-emerald-500/10 text-emerald-300 font-medium border-l-2 border-emerald-400" 
+                            : "text-slate-400 hover:text-slate-200 hover:bg-slate-900"
+                        }`}
+                      >
+                        <Link to={item.url} className="flex items-center w-full">
+                          <item.icon className={`h-4.5 w-4.5 shrink-0 transition-transform duration-200 group-hover:scale-110 ${
+                            active ? "text-emerald-400" : "text-slate-400 group-hover:text-slate-300"
+                          }`} />
+                          {!collapsed && <span className="text-sm">{item.title}</span>}
                         </Link>
                       </SidebarMenuButton>
                     </SidebarMenuItem>
@@ -111,17 +138,28 @@ export function AppSidebar() {
           </SidebarGroup>
         ))}
       </SidebarContent>
-      <SidebarFooter className="border-t border-sidebar-border">
+
+      <SidebarFooter className="border-t border-sidebar-border/30 bg-slate-950 p-3 space-y-2">
         {!collapsed && user && (
-          <div className="px-2 pt-1 pb-1 text-[11px] text-muted-foreground truncate">
-            {user.email}
+          <div className="flex items-center gap-3 p-2 rounded-xl bg-slate-900/50 border border-slate-900/30">
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-gradient-to-tr from-emerald-500/20 to-teal-400/20 border border-emerald-500/30 text-emerald-400 text-sm font-bold shadow-inner">
+              {getInitials(user.email || "")}
+            </div>
+            <div className="flex flex-col min-w-0 leading-tight">
+              <span className="text-xs font-semibold text-slate-200 truncate">Administrator</span>
+              <span className="text-[10px] text-slate-400 truncate">{user.email}</span>
+            </div>
           </div>
         )}
         <SidebarMenu>
           <SidebarMenuItem>
-            <SidebarMenuButton onClick={() => signOut()} tooltip="Keluar">
-              <LogOut className="h-4 w-4" />
-              {!collapsed && <span>Keluar</span>}
+            <SidebarMenuButton 
+              onClick={() => signOut()} 
+              tooltip="Keluar"
+              className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-slate-400 hover:text-rose-400 hover:bg-rose-500/5 transition-all duration-200"
+            >
+              <LogOut className="h-4.5 w-4.5" />
+              {!collapsed && <span className="text-sm font-medium">Keluar</span>}
             </SidebarMenuButton>
           </SidebarMenuItem>
         </SidebarMenu>

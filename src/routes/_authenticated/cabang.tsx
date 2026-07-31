@@ -98,65 +98,75 @@ function CabangPage() {
         title="Cabang"
         description="Kelola data cabang usaha"
         actions={
-          <Button size="sm" onClick={openNew}>
-            <Plus className="h-4 w-4" /> Tambah Cabang
+          <Button 
+            size="sm" 
+            onClick={openNew}
+            className="bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-white border-none rounded-xl shadow-md shadow-emerald-500/10 hover:shadow-emerald-500/20 active:scale-[0.98] transition-all cursor-pointer"
+          >
+            <Plus className="mr-2 h-4 w-4" /> Tambah Cabang
           </Button>
         }
       />
-      <div className="p-4 sm:p-6 space-y-3">
+      <div className="p-4 sm:p-6 space-y-4">
         <div className="flex items-center gap-2">
           <div className="relative max-w-xs w-full">
-            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
             <Input
               placeholder="Cari nama cabang..."
               value={q}
               onChange={(e) => setQ(e.target.value)}
-              className="pl-8 h-9"
+              className="pl-9 h-10 bg-white/50 backdrop-blur-sm border-slate-200 focus:border-emerald-500/50 focus:ring-emerald-500/20 rounded-xl shadow-sm"
             />
           </div>
         </div>
 
-        <div className="rounded-md border border-border bg-card overflow-hidden">
+        <div className="premium-card overflow-hidden border border-border/60">
           <Table>
             <TableHeader>
-              <TableRow className="bg-muted/40">
-                <TableHead>Nama Cabang</TableHead>
-                <TableHead>Alamat</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Dibuat</TableHead>
-                <TableHead className="text-right">Aksi</TableHead>
+              <TableRow className="bg-slate-50/80 dark:bg-slate-900/60 hover:bg-transparent">
+                <TableHead className="font-semibold text-slate-900 dark:text-slate-100">Nama Cabang</TableHead>
+                <TableHead className="font-semibold text-slate-900 dark:text-slate-100">Alamat</TableHead>
+                <TableHead className="font-semibold text-slate-900 dark:text-slate-100">Status</TableHead>
+                <TableHead className="font-semibold text-slate-900 dark:text-slate-100">Dibuat</TableHead>
+                <TableHead className="text-right font-semibold text-slate-900 dark:text-slate-100">Aksi</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {isLoading ? (
                 <TableRow>
-                  <TableCell colSpan={5} className="text-center text-sm text-muted-foreground py-8">
-                    Memuat...
+                  <TableCell colSpan={5} className="text-center text-sm text-muted-foreground py-12">
+                    <div className="flex items-center justify-center gap-2 text-slate-500">
+                      <svg className="animate-spin h-5 w-5 text-emerald-500" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                      </svg>
+                      Memuat data cabang...
+                    </div>
                   </TableCell>
                 </TableRow>
               ) : filtered.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={5} className="text-center text-sm text-muted-foreground py-8">
-                    Belum ada cabang. Klik "Tambah Cabang".
+                  <TableCell colSpan={5} className="text-center text-sm text-muted-foreground py-12">
+                    Belum ada cabang. Klik "Tambah Cabang" untuk memulai.
                   </TableCell>
                 </TableRow>
               ) : (
                 filtered.map((b) => (
-                  <TableRow key={b.id}>
-                    <TableCell className="font-medium">{b.nama}</TableCell>
-                    <TableCell className="text-muted-foreground">{b.alamat || "-"}</TableCell>
+                  <TableRow key={b.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-900/50 transition-colors">
+                    <TableCell className="font-semibold text-slate-900 dark:text-slate-100">{b.nama}</TableCell>
+                    <TableCell className="text-slate-600 dark:text-slate-400">{b.alamat || "-"}</TableCell>
                     <TableCell>
                       {b.aktif ? (
-                        <Badge variant="outline" className="border-success/40 text-success">
+                        <Badge className="bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 shadow-sm rounded-lg">
                           Aktif
                         </Badge>
                       ) : (
-                        <Badge variant="outline" className="text-muted-foreground">
+                        <Badge className="bg-slate-100 hover:bg-slate-200 text-slate-500 border border-slate-200 shadow-sm rounded-lg">
                           Nonaktif
                         </Badge>
                       )}
                     </TableCell>
-                    <TableCell className="text-muted-foreground">
+                    <TableCell className="text-slate-500 dark:text-slate-400">
                       {formatDate(b.created_at)}
                     </TableCell>
                     <TableCell className="text-right">
@@ -164,7 +174,7 @@ function CabangPage() {
                         <Button
                           variant="ghost"
                           size="icon"
-                          className="h-8 w-8"
+                          className="h-8 w-8 hover:bg-emerald-500/10 hover:text-emerald-600 dark:hover:text-emerald-400 rounded-lg transition-colors"
                           onClick={() => openEdit(b)}
                         >
                           <Pencil className="h-3.5 w-3.5" />
@@ -172,7 +182,7 @@ function CabangPage() {
                         <Button
                           variant="ghost"
                           size="icon"
-                          className="h-8 w-8 text-destructive"
+                          className="h-8 w-8 text-rose-500 hover:bg-rose-500/10 hover:text-rose-600 rounded-lg transition-colors"
                           onClick={() => setToDelete(b)}
                         >
                           <Trash2 className="h-3.5 w-3.5" />

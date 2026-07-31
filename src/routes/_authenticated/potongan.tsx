@@ -105,150 +105,182 @@ function PotonganPage() {
   });
 
   return (
-    <div className="p-6 space-y-6">
-      <div className="flex justify-between items-center">
-        <PageHeader title="Master Potongan" description="Atur logika pemotongan gaji karyawan." />
-        <Dialog
-          open={isOpen}
-          onOpenChange={(open) => {
-            setIsOpen(open);
-            if (!open) resetForm();
-          }}
-        >
-          <DialogTrigger asChild>
-            <Button onClick={resetForm}>
-              <Plus className="mr-2 h-4 w-4" /> Tambah Potongan
-            </Button>
-          </DialogTrigger>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>{isEditing ? "Edit Potongan" : "Tambah Potongan"}</DialogTitle>
-            </DialogHeader>
-            <form
-              onSubmit={(e) => {
-                e.preventDefault();
-                saveMutation.mutate({ nama, nominal_default: Number(nominal) || 0, metode, aktif });
-              }}
-              className="space-y-4 pt-4"
-            >
-              <div className="space-y-2">
-                <Label>Nama Potongan</Label>
-                <Input
-                  value={nama}
-                  onChange={(e) => setNama(e.target.value)}
-                  required
-                  placeholder="Contoh: Izin, Telat, Kasbon"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label>Metode Perhitungan</Label>
-                <Select value={metode} onValueChange={setMetode}>
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="fixed">Tetap (Otomatis memotong tiap bulan)</SelectItem>
-                    <SelectItem value="per_day">Harian (Muncul Form "Jumlah Hari/Kali")</SelectItem>
-                    <SelectItem value="manual">Manual (Muncul Form "Nominal Rupiah")</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-2">
-                <Label>Nominal Default (Rp)</Label>
-                <Input
-                  type="number"
-                  value={nominal}
-                  onChange={(e) => setNominal(Number(e.target.value))}
-                  placeholder="Biarkan 0 jika dipotong proporsional"
-                />
-                {metode === "per_day" && (
-                  <p className="text-xs text-muted-foreground">
-                    Untuk potongan harian, isi 0 agar sistem menghitung gaji pokok / 30 x jumlah
-                    hari/kali.
-                  </p>
-                )}
-              </div>
-              <div className="flex items-center space-x-2 pt-2 pb-2">
-                <Switch checked={aktif} onCheckedChange={setAktif} />
-                <Label>Status Aktif</Label>
-              </div>
-              <Button type="submit" className="w-full" disabled={saveMutation.isPending}>
-                {saveMutation.isPending ? "Menyimpan..." : "Simpan Perubahan"}
+    <>
+      <PageHeader 
+        title="Master Potongan" 
+        description="Atur logika pemotongan gaji karyawan." 
+        actions={
+          <Dialog
+            open={isOpen}
+            onOpenChange={(open) => {
+              setIsOpen(open);
+              if (!open) resetForm();
+            }}
+          >
+            <DialogTrigger asChild>
+              <Button onClick={resetForm} className="bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-white border-none rounded-xl shadow-md shadow-emerald-500/10 hover:shadow-emerald-500/20 active:scale-[0.98] transition-all cursor-pointer">
+                <Plus className="mr-2 h-4 w-4" /> Tambah Potongan
               </Button>
-            </form>
-          </DialogContent>
-        </Dialog>
-      </div>
+            </DialogTrigger>
+            <DialogContent className="rounded-2xl max-w-md">
+              <DialogHeader>
+                <DialogTitle className="text-lg font-bold text-slate-900 dark:text-slate-100">
+                  {isEditing ? "Edit Potongan" : "Tambah Potongan"}
+                </DialogTitle>
+              </DialogHeader>
+              <form
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  saveMutation.mutate({ nama, nominal_default: Number(nominal) || 0, metode, aktif });
+                }}
+                className="space-y-4 pt-2"
+              >
+                <div className="space-y-1.5">
+                  <Label htmlFor="nama" className="text-xs font-semibold uppercase tracking-wider text-slate-500">Nama Potongan</Label>
+                  <Input
+                    id="nama"
+                    value={nama}
+                    onChange={(e) => setNama(e.target.value)}
+                    required
+                    placeholder="Contoh: Izin, Telat, Kasbon"
+                    className="h-10 border-slate-200 focus:border-emerald-500/50 focus:ring-emerald-500/20 rounded-xl"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="metode" className="text-xs font-semibold uppercase tracking-wider text-slate-500">Metode Perhitungan</Label>
+                  <Select value={metode} onValueChange={setMetode}>
+                    <SelectTrigger id="metode" className="h-10 border-slate-200 rounded-xl">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="fixed">Tetap (Otomatis memotong tiap bulan)</SelectItem>
+                      <SelectItem value="per_day">Harian (Muncul Form "Jumlah Hari/Kali")</SelectItem>
+                      <SelectItem value="manual">Manual (Muncul Form "Nominal Rupiah")</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="nominal" className="text-xs font-semibold uppercase tracking-wider text-slate-500">Nominal Default (Rp)</Label>
+                  <Input
+                    id="nominal"
+                    type="number"
+                    value={nominal}
+                    onChange={(e) => setNominal(Number(e.target.value))}
+                    placeholder="Biarkan 0 jika dipotong proporsional"
+                    className="h-10 border-slate-200 focus:border-emerald-500/50 focus:ring-emerald-500/20 rounded-xl"
+                  />
+                  {metode === "per_day" && (
+                    <p className="text-[10px] text-slate-500 leading-tight">
+                      Untuk potongan harian, isi 0 agar sistem menghitung gaji pokok / 30 x jumlah hari/kali.
+                    </p>
+                  )}
+                </div>
+                <div className="flex items-center justify-between border border-slate-100 rounded-xl p-3">
+                  <Label className="text-sm font-semibold">Status Aktif</Label>
+                  <Switch checked={aktif} onCheckedChange={setAktif} />
+                </div>
+                <Button 
+                  type="submit" 
+                  className="w-full h-10 mt-2 bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-white rounded-xl shadow-md border-none font-semibold active:scale-[0.98] transition-all cursor-pointer" 
+                  disabled={saveMutation.isPending}
+                >
+                  {saveMutation.isPending ? (
+                    <Loader2 className="w-5 h-5 mr-2 animate-spin mx-auto" />
+                  ) : (
+                    "Simpan Potongan"
+                  )}
+                </Button>
+              </form>
+            </DialogContent>
+          </Dialog>
+        }
+      />
 
-      <div className="border rounded-md bg-card">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Nama Potongan</TableHead>
-              <TableHead>Metode</TableHead>
-              <TableHead className="text-right">Nominal Default</TableHead>
-              <TableHead className="text-center">Status</TableHead>
-              <TableHead className="text-right">Aksi</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {isLoading ? (
-              <TableRow>
-                <TableCell colSpan={5} className="text-center py-10">
-                  <Loader2 className="animate-spin mx-auto text-muted-foreground" />
-                </TableCell>
+      <div className="p-4 sm:p-6 space-y-4">
+        <div className="premium-card overflow-hidden border border-border/60">
+          <Table>
+            <TableHeader>
+              <TableRow className="bg-slate-50/80 dark:bg-slate-900/60 hover:bg-transparent">
+                <TableHead className="font-semibold text-slate-900 dark:text-slate-100">Nama Potongan</TableHead>
+                <TableHead className="font-semibold text-slate-900 dark:text-slate-100">Metode Perhitungan</TableHead>
+                <TableHead className="text-right font-semibold text-slate-900 dark:text-slate-100">Nominal Default</TableHead>
+                <TableHead className="text-center font-semibold text-slate-900 dark:text-slate-100">Status</TableHead>
+                <TableHead className="text-right font-semibold text-slate-900 dark:text-slate-100">Aksi</TableHead>
               </TableRow>
-            ) : deductions?.length === 0 ? (
-              <TableRow>
-                <TableCell colSpan={5} className="text-center py-10 text-muted-foreground">
-                  Belum ada data potongan
-                </TableCell>
-              </TableRow>
-            ) : (
-              deductions?.map((item) => (
-                <TableRow key={item.id}>
-                  <TableCell className="font-medium">{item.nama}</TableCell>
-                  <TableCell>
-                    <Badge variant="outline">
-                      {item.metode === "fixed"
-                        ? "Tetap"
-                        : item.metode === "per_day"
-                          ? "Harian"
-                          : "Manual"}
-                    </Badge>
-                    {item.metode === "per_day" && Number(item.nominal_default || 0) === 0 && (
-                      <div className="mt-1 text-xs text-muted-foreground">Gaji pokok / 30</div>
-                    )}
-                  </TableCell>
-                  <TableCell className="text-right">
-                    {formatIDR(item.nominal_default || 0)}
-                  </TableCell>
-                  <TableCell className="text-center">
-                    <Badge variant={item.aktif ? "default" : "secondary"}>
-                      {item.aktif ? "Aktif" : "Non-Aktif"}
-                    </Badge>
-                  </TableCell>
-                  <TableCell className="text-right space-x-2">
-                    <Button variant="ghost" size="icon" onClick={() => handleEdit(item)}>
-                      <Pencil className="h-4 w-4" />
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => {
-                        if (window.confirm(`Yakin ingin menghapus ${item.nama}?`))
-                          deleteMutation.mutate(item.id);
-                      }}
-                    >
-                      <Trash2 className="h-4 w-4 text-red-500" />
-                    </Button>
+            </TableHeader>
+            <TableBody>
+              {isLoading ? (
+                <TableRow>
+                  <TableCell colSpan={5} className="text-center py-12">
+                    <Loader2 className="animate-spin h-6 w-6 mx-auto text-emerald-500" />
                   </TableCell>
                 </TableRow>
-              ))
-            )}
-          </TableBody>
-        </Table>
+              ) : deductions?.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={5} className="text-center py-12 text-sm text-slate-500">
+                    Belum ada data potongan. Klik "Tambah Potongan" untuk membuat.
+                  </TableCell>
+                </TableRow>
+              ) : (
+                deductions?.map((item) => (
+                  <TableRow key={item.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-900/50 transition-colors">
+                    <TableCell className="font-semibold text-slate-900 dark:text-slate-100">{item.nama}</TableCell>
+                    <TableCell>
+                      <Badge className="bg-slate-100 hover:bg-slate-200 text-slate-600 dark:bg-slate-800 dark:text-slate-300 rounded-lg shadow-sm border border-slate-200/50 py-1 px-2.5">
+                        {item.metode === "fixed"
+                          ? "Tetap"
+                          : item.metode === "per_day"
+                            ? "Harian"
+                            : "Manual"}
+                      </Badge>
+                      {item.metode === "per_day" && Number(item.nominal_default || 0) === 0 && (
+                        <div className="mt-1 text-[10px] text-slate-400">Gaji pokok / 30</div>
+                      )}
+                    </TableCell>
+                    <TableCell className="text-right font-semibold text-rose-600 dark:text-rose-400">
+                      {formatIDR(item.nominal_default || 0)}
+                    </TableCell>
+                    <TableCell className="text-center">
+                      {item.aktif ? (
+                        <Badge className="bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 shadow-sm rounded-lg py-1 px-2.5">
+                          Aktif
+                        </Badge>
+                      ) : (
+                        <Badge className="bg-slate-100 hover:bg-slate-200 text-slate-500 border border-slate-200 shadow-sm rounded-lg py-1 px-2.5">
+                          Non-Aktif
+                        </Badge>
+                      )}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <div className="inline-flex gap-1">
+                        <Button 
+                          variant="ghost" 
+                          size="icon" 
+                          className="h-8 w-8 hover:bg-emerald-500/10 hover:text-emerald-600 dark:hover:text-emerald-400 rounded-lg transition-colors"
+                          onClick={() => handleEdit(item)}
+                        >
+                          <Pencil className="w-3.5 h-3.5" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 text-rose-500 hover:bg-rose-500/10 hover:text-rose-600 rounded-lg transition-colors"
+                          onClick={() => {
+                            if (window.confirm(`Yakin ingin menghapus ${item.nama}?`))
+                              deleteMutation.mutate(item.id);
+                          }}
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </Button>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))
+              )}
+            </TableBody>
+          </Table>
+        </div>
       </div>
-    </div>
+    </>
   );
 }

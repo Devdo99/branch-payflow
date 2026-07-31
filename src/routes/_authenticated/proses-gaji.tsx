@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { Fragment, useState, useEffect, useMemo, useRef } from "react";
+import { Fragment, useState, useEffect, useMemo, useRef, ChangeEvent } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { PageHeader } from "@/components/page-header";
@@ -42,7 +42,9 @@ import {
   Coins,
   Percent,
   Wallet,
-  RefreshCw
+  RefreshCw,
+  Download,
+  Upload
 } from "lucide-react";
 
 const loadPayrollDraft = (periode: string) => {
@@ -120,6 +122,47 @@ const formatDateInput = (date: Date) => {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(
     date.getDate(),
   ).padStart(2, "0")}`;
+};
+
+// Helper function to parse CSV robustly (handling double quotes and commas/semicolons)
+const parseCSV = (text: string, delimiter: string = ","): string[][] => {
+  const lines: string[][] = [];
+  let row: string[] = [""];
+  let inQuotes = false;
+  
+  let startIndex = 0;
+  const firstLineMatch = text.match(/^sep=.\r?\n/);
+  if (firstLineMatch) {
+    startIndex = firstLineMatch[0].length;
+  }
+  
+  for (let i = startIndex; i < text.length; i++) {
+    const char = text[i];
+    const nextChar = text[i + 1];
+    
+    if (char === '"') {
+      if (inQuotes && nextChar === '"') {
+        row[row.length - 1] += '"';
+        i++;
+      } else {
+        inQuotes = !inQuotes;
+      }
+    } else if (char === delimiter && !inQuotes) {
+      row.push("");
+    } else if ((char === '\r' || char === '\n') && !inQuotes) {
+      if (char === '\r' && nextChar === '\n') {
+        i++;
+      }
+      lines.push(row);
+      row = [""];
+    } else {
+      row[row.length - 1] += char;
+    }
+  }
+  if (row.length > 1 || row[0] !== "") {
+    lines.push(row);
+  }
+  return lines;
 };
 
 function AppProsesGajiPage() {
@@ -671,6 +714,214 @@ function AppProsesGajiPage() {
     });
   };
 
+  const handleExportCSV = () => {
+    try {
+      const activeAlws = (allowanceTypes || []).filter((alw: any) => alw.metode !== "fixed");
+      const activeDeds = (deductionTypes || []).filter((ded: any) => ded.metode !== "fixed");
+      
+      const headers = [
+        "id",
+        "nik",
+        "nama",
+        "gaji_pokok",
+        "kenaikan_gaji_manual",
+        ...activeAlws.map((alw: any) => `Tunjangan: ${alw.nama} (${alw.id})`),
+        ...activeDeds.map((ded: any) => `Potongan: ${ded.nama} (${ded.id})`),
+        "penyesuaian_kustom"
+      ];
+      
+      const csvLines = ["sep=,"];
+      csvLines.push(headers.map(h => `"${h.replace(/"/g, '""')}"`).join(","));
+      
+      filteredEmployees.forEach((emp) => {
+        const row = [
+          emp.id,
+          emp.nik || "",
+          emp.nama || "",
+          emp.gaji_pokok || 0,
+          emp.salary_increase_manual || 0
+        ];
+        
+        activeAlws.forEach((alw: any) => {
+          row.push(emp.component_inputs?.[alw.id] ?? "");
+        });
+        
+        activeDeds.forEach((ded: any) => {
+          row.push(emp.component_inputs?.[ded.id] ?? "");
+        });
+        
+        const customString = (emp.custom_allowances || [])
+          .map((c: any) => `${c.nama}:${c.nominal}`)
+          .join(";");
+        row.push(customString);
+        
+        csvLines.push(row.map(val => {
+          const stringVal = String(val);
+          return `"${stringVal.replace(/"/g, '""')}"`;
+        }).join(","));
+      });
+      
+      const csvContent = csvLines.join("\n");
+      const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.setAttribute("href", url);
+      
+      const fileName = `payroll_draf_${periodeGaji}_${selectedBranchId === "all" ? "semua_cabang" : "cabang"}.csv`;
+      link.setAttribute("download", fileName);
+      link.style.visibility = "hidden";
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      toast.success("Draf payroll berhasil diekspor ke CSV!");
+    } catch (error: any) {
+      console.error(error);
+      toast.error("Gagal mengekspor CSV: " + error.message);
+    }
+  };
+
+  const handleImportCSV = (e: ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      try {
+        const text = event.target?.result as string;
+        if (!text) {
+          toast.error("File CSV kosong.");
+          return;
+        }
+        
+        let delimiter = ",";
+        const firstLine = text.split(/\r?\n/)[0];
+        if (firstLine.startsWith("sep=")) {
+          delimiter = firstLine.charAt(4);
+        } else {
+          const semicolonCount = (firstLine.match(/;/g) || []).length;
+          const commaCount = (firstLine.match(/,/g) || []).length;
+          if (semicolonCount > commaCount) {
+            delimiter = ";";
+          }
+        }
+        
+        const lines = parseCSV(text, delimiter);
+        if (lines.length < 2) {
+          toast.error("File CSV tidak memiliki data.");
+          return;
+        }
+        
+        const headers = lines[0].map(h => h.trim());
+        const dataRows = lines.slice(1);
+        
+        const idIndex = headers.indexOf("id");
+        const nikIndex = headers.indexOf("nik");
+        const salaryIncreaseIndex = headers.indexOf("kenaikan_gaji_manual");
+        const customIndex = headers.indexOf("penyesuaian_kustom");
+        
+        if (idIndex === -1 && nikIndex === -1) {
+          toast.error("File CSV harus memiliki kolom 'id' atau 'nik' untuk pemetaan karyawan.");
+          return;
+        }
+        
+        const componentHeaders: { index: number; id: string; type: "allowance" | "deduction" }[] = [];
+        headers.forEach((header, index) => {
+          const match = header.match(/\(([^)]+)\)$/);
+          if (match) {
+            const compId = match[1];
+            const isAllowance = header.startsWith("Tunjangan:");
+            const isDeduction = header.startsWith("Potongan:");
+            if (isAllowance || isDeduction) {
+              componentHeaders.push({
+                index,
+                id: compId,
+                type: isAllowance ? "allowance" : "deduction"
+              });
+            }
+          }
+        });
+        
+        let successCount = 0;
+        let skipCount = 0;
+        
+        setEmployees((prevEmployees) => {
+          const updated = [...prevEmployees];
+          
+          dataRows.forEach((row) => {
+            if (row.length === 0 || (row.length === 1 && row[0] === "")) return;
+            
+            const rowId = idIndex !== -1 ? row[idIndex] : "";
+            const rowNik = nikIndex !== -1 ? row[nikIndex] : "";
+            
+            const empIndex = updated.findIndex(
+              (emp) => (rowId && emp.id === rowId) || (rowNik && emp.nik === rowNik)
+            );
+            
+            if (empIndex === -1) {
+              skipCount++;
+              return;
+            }
+            
+            const emp = updated[empIndex];
+            const component_inputs = { ...emp.component_inputs };
+            
+            componentHeaders.forEach(({ index, id }) => {
+              if (row[index] !== undefined) {
+                const val = row[index].trim();
+                component_inputs[id] = val;
+              }
+            });
+            
+            let salary_increase_manual = emp.salary_increase_manual;
+            if (salaryIncreaseIndex !== -1 && row[salaryIncreaseIndex] !== undefined) {
+              salary_increase_manual = Number(row[salaryIncreaseIndex]) || 0;
+            }
+            
+            let custom_allowances = [...(emp.custom_allowances || [])];
+            if (customIndex !== -1 && row[customIndex] !== undefined) {
+              const customVal = row[customIndex].trim();
+              if (customVal === "") {
+                custom_allowances = [];
+              } else {
+                custom_allowances = customVal.split(";").map((item, idx) => {
+                  const parts = item.split(":");
+                  const name = parts[0]?.trim() || "Penyesuaian " + (idx + 1);
+                  const nominal = Number(parts[1]) || 0;
+                  return {
+                    id: `custom-import-${Math.random().toString(36).substring(2, 9)}`,
+                    nama: name,
+                    nominal: nominal
+                  };
+                });
+              }
+            }
+            
+            const updatedEmp = {
+              ...emp,
+              component_inputs,
+              salary_increase_manual,
+              custom_allowances
+            };
+            
+            updatedEmp.grandTotal = calculateTotal(updatedEmp);
+            updated[empIndex] = updatedEmp;
+            successCount++;
+          });
+          
+          return updated;
+        });
+        
+        e.target.value = "";
+        
+        toast.success(`Berhasil mengimpor draf untuk ${successCount} karyawan!${skipCount > 0 ? ` (${skipCount} karyawan dilewati/tidak cocok)` : ""}`);
+      } catch (err: any) {
+        console.error(err);
+        toast.error("Gagal mengimpor file CSV: " + err.message);
+      }
+    };
+    reader.readAsText(file);
+  };
+
   const handleAddCustomAllowance = (empId: string) => {
     setCustomAllowanceEmployeeId(empId);
     setCustomAllowanceName("");
@@ -972,19 +1223,48 @@ function AppProsesGajiPage() {
           </div>
 
           <div className="flex flex-wrap items-center gap-2">
+            <Button
+              variant="outline"
+              onClick={handleExportCSV}
+              disabled={isLoading || filteredEmployees.length === 0}
+              className="h-9 border-slate-200 text-slate-700 hover:bg-slate-50 hover:text-slate-800 shadow-sm transition-all duration-200"
+            >
+              <Download className="w-4 h-4 mr-2 text-slate-500" /> Ekspor CSV
+            </Button>
+            
+            <div className="relative">
+              <input
+                type="file"
+                accept=".csv"
+                onChange={handleImportCSV}
+                className="hidden"
+                id="csv-import-input"
+              />
+              <Button
+                variant="outline"
+                asChild
+                className="h-9 border-slate-200 text-slate-700 hover:bg-slate-50 hover:text-slate-800 shadow-sm cursor-pointer transition-all duration-200"
+              >
+                <label htmlFor="csv-import-input" className="flex items-center">
+                  <Upload className="w-4 h-4 mr-2 text-slate-500" /> Impor CSV
+                </label>
+              </Button>
+            </div>
+
             {hasLocalDraft && (
               <Button
                 variant="outline"
                 onClick={handleResetDraft}
-                className="h-9 border-rose-200 text-rose-700 hover:bg-rose-50 hover:text-rose-800 shadow-sm"
+                className="h-9 border-rose-200 text-rose-700 hover:bg-rose-50 hover:text-rose-800 shadow-sm transition-all duration-200"
               >
-                <RefreshCw className="w-4 h-4 mr-2" /> Reset Draf
+                <RefreshCw className="w-4 h-4 mr-2 text-rose-500" /> Reset Draf
               </Button>
             )}
+            
             <Button
               onClick={() => setIsConfirmOpen(true)}
               disabled={isLoading || filteredEmployees.length === 0}
-              className="shadow-sm h-9 bg-slate-900 text-white hover:bg-slate-800"
+              className="shadow-sm h-9 bg-slate-900 text-white hover:bg-slate-800 transition-all duration-200"
             >
               <Calculator className="w-4 h-4 mr-2" /> Eksekusi Payroll
             </Button>

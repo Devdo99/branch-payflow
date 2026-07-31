@@ -33,7 +33,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { toast } from "sonner";
-import { formatIDR } from "@/lib/format";
+import { formatIDR, formatNumberDots, parseNumberDots } from "@/lib/format";
 import {
   ImageIcon,
   FileText,
@@ -55,6 +55,7 @@ import {
   Pause,
   Wallet,
   Sparkles,
+  Plus
 } from "lucide-react";
 import html2canvas from "html2canvas";
 import { jsPDF } from "jspdf";
@@ -652,6 +653,10 @@ function SlipGajiPage() {
 
   const [loading, setLoading] = useState<string | null>(null);
   const [previewSlip, setPreviewSlip] = useState<SlipItem | null>(null);
+  const [editingSlip, setEditingSlip] = useState<SlipItem | null>(null);
+  const [originalSlip, setOriginalSlip] = useState<SlipItem | null>(null);
+  const [isEditOpen, setIsEditOpen] = useState(false);
+  const [isSavingEdit, setIsSavingEdit] = useState(false);
   const [selectedBranch, setSelectedBranch] = useState<string>("all");
   const [selectedYear, setSelectedYear] = useState<number>(new Date().getFullYear());
   const [selectedMonth, setSelectedMonth] = useState<string>("all");
@@ -961,6 +966,212 @@ function SlipGajiPage() {
     });
     return Array.from(years).sort((a, b) => b - a);
   }, [latestPayrollRun, payrollItems]);
+
+  const recalculateSlipTotals = (slip: SlipItem): SlipItem => {
+    const allowances = slip.payroll_item_allowances || [];
+    const deductions = slip.payroll_item_deductions || [];
+    
+    const updatedAllowances = allowances.map(alw => ({
+      ...alw,
+      subtotal: Number(alw.qty ?? 1) * Number(alw.nominal ?? 0)
+    }));
+    
+    const updatedDeductions = deductions.map(ded => ({
+      ...ded,
+      subtotal: Number(ded.qty ?? 1) * Number(ded.nominal ?? 0)
+    }));
+    
+    const total_tunjangan = updatedAllowances.reduce((acc, alw) => acc + (alw.subtotal ?? 0), 0);
+    const total_potongan = updatedDeductions.reduce((acc, ded) => acc + (ded.subtotal ?? 0), 0);
+    const gaji_pokok = Number(slip.gaji_pokok ?? 0);
+    const gaji_bersih = gaji_pokok + total_tunjangan - total_potongan;
+    
+    return {
+      ...slip,
+      payroll_item_allowances: updatedAllowances,
+      payroll_item_deductions: updatedDeductions,
+      total_tunjangan,
+      total_potongan,
+      gaji_bersih
+    };
+  };
+
+  const handleAllowanceChange = (index: number, field: "nama" | "qty" | "nominal", val: any) => {
+    setEditingSlip(prev => {
+      if (!prev) return null;
+      const allowances = [...(prev.payroll_item_allowances || [])];
+      allowances[index] = { ...allowances[index], [field]: val };
+      return recalculateSlipTotals({ ...prev, payroll_item_allowances: allowances });
+    });
+  };
+
+  const handleDeductionChange = (index: number, field: "nama" | "qty" | "nominal", val: any) => {
+    setEditingSlip(prev => {
+      if (!prev) return null;
+      const deductions = [...(prev.payroll_item_deductions || [])];
+      deductions[index] = { ...deductions[index], [field]: val };
+      return recalculateSlipTotals({ ...prev, payroll_item_deductions: deductions });
+    });
+  };
+
+  const handleAddAllowanceEdit = () => {
+    setEditingSlip(prev => {
+      if (!prev) return null;
+      const allowances = [
+        ...(prev.payroll_item_allowances || []),
+        {
+          id: `new-${Date.now()}`,
+          payroll_item_id: prev.id,
+          nama: "Tunjangan Baru",
+          qty: 1,
+          nominal: 0,
+          subtotal: 0
+        }
+      ];
+      return recalculateSlipTotals({ ...prev, payroll_item_allowances: allowances });
+    });
+  };
+
+  const handleAddDeductionEdit = () => {
+    setEditingSlip(prev => {
+      if (!prev) return null;
+      const deductions = [
+        ...(prev.payroll_item_deductions || []),
+        {
+          id: `new-${Date.now()}`,
+          payroll_item_id: prev.id,
+          nama: "Potongan Baru",
+          qty: 1,
+          nominal: 0,
+          subtotal: 0
+        }
+      ];
+      return recalculateSlipTotals({ ...prev, payroll_item_deductions: deductions });
+    });
+  };
+
+  const handleRemoveAllowanceEdit = (index: number) => {
+    setEditingSlip(prev => {
+      if (!prev) return null;
+      const allowances = (prev.payroll_item_allowances || []).filter((_, idx) => idx !== index);
+      return recalculateSlipTotals({ ...prev, payroll_item_allowances: allowances });
+    });
+  };
+
+  const handleRemoveDeductionEdit = (index: number) => {
+    setEditingSlip(prev => {
+      if (!prev) return null;
+      const deductions = (prev.payroll_item_deductions || []).filter((_, idx) => idx !== index);
+      return recalculateSlipTotals({ ...prev, payroll_item_deductions: deductions });
+    });
+  };
+
+  const handleSaveEdit = async () => {
+    if (!editingSlip || !originalSlip) return;
+    
+    setIsSavingEdit(true);
+    try {
+      const originalAllowanceIds = (originalSlip.payroll_item_allowances || [])
+        .map(a => a.id)
+        .filter((id): id is string => !!id && !id.startsWith("new-"));
+      const currentAllowanceIds = (editingSlip.payroll_item_allowances || [])
+        .map(a => a.id);
+      const deletedAllowanceIds = originalAllowanceIds.filter(id => !currentAllowanceIds.includes(id));
+      
+      const originalDeductionIds = (originalSlip.payroll_item_deductions || [])
+        .map(d => d.id)
+        .filter((id): id is string => !!id && !id.startsWith("new-"));
+      const currentDeductionIds = (editingSlip.payroll_item_deductions || [])
+        .map(d => d.id);
+      const deletedDeductionIds = originalDeductionIds.filter(id => !currentDeductionIds.includes(id));
+      
+      const promises = [];
+      
+      if (deletedAllowanceIds.length > 0) {
+        promises.push(
+          supabase.from("payroll_item_allowances").delete().in("id", deletedAllowanceIds)
+        );
+      }
+      if (deletedDeductionIds.length > 0) {
+        promises.push(
+          supabase.from("payroll_item_deductions").delete().in("id", deletedDeductionIds)
+        );
+      }
+      
+      const allowancesToUpsert = (editingSlip.payroll_item_allowances || []).map(alw => {
+        const { id, payroll_item_id, allowance_type_id, nama, metode, qty, nominal, subtotal } = alw as any;
+        const isNew = !id || id.startsWith("new-");
+        return {
+          ...(isNew ? {} : { id }),
+          payroll_item_id,
+          allowance_type_id: allowance_type_id || null,
+          nama,
+          metode: metode || "manual",
+          qty: Number(qty || 0),
+          nominal: Number(nominal || 0),
+          subtotal: Number(subtotal || 0)
+        };
+      });
+      
+      if (allowancesToUpsert.length > 0) {
+        promises.push(
+          supabase.from("payroll_item_allowances").upsert(allowancesToUpsert)
+        );
+      }
+      
+      const deductionsToUpsert = (editingSlip.payroll_item_deductions || []).map(ded => {
+        const { id, payroll_item_id, deduction_type_id, nama, metode, qty, nominal, subtotal } = ded as any;
+        const isNew = !id || id.startsWith("new-");
+        return {
+          ...(isNew ? {} : { id }),
+          payroll_item_id,
+          deduction_type_id: deduction_type_id || null,
+          nama,
+          metode: metode || "manual",
+          qty: Number(qty || 0),
+          nominal: Number(nominal || 0),
+          subtotal: Number(subtotal || 0)
+        };
+      });
+      
+      if (deductionsToUpsert.length > 0) {
+        promises.push(
+          supabase.from("payroll_item_deductions").upsert(deductionsToUpsert)
+        );
+      }
+      
+      promises.push(
+        supabase
+          .from("payroll_items")
+          .update({
+            gaji_pokok: Number(editingSlip.gaji_pokok || 0),
+            total_tunjangan: Number(editingSlip.total_tunjangan || 0),
+            total_potongan: Number(editingSlip.total_potongan || 0),
+            gaji_bersih: Number(editingSlip.gaji_bersih || 0)
+          })
+          .eq("id", editingSlip.id)
+      );
+      
+      const results = await Promise.all(promises);
+      
+      for (const res of results) {
+        if (res.error) {
+          throw res.error;
+        }
+      }
+      
+      toast.success("Rincian payroll berhasil diperbarui!");
+      queryClient.invalidateQueries({ queryKey: ["payroll_items"] });
+      setIsEditOpen(false);
+      setEditingSlip(null);
+      setOriginalSlip(null);
+    } catch (err: any) {
+      console.error(err);
+      toast.error("Gagal menyimpan perubahan: " + err.message);
+    } finally {
+      setIsSavingEdit(false);
+    }
+  };
 
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => {
@@ -1917,6 +2128,18 @@ function SlipGajiPage() {
                               <DropdownMenuSeparator className="my-1 border-slate-100" />
                               <DropdownMenuItem
                                 onClick={() => {
+                                  setOriginalSlip(slip);
+                                  setEditingSlip(JSON.parse(JSON.stringify(slip)));
+                                  setIsEditOpen(true);
+                                }}
+                                disabled={!!loading}
+                                className="gap-2.5 text-sm text-slate-700 cursor-pointer rounded-lg py-2 font-semibold"
+                              >
+                                <Sliders className="h-4 w-4 text-amber-500" />
+                                Edit Rincian
+                              </DropdownMenuItem>
+                              <DropdownMenuItem
+                                onClick={() => {
                                   const confirmation = window.confirm(
                                     `Apakah Anda yakin ingin menghapus slip gaji ${slip.employees?.nama || "-"}?`
                                   );
@@ -2290,6 +2513,241 @@ function SlipGajiPage() {
                 Simpan & Terapkan
               </Button>
             </div>
+          </DialogContent>
+        </Dialog>
+
+        {/* Edit Rincian Dialog */}
+        <Dialog open={isEditOpen} onOpenChange={setIsEditOpen}>
+          <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto p-6 rounded-2xl shadow-xl border border-slate-100 bg-white">
+            <DialogHeader className="border-b border-slate-100 pb-4 mb-4">
+              <DialogTitle className="text-xl font-bold text-slate-900 flex items-center gap-2">
+                <Sliders className="w-5 h-5 text-amber-500" />
+                Edit Rincian Payroll
+              </DialogTitle>
+              <div className="text-xs text-slate-500 mt-1">
+                Karyawan: <strong className="text-slate-800">{editingSlip?.employees?.nama}</strong> | 
+                Jabatan: <strong className="text-slate-800">{editingSlip?.employees?.jabatan}</strong> | 
+                Periode: <strong className="text-slate-800">{editingSlip?.payroll_runs?.periode}</strong>
+              </div>
+            </DialogHeader>
+
+            {editingSlip && (
+              <div className="space-y-6">
+                {/* Gaji Pokok Section */}
+                <div className="bg-slate-50/50 border border-slate-100 p-4 rounded-xl space-y-2">
+                  <h3 className="text-sm font-semibold text-slate-800">Gaji Pokok</h3>
+                  <div className="flex items-center gap-3">
+                    <div className="relative flex-1">
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs font-semibold text-slate-400">Rp</span>
+                      <Input
+                        type="text"
+                        className="pl-9 h-10 text-sm font-semibold border-slate-200"
+                        value={formatNumberDots(editingSlip.gaji_pokok)}
+                        onChange={(e) => {
+                          const parsed = parseNumberDots(e.target.value);
+                          setEditingSlip(prev => prev ? recalculateSlipTotals({ ...prev, gaji_pokok: parsed }) : null);
+                        }}
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Tunjangan (Allowances) Section */}
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between border-b border-slate-100 pb-2">
+                    <h3 className="text-sm font-bold text-slate-800 flex items-center gap-1.5">
+                      <span className="w-2.5 h-2.5 rounded-full bg-emerald-500"></span>
+                      Komponen Tunjangan
+                    </h3>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="h-7 text-xs px-2.5 border-emerald-200 text-emerald-700 hover:bg-emerald-50"
+                      onClick={handleAddAllowanceEdit}
+                    >
+                      <Plus className="w-3.5 h-3.5 mr-1" /> Tambah Tunjangan
+                    </Button>
+                  </div>
+
+                  <div className="space-y-2.5 max-h-[220px] overflow-y-auto pr-1">
+                    {(editingSlip.payroll_item_allowances || []).length === 0 ? (
+                      <p className="text-xs text-slate-400 text-center py-4 bg-slate-50/30 rounded-lg border border-dashed">
+                        Tidak ada komponen tunjangan.
+                      </p>
+                    ) : (
+                      (editingSlip.payroll_item_allowances || []).map((alw, index) => (
+                        <div key={alw.id} className="flex items-center gap-3 bg-white border border-slate-100 rounded-xl p-3 shadow-sm hover:shadow transition-all group">
+                          <Input
+                            className="h-8 text-xs font-semibold border-slate-200 flex-[2]"
+                            placeholder="Nama Tunjangan"
+                            value={alw.nama || ""}
+                            onChange={(e) => handleAllowanceChange(index, "nama", e.target.value)}
+                          />
+                          <div className="flex items-center gap-1 flex-1 min-w-[70px]">
+                            <Input
+                              type="number"
+                              className="h-8 text-xs text-center border-slate-200"
+                              placeholder="Qty"
+                              value={alw.qty ?? ""}
+                              onChange={(e) => handleAllowanceChange(index, "qty", Number(e.target.value))}
+                            />
+                            <span className="text-[10px] text-slate-400">x</span>
+                          </div>
+                          <div className="relative flex-1.5 min-w-[120px]">
+                            <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[10px] text-slate-400">Rp</span>
+                            <Input
+                              type="text"
+                              className="h-8 pl-7 text-xs font-medium border-slate-200 text-right"
+                              placeholder="Nominal"
+                              value={formatNumberDots(alw.nominal)}
+                              onChange={(e) => handleAllowanceChange(index, "nominal", parseNumberDots(e.target.value))}
+                            />
+                          </div>
+                          <div className="w-24 text-right text-xs font-semibold text-emerald-600">
+                            {formatIDR(alw.subtotal ?? 0)}
+                          </div>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => handleRemoveAllowanceEdit(index)}
+                            className="h-8 w-8 text-slate-400 hover:text-rose-500 transition-colors"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </Button>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </div>
+
+                {/* Potongan (Deductions) Section */}
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between border-b border-slate-100 pb-2">
+                    <h3 className="text-sm font-bold text-slate-800 flex items-center gap-1.5">
+                      <span className="w-2.5 h-2.5 rounded-full bg-rose-500"></span>
+                      Komponen Potongan
+                    </h3>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="h-7 text-xs px-2.5 border-rose-200 text-rose-700 hover:bg-rose-50"
+                      onClick={handleAddDeductionEdit}
+                    >
+                      <Plus className="w-3.5 h-3.5 mr-1" /> Tambah Potongan
+                    </Button>
+                  </div>
+
+                  <div className="space-y-2.5 max-h-[220px] overflow-y-auto pr-1">
+                    {(editingSlip.payroll_item_deductions || []).length === 0 ? (
+                      <p className="text-xs text-slate-400 text-center py-4 bg-slate-50/30 rounded-lg border border-dashed">
+                        Tidak ada komponen potongan.
+                      </p>
+                    ) : (
+                      (editingSlip.payroll_item_deductions || []).map((ded, index) => (
+                        <div key={ded.id} className="flex items-center gap-3 bg-white border border-slate-100 rounded-xl p-3 shadow-sm hover:shadow transition-all group">
+                          <Input
+                            className="h-8 text-xs font-semibold border-slate-200 flex-[2]"
+                            placeholder="Nama Potongan"
+                            value={ded.nama || ""}
+                            onChange={(e) => handleDeductionChange(index, "nama", e.target.value)}
+                          />
+                          <div className="flex items-center gap-1 flex-1 min-w-[70px]">
+                            <Input
+                              type="number"
+                              className="h-8 text-xs text-center border-slate-200"
+                              placeholder="Qty"
+                              value={ded.qty ?? ""}
+                              onChange={(e) => handleDeductionChange(index, "qty", Number(e.target.value))}
+                            />
+                            <span className="text-[10px] text-slate-400">x</span>
+                          </div>
+                          <div className="relative flex-1.5 min-w-[120px]">
+                            <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[10px] text-slate-400">Rp</span>
+                            <Input
+                              type="text"
+                              className="h-8 pl-7 text-xs font-medium border-slate-200 text-right"
+                              placeholder="Nominal"
+                              value={formatNumberDots(ded.nominal)}
+                              onChange={(e) => handleDeductionChange(index, "nominal", parseNumberDots(e.target.value))}
+                            />
+                          </div>
+                          <div className="w-24 text-right text-xs font-semibold text-rose-600">
+                            {formatIDR(ded.subtotal ?? 0)}
+                          </div>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => handleRemoveDeductionEdit(index)}
+                            className="h-8 w-8 text-slate-400 hover:text-rose-500 transition-colors"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </Button>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </div>
+
+                {/* Total Summary Footer */}
+                <div className="bg-slate-900 text-white p-5 rounded-2xl border border-slate-800 shadow-lg space-y-4">
+                  <h3 className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Ikhtisar Perhitungan Baru</h3>
+                  
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 border-b border-slate-800 pb-4 text-sm">
+                    <div className="space-y-1">
+                      <span className="text-xs text-slate-400">Gaji Pokok:</span>
+                      <p className="font-bold">{formatIDR(editingSlip.gaji_pokok)}</p>
+                    </div>
+                    <div className="space-y-1">
+                      <span className="text-xs text-emerald-400">Total Tunjangan (+):</span>
+                      <p className="font-bold text-emerald-300">+{formatIDR(editingSlip.total_tunjangan)}</p>
+                    </div>
+                    <div className="space-y-1">
+                      <span className="text-xs text-rose-400">Total Potongan (-):</span>
+                      <p className="font-bold text-rose-300">-{formatIDR(editingSlip.total_potongan)}</p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <span className="text-xs text-slate-300">Total Gaji Bersih (Net Salary):</span>
+                      <h2 className="text-2xl font-black text-transparent bg-clip-text bg-gradient-to-r from-teal-200 via-white to-indigo-200 mt-1">
+                        {formatIDR(editingSlip.gaji_bersih)}
+                      </h2>
+                    </div>
+                    
+                    <div className="flex items-center gap-2">
+                      <Button
+                        variant="ghost"
+                        type="button"
+                        onClick={() => {
+                          setIsEditOpen(false);
+                          setEditingSlip(null);
+                          setOriginalSlip(null);
+                        }}
+                        disabled={isSavingEdit}
+                        className="h-10 text-xs font-semibold text-slate-300 hover:bg-white/10 hover:text-white"
+                      >
+                        Batal
+                      </Button>
+                      <Button
+                        type="button"
+                        onClick={handleSaveEdit}
+                        disabled={isSavingEdit}
+                        className="h-10 text-xs font-bold bg-white text-slate-900 hover:bg-teal-50 border border-white/20 shadow-md flex items-center gap-1.5"
+                      >
+                        {isSavingEdit ? (
+                          <>
+                            <Loader2 className="w-3.5 h-3.5 animate-spin" /> Menyimpan...
+                          </>
+                        ) : (
+                          <>Simpan Perubahan</>
+                        )}
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
           </DialogContent>
         </Dialog>
 

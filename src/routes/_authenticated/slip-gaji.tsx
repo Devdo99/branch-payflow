@@ -5,7 +5,10 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
-import { AppLogo } from "@/components/app-logo";
+import { Badge } from "@/components/ui/badge";
+import { PageHeader } from "@/components/page-header";
+import { Input } from "@/components/ui/input";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Table,
   TableBody,
@@ -15,6 +18,20 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { toast } from "sonner";
 import { formatIDR } from "@/lib/format";
 import {
@@ -26,6 +43,18 @@ import {
   Loader2,
   MessageSquare,
   Store,
+  MoreHorizontal,
+  Search,
+  Users,
+  CheckCircle2,
+  Clock,
+  Download,
+  Sliders,
+  X,
+  Play,
+  Pause,
+  Wallet,
+  Sparkles,
 } from "lucide-react";
 import html2canvas from "html2canvas";
 import { jsPDF } from "jspdf";
@@ -84,6 +113,7 @@ type SlipItem = {
   catatan?: string | null;
   payroll_item_allowances?: PayrollComponent[] | null;
   payroll_item_deductions?: PayrollComponent[] | null;
+  slip_dibuat?: boolean | null;
 };
 
 type AppSettings = {
@@ -627,6 +657,37 @@ function SlipGajiPage() {
   const [selectedMonth, setSelectedMonth] = useState<string>("all");
   const [hasInitializedFilters, setHasInitializedFilters] = useState(false);
   const [selectedSlipIds, setSelectedSlipIds] = useState<string[]>([]);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [statusTab, setStatusTab] = useState<"all" | "pending" | "sent">("all");
+
+  // State for bulk processing
+  const [bulkProcess, setBulkProcess] = useState<{
+    active: boolean;
+    type: "wa-txt" | "wa-img" | "pdf" | "jpg" | null;
+    items: SlipItem[];
+    currentIndex: number;
+    results: {
+      slipId: string;
+      employeeName: string;
+      status: "pending" | "processing" | "success" | "error";
+      error?: string;
+    }[];
+    isPaused: boolean;
+  }>({
+    active: false,
+    type: null,
+    items: [],
+    currentIndex: 0,
+    results: [],
+    isPaused: false,
+  });
+
+  // State for template live customizer
+  const [isTemplateDialogOpen, setIsTemplateDialogOpen] = useState(false);
+  const [tempTemplateConfig, setTempTemplateConfig] = useState<SlipTemplateConfig>(defaultSlipTemplateConfig);
+  const [tempNamaPerusahaan, setTempNamaPerusahaan] = useState("");
+  const [tempAlamat, setTempAlamat] = useState("");
+  const [tempFooterSlip, setTempFooterSlip] = useState("");
 
   const { data: appSettings = null } = useQuery({
     queryKey: ["app_settings"],
@@ -665,6 +726,73 @@ function SlipGajiPage() {
       return data?.[0] ?? null;
     },
   });
+
+  // Query untuk memantau status WhatsApp Gateway lokal
+  const { data: gatewayStatus } = useQuery({
+    queryKey: ["whatsapp_gateway_status"],
+    queryFn: async () => {
+      try {
+        const res = await fetch("http://localhost:5000/api/status");
+        if (!res.ok) throw new Error("Offline");
+        return await res.json();
+      } catch (err) {
+        return { status: "offline", qr: null };
+      }
+    },
+    refetchInterval: 10000, // Periksa status gateway setiap 10 detik
+  });
+
+  // Query untuk mengambil template pesan WhatsApp dari database Supabase
+  const { data: waTemplate } = useQuery({
+    queryKey: ["whatsapp_template_send"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("whatsapp_templates")
+        .select("konten")
+        .eq("jenis", "per_karyawan")
+        .maybeSingle();
+
+      if (error) throw error;
+      return data?.konten || null;
+    },
+  });
+
+  // Mutation untuk mengupdate status slip_dibuat menjadi true setelah berhasil dikirim
+  const updateSlipStatusMutation = useMutation({
+    mutationFn: async (itemId: string) => {
+      const { error } = await supabase
+        .from("payroll_items")
+        .update({ slip_dibuat: true })
+        .eq("id", itemId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["payroll_items"] });
+    },
+  });
+
+  // Fungsi formatter pesan berdasarkan template
+  const formatWhatsAppMessage = (templateText: string | null, slip: SlipItem) => {
+    const defaultTemplate = `Halo {{nama}},\n\nBerikut adalah rincian slip gaji Anda untuk periode {{periode}}:\n\nGaji Pokok: {{gaji_pokok}}\nTotal Tunjangan: {{total_tunjangan}}\nTotal Potongan: {{total_potongan}}\n\n*Take Home Pay: {{gaji_bersih}}*\n\nTerima kasih atas kerja keras Anda!\nSalam,\nManajemen.`;
+    const template = templateText || defaultTemplate;
+
+    const vars: Record<string, string> = {
+      "{{nama}}": slip.employees?.nama || "",
+      "{{periode}}": slip.payroll_runs?.periode || "",
+      "{{gaji_pokok}}": formatIDR(toNumber(slip.gaji_pokok)),
+      "{{total_tunjangan}}": formatIDR(toNumber(slip.total_tunjangan)),
+      "{{total_potongan}}": formatIDR(toNumber(slip.total_potongan)),
+      "{{gaji_bersih}}": formatIDR(toNumber(slip.gaji_bersih)),
+      "{{nama_bank}}": slip.employees?.nama_bank || "-",
+      "{{nomor_rekening}}": slip.employees?.nomor_rekening || "-",
+    };
+
+    let msg = template;
+    Object.entries(vars).forEach(([key, val]) => {
+      msg = msg.replaceAll(key, val);
+    });
+    return msg;
+  };
 
   useEffect(() => {
     if (latestPayrollRun && !hasInitializedFilters) {
@@ -742,6 +870,9 @@ function SlipGajiPage() {
   const filteredPayrollItems = useMemo(() => {
     const normalizedMonth = String(selectedMonth).padStart(2, "0");
     return payrollItems.filter((slip: SlipItem) => {
+      const name = slip.employees?.nama || "";
+      const matchesSearch = name.toLowerCase().includes(searchQuery.toLowerCase());
+
       const periode = slip.payroll_runs?.periode || "";
       const runBranchId = slip.payroll_runs?.branch_id;
       const branchMatch = selectedBranch === "all" || runBranchId === selectedBranch;
@@ -750,9 +881,69 @@ function SlipGajiPage() {
           ? periode.startsWith(`${selectedYear}-`)
           : periode === `${selectedYear}-${normalizedMonth}`;
 
-      return branchMatch && periodMatch;
+      const isSent = slip.slip_dibuat === true;
+      const matchesStatusTab =
+        statusTab === "all" ||
+        (statusTab === "sent" && isSent) ||
+        (statusTab === "pending" && !isSent);
+
+      return branchMatch && periodMatch && matchesSearch && matchesStatusTab;
     });
-  }, [payrollItems, selectedBranch, selectedYear, selectedMonth]);
+  }, [payrollItems, selectedBranch, selectedYear, selectedMonth, searchQuery, statusTab]);
+
+  // Dynamic statistics calculations
+  const stats = useMemo(() => {
+    const totalItems = filteredPayrollItems.length;
+    const sentCount = filteredPayrollItems.filter((item) => item.slip_dibuat).length;
+    const pendingCount = totalItems - sentCount;
+    const totalNetPay = filteredPayrollItems.reduce((acc, item) => acc + toNumber(item.gaji_bersih), 0);
+    const sentPercentage = totalItems > 0 ? Math.round((sentCount / totalItems) * 100) : 0;
+
+    return {
+      totalItems,
+      sentCount,
+      pendingCount,
+      totalNetPay,
+      sentPercentage,
+    };
+  }, [filteredPayrollItems]);
+
+  // Mock preview slip for customizer
+  const mockPreviewSlip = useMemo(() => {
+    if (filteredPayrollItems.length > 0) {
+      return filteredPayrollItems[0];
+    }
+    if (payrollItems.length > 0) {
+      return payrollItems[0];
+    }
+    return {
+      id: "mock",
+      gaji_pokok: 4500000,
+      total_tunjangan: 750000,
+      total_potongan: 150000,
+      gaji_bersih: 5100000,
+      jumlah_hari: 26,
+      employees: {
+        nama: "Ahmad Subarjo",
+        jabatan: "Staff Operasional",
+        branches: { nama: "Cabang Utama" },
+        nama_bank: "BCA",
+        nomor_rekening: "1234567890",
+        whatsapp: "628123456789"
+      },
+      payroll_runs: {
+        periode: "2026-08"
+      },
+      payroll_item_allowances: [
+        { id: "1", nama: "Tunjangan Makan", subtotal: 500000, qty: 1, nominal: 500000, metode: "fixed" },
+        { id: "2", nama: "Tunjangan Transport", subtotal: 250000, qty: 1, nominal: 250000, metode: "fixed" }
+      ],
+      payroll_item_deductions: [
+        { id: "3", nama: "Potongan Keterlambatan", subtotal: 100000, qty: 2, nominal: 50000, metode: "fixed" },
+        { id: "4", nama: "BPJS Kesehatan", subtotal: 50000, qty: 1, nominal: 50000, metode: "fixed" }
+      ]
+    } as SlipItem;
+  }, [filteredPayrollItems, payrollItems]);
 
   const yearOptions = useMemo(() => {
     const years = new Set<number>([new Date().getFullYear()]);
@@ -844,8 +1035,8 @@ function SlipGajiPage() {
     }
   };
 
-  const handleExportJPG = async (slip: SlipItem) => {
-    setLoading(`JPG-${slip.id}`);
+  const handleExportJPG = async (slip: SlipItem, skipLoadingState = false) => {
+    if (!skipLoadingState) setLoading(`JPG-${slip.id}`);
 
     let iframe: HTMLIFrameElement | null = null;
 
@@ -867,21 +1058,22 @@ function SlipGajiPage() {
       const dataUrl = canvas.toDataURL("image/jpeg", 0.95);
       downloadDataUrl(dataUrl, getSlipFileName(slip, "jpg"));
 
-      toast.success("JPG slip gaji berhasil diunduh");
+      if (!skipLoadingState) toast.success("JPG slip gaji berhasil diunduh");
     } catch (error) {
       console.error("Gagal membuat JPG:", error);
+      if (skipLoadingState) throw error;
       toast.error("Gagal membuat JPG slip gaji");
     } finally {
       if (iframe && document.body.contains(iframe)) {
         document.body.removeChild(iframe);
       }
 
-      setLoading(null);
+      if (!skipLoadingState) setLoading(null);
     }
   };
 
-  const handleExportPDF = async (slip: SlipItem) => {
-    setLoading(`PDF-${slip.id}`);
+  const handleExportPDF = async (slip: SlipItem, skipLoadingState = false) => {
+    if (!skipLoadingState) setLoading(`PDF-${slip.id}`);
 
     let iframe: HTMLIFrameElement | null = null;
 
@@ -931,51 +1123,98 @@ function SlipGajiPage() {
 
       pdf.save(getSlipFileName(slip, "pdf"));
 
-      toast.success("PDF slip gaji berhasil diunduh");
+      if (!skipLoadingState) toast.success("PDF slip gaji berhasil diunduh");
     } catch (error) {
       console.error("Gagal membuat PDF:", error);
+      if (skipLoadingState) throw error;
       toast.error("Gagal membuat PDF slip gaji");
     } finally {
       if (iframe && document.body.contains(iframe)) {
         document.body.removeChild(iframe);
       }
 
-      setLoading(null);
+      if (!skipLoadingState) setLoading(null);
     }
   };
 
-  const handleWAText = (slip: SlipItem) => {
+  const handleWAText = async (slip: SlipItem, skipLoadingState = false) => {
     const phone = slip.employees?.whatsapp;
     const normalizedPhone = normalizeWhatsappNumber(phone);
 
     if (!normalizedPhone) {
-      toast.error("Nomor WhatsApp karyawan belum diisi");
+      const errMsg = "Nomor WhatsApp karyawan belum diisi";
+      if (skipLoadingState) throw new Error(errMsg);
+      toast.error(errMsg);
       return;
     }
 
-    const nama = slip.employees?.nama || "";
-    const periode = slip.payroll_runs?.periode || "-";
-    const gajiBersih = formatIDR(toNumber(slip.gaji_bersih));
+    const msg = formatWhatsAppMessage(waTemplate ?? null, slip);
 
-    const msg = `Halo ${nama}, berikut ringkasan gaji Anda periode ${periode}.\n\nTHP: ${gajiBersih}`;
-    const waUrl = getWhatsappUrl(phone, msg);
+    if (gatewayStatus?.status === "connected") {
+      if (!skipLoadingState) setLoading(`WA-TXT-${slip.id}`);
+      try {
+        const response = await fetch("http://localhost:5000/api/send-message", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            phone: normalizedPhone,
+            message: msg,
+          }),
+        });
 
-    window.open(waUrl, "_blank", "noopener,noreferrer");
-    toast.success(`WhatsApp dibuka ke nomor ${normalizedPhone}`);
+        const resData = await response.json();
+        if (response.ok && resData.success) {
+          if (!skipLoadingState) toast.success(`Slip gaji teks berhasil dikirim langsung ke ${slip.employees?.nama}`);
+          await updateSlipStatusMutation.mutateAsync(slip.id);
+        } else {
+          throw new Error(resData.error || "Gagal mengirim pesan");
+        }
+      } catch (err: any) {
+        console.error("Direct send failed, falling back to redirect:", err);
+        if (skipLoadingState) throw err;
+        toast.error(`Kirim langsung gagal: ${err.message}. Mengalihkan ke WhatsApp Web...`);
+        // Fallback
+        const waUrl = getWhatsappUrl(phone, msg);
+        window.open(waUrl, "_blank", "noopener,noreferrer");
+      } finally {
+        if (!skipLoadingState) setLoading(null);
+      }
+    } else {
+      // Fallback behavior (standard redirect)
+      if (skipLoadingState) {
+        const waUrl = getWhatsappUrl(phone, msg);
+        window.open(waUrl, "_blank", "noopener,noreferrer");
+        await updateSlipStatusMutation.mutateAsync(slip.id);
+      } else {
+        const waUrl = getWhatsappUrl(phone, msg);
+        window.open(waUrl, "_blank", "noopener,noreferrer");
+        toast.success(`WhatsApp dibuka ke nomor ${normalizedPhone} (Manual Redirect)`);
+        updateSlipStatusMutation.mutate(slip.id);
+      }
+    }
   };
 
-  const handleWAImage = async (slip: SlipItem) => {
+  const handleWAImage = async (slip: SlipItem, skipLoadingState = false) => {
     const phone = slip.employees?.whatsapp;
     const normalizedPhone = normalizeWhatsappNumber(phone);
 
     if (!normalizedPhone) {
-      toast.error("Nomor WhatsApp karyawan belum diisi");
+      const errMsg = "Nomor WhatsApp karyawan belum diisi";
+      if (skipLoadingState) throw new Error(errMsg);
+      toast.error(errMsg);
       return;
     }
 
-    setLoading(`WA-IMG-${slip.id}`);
+    if (!skipLoadingState) setLoading(`WA-IMG-${slip.id}`);
 
-    const waTab = window.open("", "_blank");
+    // If not connected, open tab early to prevent popup block, otherwise we do direct fetch in background
+    let waTab: Window | null = null;
+    if (gatewayStatus?.status !== "connected" && !skipLoadingState) {
+      waTab = window.open("", "_blank");
+    }
+
     let iframe: HTMLIFrameElement | null = null;
 
     try {
@@ -994,27 +1233,56 @@ function SlipGajiPage() {
       });
 
       const dataUrl = canvas.toDataURL("image/jpeg", 0.95);
-      downloadDataUrl(dataUrl, getSlipFileName(slip, "jpg"));
+      const msg = formatWhatsAppMessage(waTemplate ?? null, slip);
 
-      const nama = slip.employees?.nama || "";
-      const periode = slip.payroll_runs?.periode || "-";
+      if (gatewayStatus?.status === "connected") {
+        // Direct Send via Local Gateway Backend
+        const response = await fetch("http://localhost:5000/api/send-message", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            phone: normalizedPhone,
+            message: msg,
+            image: dataUrl,
+          }),
+        });
 
-      const msg =
-        `Halo ${nama}, berikut slip gaji Anda periode ${periode}.\n\n` +
-        `File JPG slip gaji sudah terunduh dari sistem. Silakan lampirkan gambar slip gaji tersebut di chat ini.`;
-
-      const waUrl = getWhatsappUrl(phone, msg);
-
-      if (waTab) {
-        waTab.location.href = waUrl;
+        const resData = await response.json();
+        if (response.ok && resData.success) {
+          if (!skipLoadingState) toast.success(`Slip gaji gambar berhasil dikirim langsung ke ${slip.employees?.nama}`);
+          await updateSlipStatusMutation.mutateAsync(slip.id);
+        } else {
+          throw new Error(resData.error || "Gagal mengirim pesan gambar");
+        }
       } else {
-        window.open(waUrl, "_blank");
-      }
+        // Manual Redirect Fallback
+        downloadDataUrl(dataUrl, getSlipFileName(slip, "jpg"));
 
-      toast.success(`JPG diunduh dan WhatsApp dibuka ke nomor ${normalizedPhone}`);
-    } catch (error) {
-      console.error("Gagal membuat slip untuk WA:", error);
-      toast.error("Gagal membuat slip gaji untuk WhatsApp");
+        const manualMsg =
+          msg + "\n\n" +
+          `File JPG slip gaji sudah terunduh dari sistem. Silakan lampirkan gambar slip gaji tersebut di chat ini.`;
+
+        const waUrl = getWhatsappUrl(phone, manualMsg);
+
+        if (skipLoadingState) {
+          window.open(waUrl, "_blank");
+        } else {
+          if (waTab) {
+            waTab.location.href = waUrl;
+          } else {
+            window.open(waUrl, "_blank");
+          }
+        }
+
+        if (!skipLoadingState) toast.success(`JPG diunduh dan WhatsApp dibuka ke nomor ${normalizedPhone}`);
+        await updateSlipStatusMutation.mutateAsync(slip.id);
+      }
+    } catch (error: any) {
+      console.error("Gagal membuat/mengirim slip untuk WA:", error);
+      if (skipLoadingState) throw error;
+      toast.error(`Gagal mengirim WhatsApp: ${error.message || error}`);
 
       if (waTab) {
         waTab.close();
@@ -1024,335 +1292,1026 @@ function SlipGajiPage() {
         document.body.removeChild(iframe);
       }
 
-      setLoading(null);
+      if (!skipLoadingState) setLoading(null);
     }
   };
 
-  const isButtonLoading = (key: string) => loading === key;
+  // Bulk actions trigger
+  const startBulkProcess = (type: "wa-txt" | "wa-img" | "pdf" | "jpg") => {
+    if (selectedSlipIds.length === 0) {
+      toast.error("Pilih minimal satu slip gaji untuk memproses massal.");
+      return;
+    }
+
+    if (gatewayStatus?.status !== "connected" && (type === "wa-txt" || type === "wa-img")) {
+      const confirm = window.confirm(
+        "WhatsApp Gateway lokal belum terhubung. Pengiriman massal akan membuka tab browser WhatsApp Web satu per satu untuk setiap karyawan. Apakah Anda yakin ingin melanjutkan?"
+      );
+      if (!confirm) return;
+    }
+
+    const itemsToProcess = filteredPayrollItems.filter((slip) =>
+      selectedSlipIds.includes(slip.id)
+    );
+
+    setBulkProcess({
+      active: true,
+      type,
+      items: itemsToProcess,
+      currentIndex: 0,
+      isPaused: false,
+      results: itemsToProcess.map((item) => ({
+        slipId: item.id,
+        employeeName: item.employees?.nama || "Karyawan",
+        status: "pending",
+      })),
+    });
+  };
+
+  // Runner for bulk loop
+  const runBulkProcess = async () => {
+    if (!bulkProcess.active || bulkProcess.type === null || bulkProcess.isPaused) return;
+
+    // Find the first pending item
+    const index = bulkProcess.results.findIndex((r) => r.status === "pending");
+    if (index === -1) {
+      toast.success("Proses massal selesai!");
+      return;
+    }
+
+    // Set this index to processing
+    setBulkProcess((prev) => {
+      const newResults = [...prev.results];
+      newResults[index] = { ...newResults[index], status: "processing" };
+      return {
+        ...prev,
+        currentIndex: index,
+        results: newResults,
+      };
+    });
+
+    const slip = bulkProcess.items[index];
+    let success = false;
+    let errorMsg = "";
+
+    try {
+      if (bulkProcess.type === "wa-txt") {
+        await handleWAText(slip, true);
+      } else if (bulkProcess.type === "wa-img") {
+        await handleWAImage(slip, true);
+      } else if (bulkProcess.type === "pdf") {
+        await handleExportPDF(slip, true);
+        await new Promise((resolve) => setTimeout(resolve, 800)); // Delay between downloads to prevent popup blocks
+      } else if (bulkProcess.type === "jpg") {
+        await handleExportJPG(slip, true);
+        await new Promise((resolve) => setTimeout(resolve, 600)); // Delay between downloads
+      }
+      success = true;
+    } catch (err: any) {
+      console.error(err);
+      errorMsg = err.message || "Gagal memproses";
+    }
+
+    setBulkProcess((prev) => {
+      const newResults = [...prev.results];
+      newResults[index] = {
+        ...newResults[index],
+        status: success ? "success" : "error",
+        error: errorMsg || undefined,
+      };
+      return {
+        ...prev,
+        results: newResults,
+      };
+    });
+  };
+
+  // Trigger bulk execution whenever state changes
+  useEffect(() => {
+    if (bulkProcess.active && !bulkProcess.isPaused) {
+      const nextPendingIndex = bulkProcess.results.findIndex((r) => r.status === "pending");
+      const isCurrentlyProcessing = bulkProcess.results.some((r) => r.status === "processing");
+      
+      if (nextPendingIndex !== -1 && !isCurrentlyProcessing) {
+        runBulkProcess();
+      }
+    }
+  }, [bulkProcess.active, bulkProcess.results, bulkProcess.isPaused]);
+
+  const cancelBulkProcess = () => {
+    setBulkProcess({
+      active: false,
+      type: null,
+      items: [],
+      currentIndex: 0,
+      results: [],
+      isPaused: false
+    });
+    queryClient.invalidateQueries({ queryKey: ["payroll_items"] });
+  };
+
+  // Live Template Customizer
+  const openTemplateDialog = () => {
+    if (appSettings) {
+      setTempTemplateConfig(getSlipTemplateConfig(appSettings.slip_template_config));
+      setTempNamaPerusahaan(appSettings.nama_perusahaan ?? "");
+      setTempAlamat(appSettings.alamat ?? "");
+      setTempFooterSlip(appSettings.footer_slip ?? "");
+    } else {
+      setTempTemplateConfig(defaultSlipTemplateConfig);
+      setTempNamaPerusahaan("Nama Perusahaan");
+      setTempAlamat("");
+      setTempFooterSlip("");
+    }
+    setIsTemplateDialogOpen(true);
+  };
+
+  const renderConfigCheckbox = (key: keyof SlipTemplateConfig, label: string) => {
+    return (
+      <label className="flex items-center gap-2.5 rounded-lg border border-slate-200 bg-slate-50/50 hover:bg-slate-50 px-3 py-2 text-xs font-semibold text-slate-600 transition-colors cursor-pointer select-none">
+        <Checkbox
+          checked={Boolean(tempTemplateConfig[key])}
+          onCheckedChange={(checked) =>
+            setTempTemplateConfig((current) => ({ ...current, [key]: checked === true }))
+          }
+        />
+        {label}
+      </label>
+    );
+  };
+
+  const saveTemplateMutation = useMutation({
+    mutationFn: async () => {
+      const payload = {
+        id: 1,
+        nama_perusahaan: tempNamaPerusahaan || "Nama Perusahaan",
+        alamat: tempAlamat,
+        footer_slip: tempFooterSlip,
+        slip_template_config: tempTemplateConfig,
+      } as any;
+
+      const { error } = await supabase.from("app_settings").upsert(payload, {
+        onConflict: "id",
+      });
+
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["app_settings"] });
+      toast.success("Desain template slip gaji berhasil diperbarui!");
+      setIsTemplateDialogOpen(false);
+    },
+    onError: (error) => {
+      console.error("Gagal menyimpan template:", error);
+      toast.error("Gagal menyimpan desain template slip gaji");
+    }
+  });
+
   const selectedBranchName =
     selectedBranch === "all"
       ? "Semua Cabang"
       : branches.find((branch) => branch.id === selectedBranch)?.nama || "Cabang Terpilih";
   const selectedMonthName = BULAN_LABELS[selectedMonth] || selectedMonth;
-  const activeSlipConfig = getSlipTemplateConfig(appSettings?.slip_template_config);
-  const activeSections = [
-    activeSlipConfig.showCompanyName ? "Perusahaan" : null,
-    activeSlipConfig.showCompanyAddress ? "Alamat" : null,
-    activeSlipConfig.showEmployeeName ? "Karyawan" : null,
-    activeSlipConfig.showBranch ? "Cabang" : null,
-    activeSlipConfig.showPeriod ? "Periode" : null,
-    activeSlipConfig.showBaseSalary ? "Gaji Pokok" : null,
-    activeSlipConfig.showAllowance
-      ? activeSlipConfig.showAllowanceDetails
-        ? "Rincian Tunjangan"
-        : "Total Tunjangan"
-      : null,
-    activeSlipConfig.showDeduction
-      ? activeSlipConfig.showDeductionDetails
-        ? "Rincian Potongan"
-        : "Total Potongan"
-      : null,
-    activeSlipConfig.showNetSalary ? "THP" : null,
-    activeSlipConfig.showSignature ? "TTD" : null,
-    activeSlipConfig.showFooter ? "Footer" : null,
-  ].filter((section): section is string => Boolean(section));
 
   return (
-    <div className="space-y-6 p-6">
-      <div className="flex flex-col gap-5 border-b border-slate-200 pb-5 md:flex-row md:items-center md:justify-between">
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:gap-5">
-          <AppLogo className="min-w-[180px]" />
-          <div className="space-y-1">
-            <h1 className="text-2xl font-semibold tracking-tight text-slate-900">Slip Gaji</h1>
-            <p className="max-w-2xl text-sm text-slate-500">
-              Kelola, preview, unduh, dan kirim slip gaji untuk {selectedBranchName} periode{" "}
-              {selectedMonthName} {selectedYear}.
-            </p>
-          </div>
-        </div>
-
-        <div className="flex flex-wrap items-center gap-3">
-          <div className="space-y-1">
-            <Label className="text-xs text-slate-500">Tahun</Label>
-            <select
-              value={selectedYear}
-              onChange={(event) => setSelectedYear(Number(event.currentTarget.value))}
-              className="h-9 w-[120px] rounded-md border border-slate-200 bg-white px-3 text-sm shadow-sm"
-            >
-              {yearOptions.map((year) => (
-                <option key={year} value={year}>
-                  {year}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <div className="space-y-1">
-            <Label className="text-xs text-slate-500">Bulan</Label>
-            <select
-              value={selectedMonth}
-              onChange={(event) => setSelectedMonth(event.currentTarget.value)}
-              className="h-9 w-[150px] rounded-md border border-slate-200 bg-white px-3 text-sm shadow-sm"
-            >
-              {Object.entries(BULAN_LABELS).map(([value, label]) => (
-                <option key={value} value={value}>
-                  {label}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <div className="space-y-1">
-            <Label className="text-xs text-slate-500">Cabang</Label>
-            <div className="flex items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-2 py-1 shadow-sm">
-              <Store className="ml-1 h-4 w-4 text-slate-500" />
-              <select
-                value={selectedBranch}
-                onChange={(event) => setSelectedBranch(event.currentTarget.value)}
-                className="h-8 w-[180px] border-0 bg-transparent text-sm font-medium shadow-none outline-none"
-              >
-                <option value="all">Semua Cabang</option>
-                {branches.map((branch: Branch) => (
-                  <option key={branch.id} value={branch.id}>
-                    {branch.nama}
-                  </option>
-                ))}
-              </select>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <div className="rounded-lg border bg-white">
-        <div className="flex flex-col gap-3 border-b border-slate-200 bg-slate-50 p-4 sm:flex-row sm:items-center sm:justify-between">
-          <div className="space-y-1">
-            <div className="text-sm font-semibold text-slate-900">Daftar Slip Gaji</div>
-            <div className="text-xs text-slate-500">
-              Tampilan slip mengikuti konfigurasi aktif dari halaman Pengaturan.
-            </div>
-          </div>
-          <div className="flex flex-wrap items-center gap-2">
-            {selectedSlipIds.length > 0 && (
-              <>
-                <Button
-                  variant="destructive"
-                  size="sm"
-                  onClick={handleBulkDelete}
-                  disabled={bulkDeleteMutation.isPending || !!loading}
-                >
-                  Hapus {selectedSlipIds.length} Terpilih
-                </Button>
-                <span className="rounded-full bg-slate-900 px-3 py-1 text-xs font-semibold uppercase tracking-[0.15em] text-white">
-                  {selectedSlipIds.length} dipilih
-                </span>
-              </>
+    <>
+      <PageHeader
+        title="Slip Gaji"
+        description={`Kelola, preview, unduh, dan kirim slip gaji untuk ${selectedBranchName} periode ${selectedMonthName} ${selectedYear}.`}
+        actions={
+          <div className="flex items-center gap-2">
+            {gatewayStatus?.status === "connected" ? (
+              <Badge variant="default" className="bg-emerald-500 hover:bg-emerald-600 text-white gap-1.5 flex items-center text-xs py-1 px-3 border-none shadow-sm font-semibold tracking-wide">
+                <span className="w-2 h-2 rounded-full bg-white animate-pulse" />
+                Direct WA Active
+              </Badge>
+            ) : (
+              <Badge variant="outline" className="text-slate-500 border-slate-200 gap-1.5 flex items-center text-xs py-1 px-3 bg-slate-50/50 font-semibold tracking-wide">
+                <span className="w-2 h-2 rounded-full bg-slate-300" />
+                Redirect WA Mode
+              </Badge>
             )}
-            <div className="flex max-w-2xl flex-wrap justify-start gap-1.5 sm:justify-end">
-              {activeSections.map((section) => (
-                <span
-                  key={section}
-                  className="rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-xs font-medium text-emerald-700"
+          </div>
+        }
+      />
+
+      <div className="p-4 sm:p-6 space-y-6">
+        {/* Statistics Panel */}
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm flex items-center gap-4 transition-all hover:shadow-md">
+            <div className="p-3 rounded-lg bg-indigo-50 text-indigo-600">
+              <Wallet className="h-6 w-6" />
+            </div>
+            <div className="space-y-1">
+              <p className="text-xs text-slate-500 font-semibold uppercase tracking-wider">Total Gaji Bersih</p>
+              <h3 className="text-lg font-bold text-slate-800">{formatIDR(stats.totalNetPay)}</h3>
+              <p className="text-[10px] text-slate-400 font-medium">{stats.totalItems} Karyawan Terfilter</p>
+            </div>
+          </div>
+
+          <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm flex items-center gap-4 transition-all hover:shadow-md">
+            <div className="p-3 rounded-lg bg-purple-50 text-purple-600">
+              <Users className="h-6 w-6" />
+            </div>
+            <div className="space-y-1">
+              <p className="text-xs text-slate-500 font-semibold uppercase tracking-wider">Jumlah Slip Gaji</p>
+              <h3 className="text-lg font-bold text-slate-800">{stats.totalItems}</h3>
+              <p className="text-[10px] text-slate-400 font-medium">Slip aktif periode ini</p>
+            </div>
+          </div>
+
+          <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm flex items-center gap-4 transition-all hover:shadow-md">
+            <div className="p-3 rounded-lg bg-emerald-50 text-emerald-600">
+              <CheckCircle2 className="h-6 w-6" />
+            </div>
+            <div className="space-y-1 flex-1">
+              <div className="flex items-center justify-between">
+                <p className="text-xs text-slate-500 font-semibold uppercase tracking-wider">Slip Terkirim</p>
+                <span className="text-[10px] font-bold text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded-full">{stats.sentPercentage}%</span>
+              </div>
+              <h3 className="text-lg font-bold text-slate-800">{stats.sentCount}</h3>
+              <div className="h-1.5 w-full bg-slate-100 rounded-full overflow-hidden mt-1">
+                <div className="h-full bg-emerald-500 rounded-full" style={{ width: `${stats.sentPercentage}%` }} />
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm flex items-center gap-4 transition-all hover:shadow-md">
+            <div className="p-3 rounded-lg bg-amber-50 text-amber-600">
+              <Clock className="h-6 w-6" />
+            </div>
+            <div className="space-y-1">
+              <p className="text-xs text-slate-500 font-semibold uppercase tracking-wider">Belum Terkirim</p>
+              <h3 className="text-lg font-bold text-slate-800">{stats.pendingCount}</h3>
+              <p className="text-[10px] text-amber-600 font-semibold bg-amber-50 rounded-full px-2 py-0.5 inline-block">Butuh Tindakan</p>
+            </div>
+          </div>
+        </div>
+
+        {/* Filters and Actions Toolbar */}
+        <div className="flex flex-col gap-4 bg-slate-50 border border-slate-200/80 rounded-xl p-5 shadow-sm">
+          <div className="flex flex-wrap items-end gap-4 justify-between w-full">
+            <div className="flex flex-wrap items-center gap-4">
+              <div className="space-y-1.5">
+                <Label className="text-xs text-slate-500 font-semibold uppercase">Tahun</Label>
+                <Select
+                  value={String(selectedYear)}
+                  onValueChange={(val) => setSelectedYear(Number(val))}
                 >
-                  {section}
-                </span>
-              ))}
-              {activeSections.length === 0 && (
-                <span className="rounded-full border border-slate-200 bg-white px-2.5 py-1 text-xs text-slate-500">
-                  Belum ada bagian aktif
-                </span>
+                  <SelectTrigger className="w-[110px] h-9 bg-white border border-slate-200 shadow-sm focus:ring-0 text-sm font-semibold text-slate-700">
+                    <SelectValue placeholder="Pilih Tahun" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {yearOptions.map((year) => (
+                      <SelectItem key={year} value={String(year)}>
+                        {year}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-1.5">
+                <Label className="text-xs text-slate-500 font-semibold uppercase">Bulan</Label>
+                <Select
+                  value={selectedMonth}
+                  onValueChange={setSelectedMonth}
+                >
+                  <SelectTrigger className="w-[140px] h-9 bg-white border border-slate-200 shadow-sm focus:ring-0 text-sm font-semibold text-slate-700">
+                    <SelectValue placeholder="Pilih Bulan" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {Object.entries(BULAN_LABELS).map(([value, label]) => (
+                      <SelectItem key={value} value={value}>
+                        {label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-1.5">
+                <Label className="text-xs text-slate-500 font-semibold uppercase">Cabang</Label>
+                <div className="flex items-center gap-1.5 bg-white border border-slate-200 rounded-lg px-2 h-9 shadow-sm">
+                  <Store className="w-4 h-4 text-slate-400 ml-1" />
+                  <Select value={selectedBranch} onValueChange={setSelectedBranch}>
+                    <SelectTrigger className="w-[160px] h-8 border-0 bg-transparent shadow-none focus:ring-0 text-sm font-semibold text-slate-700">
+                      <SelectValue placeholder="Semua Cabang" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Semua Cabang</SelectItem>
+                      {branches.map((branch: Branch) => (
+                        <SelectItem key={branch.id} value={branch.id}>
+                          {branch.nama}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+
+              <div className="space-y-1.5">
+                <Label className="text-xs text-slate-500 font-semibold uppercase">Cari Karyawan</Label>
+                <div className="relative w-full sm:w-56">
+                  <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-450" />
+                  <Input
+                    placeholder="Cari nama karyawan..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="pl-8 h-9 bg-white border border-slate-200 shadow-sm text-sm"
+                  />
+                </div>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={openTemplateDialog}
+                className="h-9 gap-2 border border-slate-200 bg-white shadow-sm hover:bg-slate-50 font-semibold text-slate-700 transition-colors"
+              >
+                <Sliders className="h-4 w-4 text-slate-500" />
+                Desain Slip
+              </Button>
+            </div>
+          </div>
+
+          <div className="border-t border-slate-200/60 pt-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <Tabs value={statusTab} onValueChange={(val) => setStatusTab(val as any)} className="w-full sm:w-auto">
+              <TabsList className="bg-slate-200/50 p-0.5 border border-slate-200/50 rounded-lg">
+                <TabsTrigger value="all" className="rounded-md text-xs py-1 px-3 data-[state=active]:bg-white data-[state=active]:shadow-sm text-slate-650 font-semibold">Semua</TabsTrigger>
+                <TabsTrigger value="pending" className="rounded-md text-xs py-1 px-3 data-[state=active]:bg-white data-[state=active]:shadow-sm text-slate-650 font-semibold">Belum Terkirim</TabsTrigger>
+                <TabsTrigger value="sent" className="rounded-md text-xs py-1 px-3 data-[state=active]:bg-white data-[state=active]:shadow-sm text-slate-650 font-semibold">Terkirim</TabsTrigger>
+              </TabsList>
+            </Tabs>
+
+            <div className="flex items-center gap-2 self-end sm:self-center">
+              {selectedSlipIds.length > 0 && (
+                <div className="flex items-center gap-2 bg-indigo-50 border border-indigo-100 rounded-lg px-3 py-1.5 animate-in fade-in-50 slide-in-from-bottom-1">
+                  <Badge variant="secondary" className="h-6 text-[10px] font-bold tracking-wider bg-indigo-100 text-indigo-700">
+                    {selectedSlipIds.length} TERPILIH
+                  </Badge>
+                  
+                  <div className="w-px h-5 bg-indigo-200/60" />
+
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button
+                        variant="default"
+                        size="sm"
+                        className="bg-emerald-600 hover:bg-emerald-700 text-white h-7 text-xs px-3 gap-1.5 font-bold shadow-sm transition-colors"
+                        disabled={!!loading || bulkProcess.active}
+                      >
+                        <Send className="h-3.5 w-3.5" />
+                        Kirim WA
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end" className="w-52 rounded-xl p-1.5 border-slate-200">
+                      <DropdownMenuItem
+                        onClick={() => startBulkProcess("wa-txt")}
+                        className="gap-2 text-xs font-semibold text-slate-700 cursor-pointer rounded-lg py-2"
+                      >
+                        <MessageSquare className="h-3.5 w-3.5 text-emerald-650" />
+                        Kirim WA Teks Massal
+                      </DropdownMenuItem>
+                      <DropdownMenuItem
+                        onClick={() => startBulkProcess("wa-img")}
+                        className="gap-2 text-xs font-semibold text-slate-700 cursor-pointer rounded-lg py-2"
+                      >
+                        <Send className="h-3.5 w-3.5 text-emerald-650" />
+                        Kirim WA Gambar Massal
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="h-7 text-xs px-3 gap-1.5 border border-slate-200 bg-white shadow-sm hover:bg-slate-50 font-bold text-slate-700 transition-colors"
+                        disabled={!!loading || bulkProcess.active}
+                      >
+                        <Download className="h-3.5 w-3.5 text-slate-500" />
+                        Unduh
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end" className="w-52 rounded-xl p-1.5 border-slate-200">
+                      <DropdownMenuItem
+                        onClick={() => startBulkProcess("pdf")}
+                        className="gap-2 text-xs font-semibold text-slate-700 cursor-pointer rounded-lg py-2"
+                      >
+                        <FileText className="h-3.5 w-3.5 text-blue-600" />
+                        Unduh PDF Massal
+                      </DropdownMenuItem>
+                      <DropdownMenuItem
+                        onClick={() => startBulkProcess("jpg")}
+                        className="gap-2 text-xs font-semibold text-slate-700 cursor-pointer rounded-lg py-2"
+                      >
+                        <ImageIcon className="h-3.5 w-3.5 text-purple-650" />
+                        Unduh JPG Massal
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleBulkDelete}
+                    disabled={bulkDeleteMutation.isPending || !!loading || bulkProcess.active}
+                    className="h-7 text-xs px-3 gap-1 border border-rose-250 hover:bg-rose-50 text-rose-600 font-bold transition-colors"
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                    Hapus
+                  </Button>
+                </div>
               )}
             </div>
           </div>
         </div>
 
-        <Table className="min-w-full border-separate border-spacing-0">
-          <TableHeader>
-            <TableRow className="bg-slate-50 text-slate-600">
-              <TableHead className="w-12 px-3 py-3">
-                <Checkbox
-                  checked={isAllSelected}
-                  onCheckedChange={toggleSelectAll}
-                  aria-label="Pilih semua slip"
-                />
-              </TableHead>
-              <TableHead className="py-3 text-left text-xs uppercase tracking-[0.16em] text-slate-500">
-                Nama Karyawan
-              </TableHead>
-              <TableHead className="py-3 text-left text-xs uppercase tracking-[0.16em] text-slate-500">
-                Cabang
-              </TableHead>
-              <TableHead className="py-3 text-left text-xs uppercase tracking-[0.16em] text-slate-500">
-                Periode
-              </TableHead>
-              <TableHead className="py-3 text-right text-xs uppercase tracking-[0.16em] text-slate-500">
-                THP
-              </TableHead>
-              <TableHead className="py-3 text-right text-xs uppercase tracking-[0.16em] text-slate-500">
-                Aksi
-              </TableHead>
-            </TableRow>
-          </TableHeader>
-
-          <TableBody>
-            {isLoading && (
-              <TableRow>
-                <TableCell colSpan={6} className="h-24 text-center">
-                  <div className="flex items-center justify-center gap-2 text-muted-foreground">
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                    Memuat data slip gaji...
-                  </div>
-                </TableCell>
-              </TableRow>
-            )}
-
-            {isError && !isLoading && (
-              <TableRow>
-                <TableCell colSpan={6} className="h-24 text-center text-red-500">
-                  Gagal memuat data slip gaji.
-                </TableCell>
-              </TableRow>
-            )}
-
-            {!isLoading && !isError && filteredPayrollItems.length === 0 && (
-              <TableRow>
-                <TableCell colSpan={6} className="h-24 text-center text-muted-foreground">
-                  {payrollItems.length === 0
-                    ? "Belum ada data slip gaji."
-                    : "Tidak ada slip gaji untuk filter yang dipilih. Pilih cabang, tahun, atau bulan lain."}
-                </TableCell>
-              </TableRow>
-            )}
-
-            {!isLoading &&
-              !isError &&
-              filteredPayrollItems.map((slip: SlipItem) => {
-                const jpgLoading = isButtonLoading(`JPG-${slip.id}`);
-                const pdfLoading = isButtonLoading(`PDF-${slip.id}`);
-                const waImageLoading = isButtonLoading(`WA-IMG-${slip.id}`);
-                const isSelected = selectedSlipIds.includes(slip.id);
-
-                return (
-                  <TableRow
-                    key={slip.id}
-                    className={`group transition-colors ${
-                      isSelected ? "bg-slate-100" : "hover:bg-slate-50"
-                    }`}
-                  >
-                    <TableCell className="px-3 py-3">
-                      <Checkbox
-                        checked={isSelected}
-                        onCheckedChange={() => toggleSlipSelection(slip.id)}
-                        aria-label={`Pilih slip ${slip.employees?.nama || "-"}`}
-                      />
-                    </TableCell>
-                    <TableCell className="font-medium py-3">{slip.employees?.nama || "-"}</TableCell>
-
-                    <TableCell className="py-3">{slip.employees?.branches?.nama || "-"}</TableCell>
-
-                    <TableCell className="py-3">{slip.payroll_runs?.periode || "-"}</TableCell>
-
-                    <TableCell className="text-right font-medium py-3">
-                      {formatIDR(toNumber(slip.gaji_bersih))}
-                    </TableCell>
-
-                    <TableCell>
-                      <div className="flex justify-end gap-1">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => setPreviewSlip(slip)}
-                          title="Preview slip"
-                        >
-                          <Eye className="h-4 w-4" />
-                        </Button>
-
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => handleExportJPG(slip)}
-                          disabled={!!loading}
-                          title="Download JPG"
-                        >
-                          {jpgLoading ? (
-                            <Loader2 className="h-4 w-4 animate-spin" />
-                          ) : (
-                            <ImageIcon className="h-4 w-4" />
-                          )}
-                        </Button>
-
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => handleExportPDF(slip)}
-                          disabled={!!loading}
-                          title="Download PDF"
-                        >
-                          {pdfLoading ? (
-                            <Loader2 className="h-4 w-4 animate-spin" />
-                          ) : (
-                            <FileText className="h-4 w-4" />
-                          )}
-                        </Button>
-
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => handleWAText(slip)}
-                          disabled={!!loading}
-                          title="Kirim WA teks"
-                        >
-                          <MessageSquare className="h-4 w-4" />
-                        </Button>
-
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => handleWAImage(slip)}
-                          disabled={!!loading}
-                          title="Download JPG dan buka WhatsApp Web"
-                        >
-                          {waImageLoading ? (
-                            <Loader2 className="h-4 w-4 animate-spin" />
-                          ) : (
-                            <Send className="h-4 w-4" />
-                          )}
-                        </Button>
-
-                        <Button
-                          variant="destructive"
-                          size="sm"
-                          onClick={() => deleteMutation.mutate(slip.id)}
-                          disabled={!!loading}
-                          title="Hapus slip"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                );
-              })}
-          </TableBody>
-        </Table>
-      </div>
-
-      <Dialog open={!!previewSlip} onOpenChange={() => setPreviewSlip(null)}>
-        <DialogContent className="max-w-2xl">
-          <DialogHeader>
-            <DialogTitle>Preview Slip Gaji</DialogTitle>
-          </DialogHeader>
-
-          {previewSlip && (
-            <div className="flex justify-center overflow-auto rounded-md bg-white p-4">
-              <div
-                dangerouslySetInnerHTML={{
-                  __html: getRawHtmlTemplate(previewSlip, appSettings),
-                }}
-              />
+        {/* Data Table */}
+        <div className="rounded-xl border border-slate-200 bg-white overflow-hidden shadow-sm">
+          <div className="flex flex-col gap-3 border-b border-slate-100 bg-white p-5 sm:flex-row sm:items-center sm:justify-between">
+            <div className="space-y-1">
+              <div className="text-base font-bold text-slate-800">Daftar Slip Gaji</div>
+              <div className="text-xs text-slate-500 font-medium">
+                Tampilan slip otomatis menyesuaikan dengan format template aktif.
+              </div>
             </div>
-          )}
-        </DialogContent>
-      </Dialog>
-    </div>
+          </div>
+
+          <Table className="min-w-full border-separate border-spacing-0">
+            <TableHeader>
+              <TableRow className="bg-slate-50 text-slate-600">
+                <TableHead className="w-12 px-4 py-3">
+                  <Checkbox
+                    checked={isAllSelected}
+                    onCheckedChange={toggleSelectAll}
+                    aria-label="Pilih semua slip"
+                  />
+                </TableHead>
+                <TableHead className="py-3 px-4 text-left text-xs uppercase tracking-[0.16em] text-slate-500 font-bold">
+                  Nama Karyawan
+                </TableHead>
+                <TableHead className="py-3 px-4 text-left text-xs uppercase tracking-[0.16em] text-slate-500 font-bold">
+                  Cabang
+                </TableHead>
+                <TableHead className="py-3 px-4 text-left text-xs uppercase tracking-[0.16em] text-slate-500 font-bold">
+                  Periode
+                </TableHead>
+                <TableHead className="py-3 px-4 text-left text-xs uppercase tracking-[0.16em] text-slate-500 font-bold">
+                  Status WA
+                </TableHead>
+                <TableHead className="py-3 px-4 text-right text-xs uppercase tracking-[0.16em] text-slate-500 font-bold">
+                  THP
+                </TableHead>
+                <TableHead className="py-3 px-4 text-right text-xs uppercase tracking-[0.16em] text-slate-500 font-bold">
+                  Aksi
+                </TableHead>
+              </TableRow>
+            </TableHeader>
+
+            <TableBody>
+              {isLoading && (
+                <TableRow>
+                  <TableCell colSpan={7} className="h-24 text-center">
+                    <div className="flex items-center justify-center gap-2 text-slate-500 font-medium text-sm">
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      Memuat data slip gaji...
+                    </div>
+                  </TableCell>
+                </TableRow>
+              )}
+
+              {isError && !isLoading && (
+                <TableRow>
+                  <TableCell colSpan={7} className="h-24 text-center text-red-500 font-semibold text-sm">
+                    Gagal memuat data slip gaji.
+                  </TableCell>
+                </TableRow>
+              )}
+
+              {!isLoading && !isError && filteredPayrollItems.length === 0 && (
+                <TableRow>
+                  <TableCell colSpan={7} className="h-24 text-center text-slate-450 font-semibold text-sm">
+                    {payrollItems.length === 0
+                      ? "Belum ada data slip gaji."
+                      : "Tidak ada slip gaji untuk filter yang dipilih. Coba cari nama lain atau ubah filter."}
+                  </TableCell>
+                </TableRow>
+              )}
+
+              {!isLoading &&
+                !isError &&
+                filteredPayrollItems.map((slip: SlipItem) => {
+                  const isSelected = selectedSlipIds.includes(slip.id);
+                  const isSlipLoading = !!loading && loading.includes(slip.id);
+
+                  return (
+                    <TableRow
+                      key={slip.id}
+                      className={`group transition-colors ${
+                        isSelected ? "bg-indigo-50/20" : "hover:bg-slate-55/30"
+                      }`}
+                    >
+                      <TableCell className="px-4 py-3.5">
+                        <Checkbox
+                          checked={isSelected}
+                          onCheckedChange={() => toggleSlipSelection(slip.id)}
+                          aria-label={`Pilih slip ${slip.employees?.nama || "-"}`}
+                        />
+                      </TableCell>
+                      <TableCell className="font-bold py-3.5 px-4 text-slate-700 text-sm">
+                        {slip.employees?.nama || "-"}
+                      </TableCell>
+
+                      <TableCell className="py-3.5 px-4 text-slate-600 text-sm">
+                        {slip.employees?.branches?.nama || "-"}
+                      </TableCell>
+
+                      <TableCell className="py-3.5 px-4 text-slate-650 text-sm font-medium">
+                        {slip.payroll_runs?.periode || "-"}
+                      </TableCell>
+
+                      <TableCell className="py-3.5 px-4 text-sm">
+                        {slip.slip_dibuat ? (
+                          <Badge variant="secondary" className="bg-emerald-50 hover:bg-emerald-50 text-emerald-700 border-emerald-250/50 font-bold gap-1 py-0.5 px-2 text-[11px] border">
+                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                            Terkirim
+                          </Badge>
+                        ) : (
+                          <Badge variant="secondary" className="bg-amber-55/60 hover:bg-amber-55/60 text-amber-700 border-amber-250/50 font-bold gap-1 py-0.5 px-2 text-[11px] border">
+                            <span className="w-1.5 h-1.5 rounded-full bg-amber-400" />
+                            Belum Terkirim
+                          </Badge>
+                        )}
+                      </TableCell>
+
+                      <TableCell className="text-right font-extrabold py-3.5 px-4 text-slate-800 text-sm">
+                        {formatIDR(toNumber(slip.gaji_bersih))}
+                      </TableCell>
+
+                      <TableCell className="px-4">
+                        <div className="flex justify-end gap-1.5">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => setPreviewSlip(slip)}
+                            title="Preview slip"
+                            className="h-8 w-8 hover:bg-slate-100 rounded-lg transition-colors"
+                          >
+                            <Eye className="h-4 w-4 text-slate-600" />
+                          </Button>
+
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-8 w-8 hover:bg-slate-100 rounded-lg transition-colors"
+                                disabled={!!loading}
+                              >
+                                {isSlipLoading ? (
+                                  <Loader2 className="h-4 w-4 animate-spin text-slate-500" />
+                                ) : (
+                                  <MoreHorizontal className="h-4 w-4 text-slate-600" />
+                                )}
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end" className="w-56 rounded-xl p-1.5 shadow-md border-slate-200">
+                              <DropdownMenuItem
+                                onClick={() => handleWAText(slip)}
+                                disabled={!!loading}
+                                className="gap-2.5 text-sm text-slate-700 cursor-pointer rounded-lg py-2 font-semibold"
+                              >
+                                <MessageSquare className="h-4 w-4 text-emerald-600" />
+                                Kirim WA Teks
+                              </DropdownMenuItem>
+                              <DropdownMenuItem
+                                onClick={() => handleWAImage(slip)}
+                                disabled={!!loading}
+                                className="gap-2.5 text-sm text-slate-700 cursor-pointer rounded-lg py-2 font-semibold"
+                              >
+                                <Send className="h-4 w-4 text-emerald-600" />
+                                Kirim WA Gambar
+                              </DropdownMenuItem>
+                              <DropdownMenuSeparator className="my-1 border-slate-100" />
+                              <DropdownMenuItem
+                                onClick={() => handleExportPDF(slip)}
+                                disabled={!!loading}
+                                className="gap-2.5 text-sm text-slate-700 cursor-pointer rounded-lg py-2 font-semibold"
+                              >
+                                <FileText className="h-4 w-4 text-blue-500" />
+                                Download PDF
+                              </DropdownMenuItem>
+                              <DropdownMenuItem
+                                onClick={() => handleExportJPG(slip)}
+                                disabled={!!loading}
+                                className="gap-2.5 text-sm text-slate-700 cursor-pointer rounded-lg py-2 font-semibold"
+                              >
+                                <ImageIcon className="h-4 w-4 text-purple-500" />
+                                Download JPG
+                              </DropdownMenuItem>
+                              <DropdownMenuSeparator className="my-1 border-slate-100" />
+                              <DropdownMenuItem
+                                onClick={() => {
+                                  const confirmation = window.confirm(
+                                    `Apakah Anda yakin ingin menghapus slip gaji ${slip.employees?.nama || "-"}?`
+                                  );
+                                  if (confirmation) {
+                                    deleteMutation.mutate(slip.id);
+                                  }
+                                }}
+                                disabled={!!loading}
+                                className="gap-2.5 text-sm text-rose-600 focus:bg-rose-50 focus:text-rose-700 cursor-pointer rounded-lg py-2 font-semibold"
+                              >
+                                <Trash2 className="h-4 w-4" />
+                                Hapus Slip
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
+            </TableBody>
+          </Table>
+        </div>
+
+        {/* Bulk processing Queue Dialog */}
+        <Dialog open={bulkProcess.active} onOpenChange={() => {}}>
+          <DialogContent className="max-w-md border-slate-200 shadow-xl rounded-xl p-0 overflow-hidden">
+            <div className="p-5 bg-slate-50 border-b border-slate-100 flex items-center justify-between">
+              <div className="flex items-center gap-2.5">
+                <div className="p-2 rounded-lg bg-emerald-50 text-emerald-600">
+                  {bulkProcess.type?.startsWith("wa") ? (
+                    <MessageSquare className="h-5 w-5" />
+                  ) : (
+                    <Download className="h-5 w-5" />
+                  )}
+                </div>
+                <div>
+                  <DialogTitle className="text-sm font-bold text-slate-800">
+                    {bulkProcess.type === "wa-txt" && "Kirim WA Teks Massal"}
+                    {bulkProcess.type === "wa-img" && "Kirim WA Gambar Massal"}
+                    {bulkProcess.type === "pdf" && "Unduh PDF Massal"}
+                    {bulkProcess.type === "jpg" && "Unduh JPG Massal"}
+                  </DialogTitle>
+                  <p className="text-[11px] text-slate-500 font-semibold">Memproses antrean slip gaji</p>
+                </div>
+              </div>
+              
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={cancelBulkProcess}
+                className="h-8 w-8 hover:bg-slate-200 text-slate-500 hover:text-slate-700 rounded-lg transition-colors"
+              >
+                <X className="h-4 w-4" />
+              </Button>
+            </div>
+
+            <div className="p-5 space-y-4">
+              {/* Progress Summary */}
+              <div className="space-y-1.5">
+                <div className="flex items-center justify-between text-xs font-bold text-slate-600">
+                  <span>Progres Keseluruhan</span>
+                  <span>
+                    {bulkProcess.results.filter(r => r.status === "success" || r.status === "error").length} / {bulkProcess.items.length} Selesai
+                  </span>
+                </div>
+                <div className="h-2 w-full bg-slate-100 rounded-full overflow-hidden">
+                  <div
+                    className="h-full bg-indigo-600 rounded-full transition-all duration-300"
+                    style={{
+                      width: `${(bulkProcess.results.filter(r => r.status === "success" || r.status === "error").length / bulkProcess.items.length) * 100}%`
+                    }}
+                  />
+                </div>
+              </div>
+
+              {/* Status details scroll area */}
+              <div className="border border-slate-200 rounded-lg overflow-hidden bg-slate-50/50">
+                <div className="text-[10px] uppercase font-extrabold tracking-wider text-slate-500 px-3.5 py-2 border-b border-slate-200 bg-slate-100/50">
+                  Detail Antrean
+                </div>
+                <div className="divide-y divide-slate-100 max-h-48 overflow-y-auto">
+                  {bulkProcess.results.map((result, idx) => {
+                    const isCurrent = idx === bulkProcess.currentIndex && result.status === "processing";
+                    return (
+                      <div
+                        key={result.slipId}
+                        className={`flex items-center justify-between px-3.5 py-2.5 text-xs transition-colors ${
+                          isCurrent ? "bg-indigo-50/30" : ""
+                        }`}
+                      >
+                        <div className="flex flex-col min-w-0 pr-2">
+                          <span className="font-bold text-slate-705 truncate text-xs">{result.employeeName}</span>
+                          {result.error && (
+                            <span className="text-[10px] text-rose-500 font-semibold truncate mt-0.5">
+                              Error: {result.error}
+                            </span>
+                          )}
+                        </div>
+                        <div className="flex items-center">
+                          {result.status === "pending" && (
+                            <span className="text-[10px] font-bold text-slate-400 uppercase bg-slate-100 px-2 py-0.5 rounded-full">
+                              Antrean
+                            </span>
+                          )}
+                          {result.status === "processing" && (
+                            <span className="text-[10px] font-bold text-indigo-650 uppercase bg-indigo-50 px-2 py-0.5 rounded-full flex items-center gap-1 animate-pulse">
+                              <Loader2 className="h-3 w-3 animate-spin" /> Proses
+                            </span>
+                          )}
+                          {result.status === "success" && (
+                            <span className="text-[10px] font-bold text-emerald-750 uppercase bg-emerald-50 px-2 py-0.5 rounded-full flex items-center gap-1">
+                              <CheckCircle2 className="h-3 w-3 text-emerald-500" /> Sukses
+                            </span>
+                          )}
+                          {result.status === "error" && (
+                            <span className="text-[10px] font-bold text-rose-750 uppercase bg-rose-50 px-2 py-0.5 rounded-full flex items-center gap-1">
+                              <X className="h-3 w-3 text-rose-500" /> Gagal
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+
+            <div className="p-4 bg-slate-50 border-t border-slate-150 flex justify-end gap-2">
+              {bulkProcess.results.some(r => r.status === "pending" || r.status === "processing") ? (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setBulkProcess(prev => ({ ...prev, isPaused: !prev.isPaused }))}
+                  className="h-8 gap-1.5 text-xs font-semibold transition-colors"
+                >
+                  {bulkProcess.isPaused ? (
+                    <>
+                      <Play className="h-3.5 w-3.5 text-emerald-600" />
+                      Lanjutkan
+                    </>
+                  ) : (
+                    <>
+                      <Pause className="h-3.5 w-3.5 text-amber-600" />
+                      Jeda
+                    </>
+                  )}
+                </Button>
+              ) : null}
+              <Button
+                onClick={cancelBulkProcess}
+                size="sm"
+                className="h-8 text-xs font-semibold bg-slate-800 hover:bg-slate-900 text-white"
+              >
+                Tutup
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
+
+        {/* Live Template Customizer Dialog */}
+        <Dialog open={isTemplateDialogOpen} onOpenChange={setIsTemplateDialogOpen}>
+          <DialogContent className="max-w-5xl h-[85vh] flex flex-col p-0 overflow-hidden border-slate-200 shadow-xl rounded-xl">
+            <DialogHeader className="p-6 border-b border-slate-100 flex flex-row items-center justify-between bg-slate-50/50">
+              <div>
+                <DialogTitle className="text-base font-bold text-slate-800">Kustomisasi Template Slip Gaji</DialogTitle>
+                <p className="text-xs text-slate-500 mt-1">Ubah tata letak, warna aksen, ukuran font, dan komponen slip gaji secara langsung.</p>
+              </div>
+            </DialogHeader>
+
+            <div className="flex-1 overflow-hidden grid grid-cols-1 md:grid-cols-12">
+              {/* Form Editor Column */}
+              <div className="md:col-span-5 border-r border-slate-200 overflow-y-auto p-6 space-y-6 bg-white">
+                
+                {/* Tata Letak */}
+                <div className="space-y-2.5">
+                  <Label className="text-xs font-bold uppercase tracking-wider text-slate-500">Tata Letak & Gaya</Label>
+                  <div className="grid grid-cols-3 gap-2">
+                    {(["classic", "compact", "borderless"] as const).map((lay) => (
+                      <button
+                        key={lay}
+                        type="button"
+                        onClick={() => setTempTemplateConfig(prev => ({ ...prev, layout: lay }))}
+                        className={`py-2 px-3 text-xs font-semibold rounded-lg border transition-all text-center capitalize ${
+                          tempTemplateConfig.layout === lay
+                            ? "bg-indigo-50 border-indigo-500 text-indigo-700 shadow-sm"
+                            : "border-slate-200 hover:bg-slate-50 text-slate-650"
+                        }`}
+                      >
+                        {lay}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Ukuran Font */}
+                <div className="space-y-2.5">
+                  <Label className="text-xs font-bold uppercase tracking-wider text-slate-500">Ukuran Font</Label>
+                  <div className="grid grid-cols-3 gap-2">
+                    {(["small", "normal", "large"] as const).map((fs) => (
+                      <button
+                        key={fs}
+                        type="button"
+                        onClick={() => setTempTemplateConfig(prev => ({ ...prev, fontSize: fs }))}
+                        className={`py-2 px-3 text-xs font-semibold rounded-lg border transition-all text-center capitalize ${
+                          tempTemplateConfig.fontSize === fs
+                            ? "bg-indigo-50 border-indigo-500 text-indigo-700 shadow-sm"
+                            : "border-slate-200 hover:bg-slate-50 text-slate-650"
+                        }`}
+                      >
+                        {fs}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Warna Aksen */}
+                <div className="space-y-2.5">
+                  <Label className="text-xs font-bold uppercase tracking-wider text-slate-500">Warna Aksen</Label>
+                  <div className="flex items-center gap-3">
+                    <input
+                      type="color"
+                      value={tempTemplateConfig.accentColor}
+                      onChange={(e) => setTempTemplateConfig(prev => ({ ...prev, accentColor: e.target.value }))}
+                      className="w-10 h-10 rounded-lg border border-slate-200 cursor-pointer p-0.5 bg-white"
+                    />
+                    <div className="flex flex-wrap gap-1.5">
+                      {["#000000", "#10b981", "#3b82f6", "#8b5cf6", "#f59e0b", "#ef4444"].map((color) => (
+                        <button
+                          key={color}
+                          type="button"
+                          onClick={() => setTempTemplateConfig(prev => ({ ...prev, accentColor: color }))}
+                          className="w-6 h-6 rounded-full border border-slate-200 shadow-sm hover:scale-110 transition-transform"
+                          style={{ backgroundColor: color }}
+                        />
+                      ))}
+                    </div>
+                  </div>
+                </div>
+
+                <hr className="border-slate-100" />
+
+                {/* Checklist Komponen */}
+                <div className="space-y-3">
+                  <Label className="text-xs font-bold uppercase tracking-wider text-slate-500">Komponen Slip</Label>
+                  <div className="grid grid-cols-1 gap-2">
+                    {renderConfigCheckbox("showCompanyName", "Tampilkan Nama Perusahaan")}
+                    {renderConfigCheckbox("showCompanyAddress", "Tampilkan Alamat Perusahaan")}
+                    {renderConfigCheckbox("showEmployeeName", "Tampilkan Nama Karyawan")}
+                    {renderConfigCheckbox("showBranch", "Tampilkan Cabang")}
+                    {renderConfigCheckbox("showPeriod", "Tampilkan Periode")}
+                    {renderConfigCheckbox("showBaseSalary", "Tampilkan Gaji Pokok")}
+                    {renderConfigCheckbox("showAllowance", "Tampilkan Bagian Tunjangan")}
+                    {renderConfigCheckbox("showAllowanceDetails", "Tampilkan Rincian Tunjangan")}
+                    {renderConfigCheckbox("showDeduction", "Tampilkan Bagian Potongan")}
+                    {renderConfigCheckbox("showDeductionDetails", "Tampilkan Rincian Potongan")}
+                    {renderConfigCheckbox("showNetSalary", "Tampilkan Total Bersih (THP)")}
+                    {renderConfigCheckbox("showSignature", "Tampilkan Kolom Tanda Tangan")}
+                    {renderConfigCheckbox("showFooter", "Tampilkan Catatan Kaki (Footer)")}
+                  </div>
+                </div>
+
+                <hr className="border-slate-100" />
+
+                {/* Teks Perusahaan */}
+                <div className="space-y-4">
+                  <Label className="text-xs font-bold uppercase tracking-wider text-slate-500">Informasi Perusahaan & Ttd</Label>
+                  
+                  <div className="space-y-1.5">
+                    <Label className="text-xs text-slate-650 font-bold">Nama Perusahaan</Label>
+                    <Input
+                      value={tempNamaPerusahaan}
+                      onChange={(e) => setTempNamaPerusahaan(e.target.value)}
+                      className="bg-white border-slate-200 h-9"
+                    />
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <Label className="text-xs text-slate-650 font-bold">Alamat Perusahaan</Label>
+                    <textarea
+                      rows={2}
+                      value={tempAlamat}
+                      onChange={(e) => setTempAlamat(e.target.value)}
+                      className="w-full text-sm rounded-lg border border-slate-250 bg-white p-2.5 outline-none focus:border-slate-350"
+                    />
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <Label className="text-xs text-slate-650 font-bold">Teks Kaki (Footer)</Label>
+                    <textarea
+                      rows={2}
+                      value={tempFooterSlip}
+                      onChange={(e) => setTempFooterSlip(e.target.value)}
+                      className="w-full text-sm rounded-lg border border-slate-250 bg-white p-2.5 outline-none focus:border-slate-350"
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="space-y-1.5">
+                      <Label className="text-xs text-slate-650 font-bold">Label Ttd Kiri</Label>
+                      <Input
+                        value={tempTemplateConfig.leftSignatureLabel}
+                        onChange={(e) => setTempTemplateConfig(prev => ({ ...prev, leftSignatureLabel: e.target.value }))}
+                        className="bg-white border-slate-200 h-9"
+                      />
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label className="text-xs text-slate-650 font-bold">Nama Ttd Kiri</Label>
+                      <Input
+                        value={tempTemplateConfig.leftSignatureName}
+                        onChange={(e) => setTempTemplateConfig(prev => ({ ...prev, leftSignatureName: e.target.value }))}
+                        className="bg-white border-slate-200 h-9"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <Label className="text-xs text-slate-650 font-bold">Label Ttd Kanan</Label>
+                    <Input
+                      value={tempTemplateConfig.rightSignatureLabel}
+                      onChange={(e) => setTempTemplateConfig(prev => ({ ...prev, rightSignatureLabel: e.target.value }))}
+                      className="bg-white border-slate-200 h-9"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Live Preview Column */}
+              <div className="md:col-span-7 bg-slate-100 flex flex-col overflow-hidden">
+                <div className="bg-slate-200/50 px-6 py-3 border-b border-slate-200/80 flex items-center justify-between">
+                  <span className="text-xs font-bold text-slate-600 uppercase tracking-wider flex items-center gap-1.5">
+                    <Sparkles className="h-3.5 w-3.5 text-indigo-500 animate-pulse" /> Live Preview
+                  </span>
+                  <span className="text-[10px] text-slate-500 font-semibold bg-slate-200 px-2 py-0.5 rounded-full">
+                    A4/A5 Render Canvas
+                  </span>
+                </div>
+                <div className="flex-1 overflow-auto p-8 flex justify-center items-start">
+                  <div className="shadow-lg rounded-sm bg-white overflow-hidden border border-slate-200">
+                    <div
+                      dangerouslySetInnerHTML={{
+                        __html: getRawHtmlTemplate(mockPreviewSlip, {
+                          nama_perusahaan: tempNamaPerusahaan,
+                          alamat: tempAlamat,
+                          footer_slip: tempFooterSlip,
+                          slip_template_config: tempTemplateConfig
+                        }),
+                      }}
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="p-4 border-t border-slate-100 bg-slate-50 flex justify-end gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setIsTemplateDialogOpen(false)}
+                className="h-9 px-4 font-semibold border-slate-250 text-slate-700 bg-white"
+              >
+                Batal
+              </Button>
+              <Button
+                onClick={() => saveTemplateMutation.mutate()}
+                disabled={saveTemplateMutation.isPending}
+                size="sm"
+                className="bg-indigo-600 hover:bg-indigo-700 text-white h-9 px-5 font-bold gap-1.5 shadow-sm"
+              >
+                {saveTemplateMutation.isPending && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+                Simpan & Terapkan
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
+
+        {/* Preview Slip Dialog */}
+        <Dialog open={!!previewSlip} onOpenChange={() => setPreviewSlip(null)}>
+          <DialogContent className="max-w-2xl">
+            <DialogHeader>
+              <DialogTitle>Preview Slip Gaji</DialogTitle>
+            </DialogHeader>
+
+            {previewSlip && (
+              <div className="flex justify-center overflow-auto rounded-md bg-white p-4">
+                <div
+                  dangerouslySetInnerHTML={{
+                    __html: getRawHtmlTemplate(previewSlip, appSettings),
+                  }}
+                />
+              </div>
+            )}
+          </DialogContent>
+        </Dialog>
+      </div>
+    </>
   );
 }

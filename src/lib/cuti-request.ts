@@ -60,9 +60,41 @@ type CutiInfo = {
   alasan?: string | null;
 };
 
-export function buildCutiApprovedMessage(emp: EmployeeInfo, c: CutiInfo): string {
+/** Format daftar tanggal untuk pesan: "1 Jan, 6 Jan, 7-8 Jan" atau "1-8 Jan" */
+export function formatPeriodeList(tanggalList: string[]): string {
+  if (!tanggalList || tanggalList.length === 0) return "-";
+  if (tanggalList.length === 1) return formatTanggalHR(tanggalList[0]);
+
+  // Cek apakah membentuk range berurutan penuh
+  const sorted = [...tanggalList].sort();
+  const isConsecutive = sorted.every((t, i) => {
+    if (i === 0) return true;
+    const prev = new Date(`${sorted[i - 1]}T00:00:00`);
+    const curr = new Date(`${t}T00:00:00`);
+    return (curr.getTime() - prev.getTime()) / 86400000 === 1;
+  });
+
+  if (isConsecutive) {
+    return `${formatTanggalHR(sorted[0])} s/d ${formatTanggalHR(sorted[sorted.length - 1])}`;
+  }
+
+  // Tanggal terpisah: format pendek
+  return sorted
+    .map((t) => {
+      const d = new Date(`${t}T00:00:00`);
+      return d.toLocaleDateString("id-ID", { day: "2-digit", month: "short" });
+    })
+    .join(", ");
+}
+
+export function buildCutiApprovedMessage(
+  emp: EmployeeInfo,
+  c: CutiInfo & { tanggal_list?: string[] },
+): string {
   const jenis = getJenisCuti(c.jenis).label;
-  const periode = `${formatTanggalHR(c.tanggal_mulai)} s/d ${formatTanggalHR(c.tanggal_selesai)}`;
+  const periode = c.tanggal_list
+    ? formatPeriodeList(c.tanggal_list)
+    : `${formatTanggalHR(c.tanggal_mulai)} s/d ${formatTanggalHR(c.tanggal_selesai)}`;
   const lines = [
     `Halo ${emp.nama || "Karyawan"},`,
     "",
@@ -73,9 +105,14 @@ export function buildCutiApprovedMessage(emp: EmployeeInfo, c: CutiInfo): string
   return lines.join("\n");
 }
 
-export function buildCutiRejectedMessage(emp: EmployeeInfo, c: CutiInfo): string {
+export function buildCutiRejectedMessage(
+  emp: EmployeeInfo,
+  c: CutiInfo & { tanggal_list?: string[] },
+): string {
   const jenis = getJenisCuti(c.jenis).label;
-  const periode = `${formatTanggalHR(c.tanggal_mulai)} s/d ${formatTanggalHR(c.tanggal_selesai)}`;
+  const periode = c.tanggal_list
+    ? formatPeriodeList(c.tanggal_list)
+    : `${formatTanggalHR(c.tanggal_mulai)} s/d ${formatTanggalHR(c.tanggal_selesai)}`;
   const lines = [
     `Halo ${emp.nama || "Karyawan"},`,
     "",
@@ -83,5 +120,67 @@ export function buildCutiRejectedMessage(emp: EmployeeInfo, c: CutiInfo): string
   ];
   if (c.alasan) lines.push(`Alasan: ${c.alasan}`);
   lines.push("", "Terima kasih.");
+  return lines.join("\n");
+}
+
+export type KalenderCutiItem = {
+  tanggal: string; // YYYY-MM-DD
+  nama: string;
+  jenis: string; // nilai mentah jenis cuti
+  status: string; // diajukan | disetujui | ditolak
+};
+
+/**
+ * Bangun pesan ringkasan jadwal cuti untuk dibagikan ke grup WhatsApp.
+ * Dikelompokkan per tanggal, dengan penanda status cuti.
+ */
+export function buildKalenderCutiMessage(opts: {
+  bulan: string;
+  tahun: number;
+  cabang: string;
+  items: KalenderCutiItem[];
+}): string {
+  const { bulan, tahun, cabang, items } = opts;
+  const lines: string[] = [];
+  lines.push(`*JADWAL CUTI ${bulan.toUpperCase()} ${tahun}*`);
+  lines.push(`Cabang: ${cabang}`);
+
+  if (items.length === 0) {
+    lines.push("", "Tidak ada jadwal cuti pada bulan ini. 🎉");
+    return lines.join("\n");
+  }
+
+  const byDate = new Map<string, KalenderCutiItem[]>();
+  for (const it of items) {
+    const arr = byDate.get(it.tanggal) || [];
+    arr.push(it);
+    byDate.set(it.tanggal, arr);
+  }
+
+  const orangSet = new Set<string>();
+  for (const tgl of [...byDate.keys()].sort()) {
+    const arr = byDate.get(tgl)!;
+    const labelTanggal = formatTanggalHR(tgl);
+    const labelHari = isAkhirPekan(tgl) ? "Sabtu/Minggu" : "Hari kerja";
+    lines.push("", `📅 ${labelTanggal} (${labelHari})`);
+    for (const it of arr) {
+      const jenis = getJenisCuti(it.jenis).label;
+      const mark =
+        it.status === "disetujui"
+          ? "✅ Disetujui"
+          : it.status === "ditolak"
+            ? "❌ Ditolak"
+            : "⏳ Diajukan";
+      lines.push(`• ${it.nama} — ${jenis} (${mark})`);
+      orangSet.add(it.nama);
+    }
+  }
+
+  lines.push(
+    "",
+    `Total: ${orangSet.size} karyawan • ${items.length} catatan cuti`,
+    "",
+    "_Dikirim otomatis dari sistem PayFlow._",
+  );
   return lines.join("\n");
 }

@@ -74,6 +74,7 @@ type CutiRequest = {
     nama?: string | null;
     kode_karyawan?: string | null;
     whatsapp?: string | null;
+    branch_id?: string | null;
     branches?: { nama?: string } | null;
   } | null;
 };
@@ -135,7 +136,7 @@ function RequestCutiAdminPage() {
       const { data, error } = await supabase
         .from("cuti")
         .select(
-          "id, employee_id, jenis, tanggal_mulai, tanggal_selesai, alasan, status, created_at, employees ( nama, kode_karyawan, whatsapp, branches ( nama ) )",
+          "id, employee_id, jenis, tanggal_mulai, tanggal_selesai, alasan, status, created_at, employees ( nama, kode_karyawan, whatsapp, branch_id, branches ( nama ) )",
         )
         .order("created_at", { ascending: true });
       if (error) throw error;
@@ -239,16 +240,21 @@ function RequestCutiAdminPage() {
       const { data: kuota, error: errKuota } = await supabase.rpc("cek_kuota_cuti", {
         p_mulai: c.tanggal_mulai,
         p_selesai: c.tanggal_selesai,
+        p_branch: c.employees?.branch_id ?? null,
       });
       if (errKuota) throw errKuota;
 
-      const { data: earlierPending, error: errEarlier } = await supabase
+      let earlierQuery = supabase
         .from("cuti")
         .select("id, tanggal_mulai, tanggal_selesai")
         .eq("status", "diajukan")
         .lt("created_at", c.created_at || new Date().toISOString())
         .lte("tanggal_mulai", c.tanggal_selesai)
         .gte("tanggal_selesai", c.tanggal_mulai);
+      // FCFS dihitung dalam lingkup cabang yang sama
+      if (c.employees?.branch_id)
+        earlierQuery = earlierQuery.eq("branch_id", c.employees.branch_id);
+      const { data: earlierPending, error: errEarlier } = await earlierQuery;
       if (errEarlier) throw errEarlier;
 
       const dates = enumerateDates(c.tanggal_mulai, c.tanggal_selesai);
@@ -787,8 +793,8 @@ function RequestCutiAdminPage() {
         </p>
         <ul className="mt-1 list-inside list-disc space-y-0.5 text-xs text-emerald-800">
           <li>
-            Kuota harian: hari kerja maks 2 orang, Sabtu/Minggu maks 1 orang — dihitung dari
-            permohonan berstatus Disetujui.
+            Kuota harian dihitung per cabang (bisa berbeda antar cabang) dari permohonan berstatus
+            Disetujui — nilai kuota diatur di menu Cabang.
           </li>
           <li>
             Staf yang mengajukan saat kuota penuh otomatis ditolak oleh sistem (first come, first

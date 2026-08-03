@@ -43,3 +43,36 @@ export async function sendWaMessage(phone: string, message: string): Promise<Sen
     };
   }
 }
+
+export type WaGroup = { id: string; subject: string };
+
+/** Ambil daftar grup WhatsApp yang diikuti bot gateway. */
+export async function getWaGroups(): Promise<WaGroup[]> {
+  try {
+    const res = await fetch(`${GATEWAY_URL}/api/groups`);
+    if (!res.ok) return [];
+    const data = await res.json();
+    return Array.isArray(data.groups) ? data.groups : [];
+  } catch {
+    return [];
+  }
+}
+
+/** Kirim pesan teks ke JID WhatsApp penuh (mis. grup: 1203…@g.us). */
+export async function sendWaMessageToJid(jid: string, message: string): Promise<SendWaResult> {
+  try {
+    const res = await fetch(`${GATEWAY_URL}/api/send-message`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ phone: jid, message }),
+    });
+    const data = await res.json();
+    if (res.ok && data.success) return { ok: true };
+    return { ok: false, error: data.error || "Gagal mengirim pesan." };
+  } catch (err) {
+    return {
+      ok: false,
+      error: (err as Error).message || "Server gateway WhatsApp tidak dapat dijangkau.",
+    };
+  }
+}

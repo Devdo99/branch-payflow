@@ -124,7 +124,9 @@ function RekapAbsenPage() {
     queryFn: async () => {
       let query = supabase
         .from("absensi")
-        .select("id, employee_id, tanggal, status, keterangan, employees ( nama, kode_karyawan, branch_id )")
+        .select(
+          "id, employee_id, tanggal, status, keterangan, employees ( nama, kode_karyawan, branch_id )",
+        )
         .gte("tanggal", monthStart)
         .lte("tanggal", monthEnd);
       if (selectedBranch !== "all") query = query.eq("employees.branch_id", selectedBranch);
@@ -210,7 +212,16 @@ function RekapAbsenPage() {
 
   const saveMutation = useMutation({
     mutationFn: async () => {
-      const payload = { employee_id: empId, tanggal, status, keterangan: keterangan || null };
+      // Setiap input manual dianggap sumber='manual' (bukan otomatis dari cuti),
+      // sehingga tidak akan ditimpa ulang oleh sinkronisasi jadwal cuti.
+      const payload = {
+        employee_id: empId,
+        tanggal,
+        status,
+        keterangan: keterangan || null,
+        sumber: "manual",
+        cuti_id: null,
+      };
       if (isEditing && editId) {
         const { error } = await supabase.from("absensi").update(payload).eq("id", editId);
         if (error) throw error;
@@ -277,6 +288,7 @@ function RekapAbsenPage() {
       "Telat",
       "Absen",
       "Resign",
+      "Cuti",
     ];
     const rows = filteredEmployees.map((e) => {
       const sum = summaryPerEmployee[e.id] || {};
@@ -297,6 +309,7 @@ function RekapAbsenPage() {
         sum.telat || 0,
         sum.absen || 0,
         sum.resign || 0,
+        sum.cuti || 0,
       ];
     });
     downloadCSV(
@@ -308,16 +321,7 @@ function RekapAbsenPage() {
 
   const exportPDF = () => {
     if (filteredEmployees.length === 0) return toast.error("Tidak ada data untuk diekspor.");
-    const headers = [
-      "Kode",
-      "Nama",
-      "Hadir",
-      "Izin",
-      "Sakit",
-      "Telat",
-      "Absen",
-      "Resign",
-    ];
+    const headers = ["Kode", "Nama", "Hadir", "Izin", "Sakit", "Telat", "Absen", "Resign", "Cuti"];
     const rows = filteredEmployees.map((e) => {
       const sum = summaryPerEmployee[e.id] || {};
       return [
@@ -329,6 +333,7 @@ function RekapAbsenPage() {
         sum.telat || 0,
         sum.absen || 0,
         sum.resign || 0,
+        sum.cuti || 0,
       ];
     });
     downloadPDFTable(
@@ -361,7 +366,10 @@ function RekapAbsenPage() {
             >
               <FileDown className="mr-2 h-4 w-4 text-emerald-600" /> PDF
             </Button>
-            <Dialog open={isOpen} onOpenChange={(open) => (!open ? handleClose() : setIsOpen(true))}>
+            <Dialog
+              open={isOpen}
+              onOpenChange={(open) => (!open ? handleClose() : setIsOpen(true))}
+            >
               <DialogTrigger asChild>
                 <Button className="bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-white border-none rounded-xl shadow-md shadow-emerald-500/10 hover:shadow-emerald-500/20 active:scale-[0.98] transition-all cursor-pointer">
                   <Plus className="w-4 h-4 mr-2" /> Tambah Absen
@@ -440,7 +448,11 @@ function RekapAbsenPage() {
                       Batal
                     </Button>
                     <Button type="submit" disabled={saveMutation.isPending}>
-                      {saveMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : "Simpan"}
+                      {saveMutation.isPending ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        "Simpan"
+                      )}
                     </Button>
                   </DialogFooter>
                 </form>
@@ -451,7 +463,7 @@ function RekapAbsenPage() {
       />
 
       {/* Statistik */}
-      <div className="grid gap-3 sm:grid-cols-3 lg:grid-cols-6">
+      <div className="grid gap-3 sm:grid-cols-3 lg:grid-cols-7">
         {STATUS_ABSEN.map((s) => (
           <Card key={s.value} className="overflow-hidden rounded-2xl border-border/60 shadow-sm">
             <CardContent className="flex items-center gap-3 p-4">
@@ -524,7 +536,8 @@ function RekapAbsenPage() {
           </span>
         ))}
         <span className="ml-auto hidden text-xs text-slate-400 sm:block">
-          Klik sel pada matriks untuk mengubah status harian.
+          Klik sel untuk mengubah status. Status Cuti dibuat otomatis dari jadwal cuti yang
+          disetujui, tetapi tetap bisa diedit manual.
         </span>
       </div>
 
@@ -566,18 +579,19 @@ function RekapAbsenPage() {
                 <TableHead className="min-w-24 text-center">Telat</TableHead>
                 <TableHead className="min-w-24 text-center">Absen</TableHead>
                 <TableHead className="min-w-24 text-center">Resign</TableHead>
+                <TableHead className="min-w-24 text-center text-sky-700">Cuti</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {isLoading ? (
                 <TableRow>
-                  <TableCell colSpan={daysInMonth + 7} className="h-32 text-center text-slate-500">
+                  <TableCell colSpan={daysInMonth + 8} className="h-32 text-center text-slate-500">
                     <Loader2 className="mx-auto h-6 w-6 animate-spin text-emerald-500" />
                   </TableCell>
                 </TableRow>
               ) : filteredEmployees.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={daysInMonth + 7} className="p-12 text-center text-slate-500">
+                  <TableCell colSpan={daysInMonth + 8} className="p-12 text-center text-slate-500">
                     Tidak ada karyawan untuk filter ini.
                   </TableCell>
                 </TableRow>
@@ -641,6 +655,9 @@ function RekapAbsenPage() {
                       <TableCell className="text-center font-semibold text-violet-700">
                         {sum.resign || 0}
                       </TableCell>
+                      <TableCell className="text-center font-semibold text-sky-700">
+                        {sum.cuti || 0}
+                      </TableCell>
                     </TableRow>
                   );
                 })
@@ -684,10 +701,14 @@ function RekapAbsenPage() {
                       </TableCell>
                       <TableCell>
                         <div className="font-medium text-slate-900">{a.employees?.nama || "-"}</div>
-                        <div className="text-xs text-slate-400">{a.employees?.kode_karyawan || ""}</div>
+                        <div className="text-xs text-slate-400">
+                          {a.employees?.kode_karyawan || ""}
+                        </div>
                       </TableCell>
                       <TableCell>
-                        <span className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs font-semibold ${st.bg}`}>
+                        <span
+                          className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs font-semibold ${st.bg}`}
+                        >
                           <span className={`h-1.5 w-1.5 rounded-full ${st.dot}`} />
                           {st.label}
                         </span>
@@ -710,7 +731,8 @@ function RekapAbsenPage() {
                             size="icon"
                             className="h-8 w-8 text-rose-500 hover:bg-rose-500/10"
                             onClick={() => {
-                              if (window.confirm("Hapus catatan absen ini?")) deleteMutation.mutate(a.id);
+                              if (window.confirm("Hapus catatan absen ini?"))
+                                deleteMutation.mutate(a.id);
                             }}
                           >
                             <Trash2 className="h-3.5 w-3.5" />
@@ -725,7 +747,6 @@ function RekapAbsenPage() {
           </Table>
         </div>
       </div>
-
     </div>
   );
 }

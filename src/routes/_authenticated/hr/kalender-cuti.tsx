@@ -45,6 +45,10 @@ import {
   FileSpreadsheet,
   FileDown,
   Users,
+  Send,
+  Share2,
+  Wifi,
+  WifiOff,
 } from "lucide-react";
 import {
   JENIS_CUTI,
@@ -58,6 +62,8 @@ import {
   getDaysInMonth,
   countDays,
 } from "@/lib/hr";
+import { buildKalenderCutiMessage } from "@/lib/cuti-request";
+import { getWaGatewayStatus, getWaGroups, sendWaMessageToJid } from "@/lib/wa-gateway";
 import { downloadCSV, downloadPDFTable, safeFileName } from "@/lib/hr-export";
 
 export const Route = createFileRoute("/_authenticated/hr/kalender-cuti")({
@@ -85,6 +91,15 @@ type CutiRecord = {
   employees?: Employee | null;
 };
 
+type BranchOption = {
+  id: string;
+  nama: string;
+  wa_group_jid?: string | null;
+  wa_group_nama?: string | null;
+  kuota_cuti_hari_kerja?: number;
+  kuota_cuti_akhir_pekan?: number;
+};
+
 function KalenderCutiPage() {
   const queryClient = useQueryClient();
   const today = new Date();
@@ -100,8 +115,16 @@ function KalenderCutiPage() {
   const [jenis, setJenis] = useState("tahunan");
   const [tglMulai, setTglMulai] = useState("");
   const [tglSelesai, setTglSelesai] = useState("");
+  const [tglTerpilih, setTglTerpilih] = useState<string[]>([]);
+  const [multiView, setMultiView] = useState(false);
   const [alasan, setAlasan] = useState("");
   const [status, setStatus] = useState("diajukan");
+
+  // Share ke grup WA
+  const [shareOpen, setShareOpen] = useState(false);
+  const [shareBranchId, setShareBranchId] = useState("");
+  const [shareGroupJid, setShareGroupJid] = useState("");
+  const [shareSending, setShareSending] = useState(false);
 
   const monthStart = `${viewYear}-${String(viewMonth + 1).padStart(2, "0")}-01`;
   const monthEnd = `${viewYear}-${String(viewMonth + 1).padStart(2, "0")}-${String(
@@ -109,12 +132,30 @@ function KalenderCutiPage() {
   ).padStart(2, "0")}`;
 
   // Data cabang & karyawan
-  const { data: branches = [] } = useQuery({
+  const { data: branches = [] } = useQuery<BranchOption[]>({
     queryKey: ["branches_hr"],
     queryFn: async () => {
-      const { data } = await supabase.from("branches").select("id, nama").order("nama");
-      return (data as { id: string; nama: string }[]) || [];
+      const { data } = await supabase
+        .from("branches")
+        .select(
+          "id, nama, wa_group_jid, wa_group_nama, kuota_cuti_hari_kerja, kuota_cuti_akhir_pekan",
+        )
+        .order("nama");
+      return (data as BranchOption[]) || [];
     },
+  });
+
+  // Status gateway WhatsApp & daftar grup bot
+  const { data: gateway } = useQuery({
+    queryKey: ["wa_gateway_kalender"],
+    queryFn: getWaGatewayStatus,
+    refetchInterval: 8000,
+  });
+
+  const { data: waGroups = [] } = useQuery({
+    queryKey: ["wa_groups_kalender"],
+    queryFn: getWaGroups,
+    enabled: shareOpen,
   });
 
   const { data: employees = [] } = useQuery<Employee[]>({
@@ -201,6 +242,8 @@ function KalenderCutiPage() {
     setJenis("tahunan");
     setTglMulai("");
     setTglSelesai("");
+    setTglTerpilih([]);
+    setMultiView(false);
     setAlasan("");
     setStatus("diajukan");
   };
@@ -210,6 +253,8 @@ function KalenderCutiPage() {
     setJenis("tahunan");
     setTglMulai(`${viewYear}-${String(viewMonth + 1).padStart(2, "0")}-01`);
     setTglSelesai("");
+    setTglTerpilih([]);
+    setMultiView(false);
     setAlasan("");
     setStatus("diajukan");
     setIsEditing(false);
@@ -223,6 +268,8 @@ function KalenderCutiPage() {
     setJenis(c.jenis);
     setTglMulai(c.tanggal_mulai);
     setTglSelesai(c.tanggal_selesai);
+    setTglTerpilih([]);
+    setMultiView(false);
     setAlasan(c.alasan || "");
     setStatus(c.status);
     setIsOpen(true);
@@ -230,7 +277,16 @@ function KalenderCutiPage() {
 
   const saveMutation = useMutation({
     mutationFn: async () => {
-      const payload = {
+      const tanggal_list = multiView && tglTerpilih.length > 0 ? tglTerpilih : null;
+      const payload: {
+        employee_id: string;
+        jenis: string;
+        tanggal_mulai: string;
+        tanggal_selesai: string;
+        alasan: string;
+        status: string;
+        tanggal_list?: string[];
+      } = {
         employee_id: empId,
         jenis,
         tanggal_mulai: tglMulai,
@@ -238,6 +294,9 @@ function KalenderCutiPage() {
         alasan,
         status,
       };
+      if (tanggal_list) {
+        payload.tanggal_list = tanggal_list;
+      }
       if (isEditing && editId) {
         const { error } = await supabase.from("cuti").update(payload).eq("id", editId);
         if (error) throw error;
@@ -353,6 +412,117 @@ function KalenderCutiPage() {
     setViewYear(y);
   };
 
+  // ---- Share kalender ke grup WhatsApp ----
+  const buildShareItems = () => {
+    const scope = shareBranchId || selectedBranch;
+    const items: {
+      tanggal: string;
+      nama: string;
+      jenis: string;
+      status: string;
+    }[] = [];
+    cutiList.forEach((c) => {
+      if (c.status === "ditolak") return; // jangan share yang ditolak
+      if (scope !== "all" && c.employees?.branch_id !== scope) return;
+      const s = new Date(`${c.tanggal_mulai}T00:00:00`);
+      const e = new Date(`${c.tanggal_selesai}T00:00:00`);
+      for (let d = new Date(s); d <= e; d.setDate(d.getDate() + 1)) {
+        const key = toISODate(d);
+        if (key >= monthStart && key <= monthEnd) {
+          items.push({
+            tanggal: key,
+            nama: c.employees?.nama || "-",
+            jenis: c.jenis,
+            status: c.status,
+          });
+        }
+      }
+    });
+    return items;
+  };
+
+  const shareMessage = useMemo(() => {
+    const scope = shareBranchId || selectedBranch;
+    const cabangName =
+      scope === "all" ? "Semua Cabang" : branches.find((b) => b.id === scope)?.nama || scope;
+    return buildKalenderCutiMessage({
+      bulan: BULAN_PANJANG[viewMonth],
+      tahun: viewYear,
+      cabang: cabangName,
+      items: buildShareItems(),
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [
+    shareBranchId,
+    selectedBranch,
+    cutiList,
+    branches,
+    viewMonth,
+    viewYear,
+    monthStart,
+    monthEnd,
+  ]);
+
+  const openShare = () => {
+    if (buildShareItems().length === 0) {
+      toast.error("Tidak ada jadwal cuti untuk dibagikan pada bulan ini.");
+      return;
+    }
+    setShareBranchId(selectedBranch === "all" ? "" : selectedBranch);
+    const initial =
+      selectedBranch === "all"
+        ? ""
+        : branches.find((b) => b.id === selectedBranch)?.wa_group_jid || "";
+    setShareGroupJid(initial);
+    setShareOpen(true);
+  };
+
+  const handleShare = async () => {
+    const scope = shareBranchId || selectedBranch;
+    if (!scope || scope === "all") {
+      toast.error("Pilih cabang terlebih dahulu.");
+      return;
+    }
+    const jid = shareGroupJid.trim();
+    if (!jid) {
+      toast.error("Pilih grup WhatsApp tujuan terlebih dahulu.");
+      return;
+    }
+    const items = buildShareItems();
+    if (items.length === 0) {
+      toast.error("Tidak ada jadwal cuti untuk dibagikan.");
+      return;
+    }
+    setShareSending(true);
+    try {
+      const branch = branches.find((b) => b.id === scope);
+      // Simpan grup pilihan ke cabang agar dipakai lagi nanti
+      if (branch && branch.wa_group_jid !== jid) {
+        const groupName = waGroups.find((g) => g.id === jid)?.subject || null;
+        const { error } = await supabase
+          .from("branches")
+          .update({ wa_group_jid: jid, wa_group_nama: groupName })
+          .eq("id", scope);
+        if (error) throw error;
+        queryClient.invalidateQueries({ queryKey: ["branches_hr"] });
+      }
+      const message = buildKalenderCutiMessage({
+        bulan: BULAN_PANJANG[viewMonth],
+        tahun: viewYear,
+        cabang: branch?.nama || scope,
+        items,
+      });
+      const res = await sendWaMessageToJid(jid, message);
+      if (!res.ok) throw new Error(res.error || "Gagal mengirim pesan.");
+      toast.success("Jadwal cuti berhasil dikirim ke grup WhatsApp!");
+      setShareOpen(false);
+    } catch (err) {
+      toast.error(`Gagal mengirim: ${(err as Error).message}`);
+    } finally {
+      setShareSending(false);
+    }
+  };
+
   return (
     <div className="flex flex-col gap-6 p-4 sm:p-6">
       <PageHeader
@@ -374,7 +544,17 @@ function KalenderCutiPage() {
             >
               <FileDown className="mr-2 h-4 w-4 text-emerald-600" /> PDF
             </Button>
-            <Dialog open={isOpen} onOpenChange={(open) => (!open ? handleClose() : setIsOpen(true))}>
+            <Button
+              variant="outline"
+              className="border-sky-200 hover:bg-sky-50 hover:text-sky-700"
+              onClick={openShare}
+            >
+              <Share2 className="mr-2 h-4 w-4 text-sky-600" /> Share ke Grup WA
+            </Button>
+            <Dialog
+              open={isOpen}
+              onOpenChange={(open) => (!open ? handleClose() : setIsOpen(true))}
+            >
               <DialogTrigger asChild>
                 <Button className="bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-white border-none rounded-xl shadow-md shadow-emerald-500/10 hover:shadow-emerald-500/20 active:scale-[0.98] transition-all cursor-pointer">
                   <Plus className="w-4 h-4 mr-2" /> Tambah Cuti
@@ -450,7 +630,11 @@ function KalenderCutiPage() {
                       <Label className="text-xs font-semibold uppercase tracking-wider text-slate-500">
                         Tanggal Mulai
                       </Label>
-                      <Input type="date" value={tglMulai} onChange={(e) => setTglMulai(e.target.value)} />
+                      <Input
+                        type="date"
+                        value={tglMulai}
+                        onChange={(e) => setTglMulai(e.target.value)}
+                      />
                     </div>
                     <div className="space-y-1.5">
                       <Label className="text-xs font-semibold uppercase tracking-wider text-slate-500">
@@ -478,7 +662,11 @@ function KalenderCutiPage() {
                       Batal
                     </Button>
                     <Button type="submit" disabled={saveMutation.isPending}>
-                      {saveMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : "Simpan"}
+                      {saveMutation.isPending ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        "Simpan"
+                      )}
                     </Button>
                   </DialogFooter>
                 </form>
@@ -535,7 +723,7 @@ function KalenderCutiPage() {
             Bulan Ini
           </Button>
         </div>
-        <div className="w-full sm:w-64">
+        <div className="flex w-full flex-col gap-1 sm:w-64">
           <Select value={selectedBranch} onValueChange={setSelectedBranch}>
             <SelectTrigger className="w-full">
               <SelectValue placeholder="Semua Cabang" />
@@ -549,6 +737,16 @@ function KalenderCutiPage() {
               ))}
             </SelectContent>
           </Select>
+          {selectedBranch !== "all" &&
+            (() => {
+              const b = branches.find((x) => x.id === selectedBranch);
+              return b ? (
+                <p className="truncate text-[11px] text-slate-400">
+                  Kuota cuti: {b.kuota_cuti_hari_kerja ?? 2} org/hari kerja •{" "}
+                  {b.kuota_cuti_akhir_pekan ?? 1} org Sabtu/Minggu
+                </p>
+              ) : null;
+            })()}
         </div>
       </div>
 
@@ -572,7 +770,13 @@ function KalenderCutiPage() {
                 <div key={i} className="min-h-24 border-b border-r border-slate-50 p-1.5" />
               ))
             : grid.map((day, i) => {
-                if (day === null) return <div key={i} className="min-h-24 border-b border-r border-slate-50 bg-slate-50/40 p-1.5" />;
+                if (day === null)
+                  return (
+                    <div
+                      key={i}
+                      className="min-h-24 border-b border-r border-slate-50 bg-slate-50/40 p-1.5"
+                    />
+                  );
                 const dateKey = `${viewYear}-${String(viewMonth + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
                 const isToday = dateKey === toISODate(today);
                 const isSunday = i % 7 === 6;
@@ -609,7 +813,9 @@ function KalenderCutiPage() {
                             className={`flex items-center gap-1 truncate rounded-md border px-1.5 py-0.5 text-[10px] font-medium ${jenisCuti.bg}`}
                             title={`${c.employees?.nama} • ${jenisCuti.label} • ${formatTanggalHR(c.tanggal_mulai)} - ${formatTanggalHR(c.tanggal_selesai)}`}
                           >
-                            <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${jenisCuti.dot}`} />
+                            <span
+                              className={`h-1.5 w-1.5 shrink-0 rounded-full ${jenisCuti.dot}`}
+                            />
                             <span className="truncate">{c.employees?.nama}</span>
                           </div>
                         );
@@ -637,6 +843,130 @@ function KalenderCutiPage() {
           ))}
         </div>
       </div>
+
+      {/* Dialog share ke grup WA */}
+      <Dialog open={shareOpen} onOpenChange={setShareOpen}>
+        <DialogContent className="rounded-2xl sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="text-lg font-bold text-slate-900 dark:text-slate-100">
+              Share Kalender Cuti ke Grup WA
+            </DialogTitle>
+            <DialogDescription>
+              Kirim ringkasan jadwal cuti {BULAN_PANJANG[viewMonth]} {viewYear} ke grup WhatsApp
+              cabang terkait.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 pt-1">
+            {/* Status gateway */}
+            <div
+              className={`flex items-center gap-2 rounded-xl border px-3 py-2.5 text-xs font-semibold ${
+                gateway?.status === "connected"
+                  ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+                  : "border-amber-200 bg-amber-50 text-amber-700"
+              }`}
+            >
+              {gateway?.status === "connected" ? (
+                <Wifi className="h-3.5 w-3.5 shrink-0" />
+              ) : (
+                <WifiOff className="h-3.5 w-3.5 shrink-0" />
+              )}
+              {gateway?.status === "connected"
+                ? "Gateway WhatsApp terhubung — pesan siap dikirim."
+                : "Gateway WhatsApp offline — pastikan backend WA berjalan & terhubung."}
+            </div>
+
+            {/* Pilih cabang */}
+            <div className="space-y-1.5">
+              <Label className="text-xs font-semibold uppercase tracking-wider text-slate-500">
+                Cabang
+              </Label>
+              <Select
+                value={shareBranchId || "all"}
+                onValueChange={(v) => {
+                  if (v === "all") {
+                    setShareBranchId("");
+                    setShareGroupJid("");
+                  } else {
+                    setShareBranchId(v);
+                    setShareGroupJid(branches.find((x) => x.id === v)?.wa_group_jid || "");
+                  }
+                }}
+              >
+                <SelectTrigger className="w-full">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Semua Cabang</SelectItem>
+                  {branches.map((b) => (
+                    <SelectItem key={b.id} value={b.id}>
+                      {b.nama}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Pilih grup */}
+            <div className="space-y-1.5">
+              <Label className="text-xs font-semibold uppercase tracking-wider text-slate-500">
+                Grup WhatsApp Tujuan
+              </Label>
+              {waGroups.length > 0 ? (
+                <Select value={shareGroupJid} onValueChange={setShareGroupJid}>
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="Pilih grup..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {waGroups.map((g) => (
+                      <SelectItem key={g.id} value={g.id}>
+                        {g.subject || g.id}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              ) : (
+                <Input
+                  placeholder="Paste JID grup (contoh: 120363347759137613@g.us)"
+                  value={shareGroupJid}
+                  onChange={(e) => setShareGroupJid(e.target.value)}
+                />
+              )}
+              <p className="text-[11px] text-slate-400">
+                {shareGroupJid
+                  ? `ID grup: ${shareGroupJid}`
+                  : "Pilih grup yang diikuti bot gateway, atau tempel JID grup secara manual."}
+              </p>
+            </div>
+
+            {/* Pratinjau pesan */}
+            <div className="space-y-1.5">
+              <Label className="text-xs font-semibold uppercase tracking-wider text-slate-500">
+                Pratinjau Pesan
+              </Label>
+              <pre className="max-h-56 overflow-y-auto whitespace-pre-wrap rounded-xl border border-slate-200 bg-slate-50 p-3 font-mono text-[11px] leading-relaxed text-slate-700">
+                {shareMessage}
+              </pre>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setShareOpen(false)}>
+              Batal
+            </Button>
+            <Button
+              onClick={handleShare}
+              disabled={shareSending}
+              className="bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-white border-none rounded-xl shadow-md shadow-emerald-500/10 active:scale-[0.98] transition-all"
+            >
+              {shareSending ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Send className="mr-2 h-4 w-4" />
+              )}
+              {shareSending ? "Mengirim..." : "Kirim ke Grup"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Daftar Detail */}
       <div className="overflow-hidden rounded-2xl border border-border/60 bg-white shadow-sm">
@@ -713,7 +1043,9 @@ function KalenderCutiPage() {
                         </div>
                       </TableCell>
                       <TableCell className="text-center">
-                        <Badge variant="secondary">{countDays(c.tanggal_mulai, c.tanggal_selesai)}</Badge>
+                        <Badge variant="secondary">
+                          {countDays(c.tanggal_mulai, c.tanggal_selesai)}
+                        </Badge>
                       </TableCell>
                       <TableCell>
                         <Badge variant={statusCuti.variant}>{statusCuti.label}</Badge>
@@ -733,7 +1065,8 @@ function KalenderCutiPage() {
                             size="icon"
                             className="h-8 w-8 text-rose-500 hover:bg-rose-500/10"
                             onClick={() => {
-                              if (window.confirm("Hapus data cuti ini?")) deleteMutation.mutate(c.id);
+                              if (window.confirm("Hapus data cuti ini?"))
+                                deleteMutation.mutate(c.id);
                             }}
                           >
                             <Trash2 className="h-3.5 w-3.5" />

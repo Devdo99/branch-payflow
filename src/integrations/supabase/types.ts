@@ -11,28 +11,34 @@ export type Database = {
       absensi: {
         Row: {
           created_at: string;
+          cuti_id: string | null;
           employee_id: string;
           id: string;
           keterangan: string | null;
           status: string;
+          sumber: string;
           tanggal: string;
           updated_at: string;
         };
         Insert: {
           created_at?: string;
+          cuti_id?: string | null;
           employee_id: string;
           id?: string;
           keterangan?: string | null;
           status?: string;
+          sumber?: string;
           tanggal: string;
           updated_at?: string;
         };
         Update: {
           created_at?: string;
+          cuti_id?: string | null;
           employee_id?: string;
           id?: string;
           keterangan?: string | null;
           status?: string;
+          sumber?: string;
           tanggal?: string;
           updated_at?: string;
         };
@@ -42,6 +48,13 @@ export type Database = {
             columns: ["employee_id"];
             isOneToOne: false;
             referencedRelation: "employees";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "absensi_cuti_id_fkey";
+            columns: ["cuti_id"];
+            isOneToOne: false;
+            referencedRelation: "cuti";
             referencedColumns: ["id"];
           },
         ];
@@ -112,33 +125,39 @@ export type Database = {
       cuti: {
         Row: {
           alasan: string | null;
+          branch_id: string | null;
           created_at: string;
           employee_id: string;
           id: string;
           jenis: string;
           status: string;
+          tanggal_list: any; // JSONB array of YYYY-MM-DD
           tanggal_mulai: string;
           tanggal_selesai: string;
           updated_at: string;
         };
         Insert: {
           alasan?: string | null;
+          branch_id?: string | null;
           created_at?: string;
           employee_id: string;
           id?: string;
           jenis?: string;
           status?: string;
+          tanggal_list?: any;
           tanggal_mulai: string;
           tanggal_selesai: string;
           updated_at?: string;
         };
         Update: {
           alasan?: string | null;
+          branch_id?: string | null;
           created_at?: string;
           employee_id?: string;
           id?: string;
           jenis?: string;
           status?: string;
+          tanggal_list?: any;
           tanggal_mulai?: string;
           tanggal_selesai?: string;
           updated_at?: string;
@@ -149,6 +168,13 @@ export type Database = {
             columns: ["employee_id"];
             isOneToOne: false;
             referencedRelation: "employees";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "cuti_branch_id_fkey";
+            columns: ["branch_id"];
+            isOneToOne: false;
+            referencedRelation: "branches";
             referencedColumns: ["id"];
           },
         ];
@@ -214,8 +240,12 @@ export type Database = {
           catatan: string | null;
           created_at: string;
           id: string;
+          kuota_cuti_akhir_pekan: number;
+          kuota_cuti_hari_kerja: number;
           nama: string;
           updated_at: string;
+          wa_group_jid: string | null;
+          wa_group_nama: string | null;
         };
         Insert: {
           aktif?: boolean;
@@ -223,8 +253,12 @@ export type Database = {
           catatan?: string | null;
           created_at?: string;
           id?: string;
+          kuota_cuti_akhir_pekan?: number;
+          kuota_cuti_hari_kerja?: number;
           nama: string;
           updated_at?: string;
+          wa_group_jid?: string | null;
+          wa_group_nama?: string | null;
         };
         Update: {
           aktif?: boolean;
@@ -232,8 +266,12 @@ export type Database = {
           catatan?: string | null;
           created_at?: string;
           id?: string;
+          kuota_cuti_akhir_pekan?: number;
+          kuota_cuti_hari_kerja?: number;
           nama?: string;
           updated_at?: string;
+          wa_group_jid?: string | null;
+          wa_group_nama?: string | null;
         };
         Relationships: [];
       };
@@ -710,7 +748,7 @@ export type Database = {
     Functions: {
       cari_karyawan_oleh_wa: {
         Args: { p_wa: string };
-        Returns: { id: string; nama: string; whatsapp: string | null }[];
+        Returns: { id: string; nama: string; whatsapp: string | null; branch_id: string | null }[];
       };
       cek_duplikat_cuti: {
         Args: {
@@ -724,6 +762,7 @@ export type Database = {
         Args: {
           p_mulai: string;
           p_selesai: string;
+          p_branch?: string | null;
         };
         Returns: { tanggal: string; kuota: number; terpakai: number }[];
       };
@@ -733,11 +772,7 @@ export type Database = {
       calc_method: "fixed" | "per_day" | "per_hour" | "per_event" | "manual";
       evaluation_period: "3_bulan" | "6_bulan" | "12_bulan" | "manual";
       evaluation_status:
-        | "belum_waktunya"
-        | "perlu_evaluasi"
-        | "disetujui"
-        | "ditunda"
-        | "sudah_dinaikkan";
+        "belum_waktunya" | "perlu_evaluasi" | "disetujui" | "ditunda" | "sudah_dinaikkan";
       payroll_status: "draft" | "final";
     };
     CompositeTypes: {
@@ -754,12 +789,12 @@ export type Tables<
   DefaultSchemaTableNameOrOptions extends
     | keyof (DefaultSchema["Tables"] & DefaultSchema["Views"])
     | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
+  TableName extends (DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals;
   }
     ? keyof (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
         DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])
-    : never = never,
+    : never) = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals;
 }
@@ -779,13 +814,12 @@ export type Tables<
 
 export type TablesInsert<
   DefaultSchemaTableNameOrOptions extends
-    | keyof DefaultSchema["Tables"]
-    | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
+    keyof DefaultSchema["Tables"] | { schema: keyof DatabaseWithoutInternals },
+  TableName extends (DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals;
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
-    : never = never,
+    : never) = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals;
 }
@@ -804,13 +838,12 @@ export type TablesInsert<
 
 export type TablesUpdate<
   DefaultSchemaTableNameOrOptions extends
-    | keyof DefaultSchema["Tables"]
-    | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
+    keyof DefaultSchema["Tables"] | { schema: keyof DatabaseWithoutInternals },
+  TableName extends (DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals;
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
-    : never = never,
+    : never) = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals;
 }
@@ -829,13 +862,12 @@ export type TablesUpdate<
 
 export type Enums<
   DefaultSchemaEnumNameOrOptions extends
-    | keyof DefaultSchema["Enums"]
-    | { schema: keyof DatabaseWithoutInternals },
-  EnumName extends DefaultSchemaEnumNameOrOptions extends {
+    keyof DefaultSchema["Enums"] | { schema: keyof DatabaseWithoutInternals },
+  EnumName extends (DefaultSchemaEnumNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals;
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"]
-    : never = never,
+    : never) = never,
 > = DefaultSchemaEnumNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals;
 }
@@ -846,13 +878,12 @@ export type Enums<
 
 export type CompositeTypes<
   PublicCompositeTypeNameOrOptions extends
-    | keyof DefaultSchema["CompositeTypes"]
-    | { schema: keyof DatabaseWithoutInternals },
-  CompositeTypeName extends PublicCompositeTypeNameOrOptions extends {
+    keyof DefaultSchema["CompositeTypes"] | { schema: keyof DatabaseWithoutInternals },
+  CompositeTypeName extends (PublicCompositeTypeNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals;
   }
     ? keyof DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"]
-    : never = never,
+    : never) = never,
 > = PublicCompositeTypeNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals;
 }

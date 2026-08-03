@@ -113,15 +113,20 @@ app.post('/api/send-message', async (req, res) => {
   }
   
   try {
-    // Format phone to clean international format, e.g., trim '+', spaces
-    let cleanPhone = phone.replace(/[^0-9]/g, '');
-    
-    // Add country code prefix if it starts with 0 (default to Indonesia: 62)
-    if (cleanPhone.startsWith('0')) {
-      cleanPhone = '62' + cleanPhone.slice(1);
+    // Dukung dua format: nomor HP (08xx -> 628xx) atau JID penuh (mis. grup @g.us)
+    const rawPhone = String(phone || '').trim();
+    let jid;
+    if (rawPhone.includes('@')) {
+      // JID penuh — cocok untuk mengirim ke grup WhatsApp (…@g.us)
+      jid = rawPhone;
+    } else {
+      // Format nomor HP Indonesia
+      let cleanPhone = rawPhone.replace(/[^0-9]/g, '');
+      if (cleanPhone.startsWith('0')) {
+        cleanPhone = '62' + cleanPhone.slice(1);
+      }
+      jid = `${cleanPhone}@s.whatsapp.net`;
     }
-    
-    const jid = `${cleanPhone}@s.whatsapp.net`;
     
     if (image) {
       // Decode image base64 data url
@@ -144,6 +149,25 @@ app.post('/api/send-message', async (req, res) => {
   } catch (error) {
     console.error('Failed to send message:', error);
     res.status(500).json({ error: 'Failed to send message: ' + error.message });
+  }
+});
+
+app.get('/api/groups', async (req, res) => {
+  if (connectionStatus !== 'connected' || !sock) {
+    return res.status(503).json({ error: 'WhatsApp Gateway is not connected.' });
+  }
+
+  try {
+    const groups = await sock.groupFetchAllParticipating();
+    const list = Object.values(groups).map((g) => ({
+      id: g.id,
+      subject: g.subject,
+    }));
+    list.sort((a, b) => (a.subject || '').localeCompare(b.subject || ''));
+    res.json({ groups: list });
+  } catch (error) {
+    console.error('Failed to fetch groups:', error);
+    res.status(500).json({ error: 'Failed to fetch groups: ' + error.message });
   }
 });
 

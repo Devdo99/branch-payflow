@@ -10,6 +10,14 @@ import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { getWaGroups } from "@/lib/wa-gateway";
+import {
   Dialog,
   DialogContent,
   DialogDescription,
@@ -51,6 +59,10 @@ type Branch = {
   catatan: string | null;
   aktif: boolean;
   created_at: string;
+  kuota_cuti_hari_kerja?: number;
+  kuota_cuti_akhir_pekan?: number;
+  wa_group_jid?: string | null;
+  wa_group_nama?: string | null;
 };
 
 function CabangPage() {
@@ -98,8 +110,8 @@ function CabangPage() {
         title="Cabang"
         description="Kelola data cabang usaha"
         actions={
-          <Button 
-            size="sm" 
+          <Button
+            size="sm"
             onClick={openNew}
             className="bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-white border-none rounded-xl shadow-md shadow-emerald-500/10 hover:shadow-emerald-500/20 active:scale-[0.98] transition-all cursor-pointer"
           >
@@ -124,21 +136,49 @@ function CabangPage() {
           <Table>
             <TableHeader>
               <TableRow className="bg-slate-50/80 dark:bg-slate-900/60 hover:bg-transparent">
-                <TableHead className="font-semibold text-slate-900 dark:text-slate-100">Nama Cabang</TableHead>
-                <TableHead className="font-semibold text-slate-900 dark:text-slate-100">Alamat</TableHead>
-                <TableHead className="font-semibold text-slate-900 dark:text-slate-100">Status</TableHead>
-                <TableHead className="font-semibold text-slate-900 dark:text-slate-100">Dibuat</TableHead>
-                <TableHead className="text-right font-semibold text-slate-900 dark:text-slate-100">Aksi</TableHead>
+                <TableHead className="font-semibold text-slate-900 dark:text-slate-100">
+                  Nama Cabang
+                </TableHead>
+                <TableHead className="font-semibold text-slate-900 dark:text-slate-100">
+                  Alamat
+                </TableHead>
+                <TableHead className="font-semibold text-slate-900 dark:text-slate-100">
+                  Status
+                </TableHead>
+                <TableHead className="font-semibold text-slate-900 dark:text-slate-100">
+                  Dibuat
+                </TableHead>
+                <TableHead className="text-right font-semibold text-slate-900 dark:text-slate-100">
+                  Aksi
+                </TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {isLoading ? (
                 <TableRow>
-                  <TableCell colSpan={5} className="text-center text-sm text-muted-foreground py-12">
+                  <TableCell
+                    colSpan={5}
+                    className="text-center text-sm text-muted-foreground py-12"
+                  >
                     <div className="flex items-center justify-center gap-2 text-slate-500">
-                      <svg className="animate-spin h-5 w-5 text-emerald-500" fill="none" viewBox="0 0 24 24">
-                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                      <svg
+                        className="animate-spin h-5 w-5 text-emerald-500"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                      >
+                        <circle
+                          className="opacity-25"
+                          cx="12"
+                          cy="12"
+                          r="10"
+                          stroke="currentColor"
+                          strokeWidth="4"
+                        />
+                        <path
+                          className="opacity-75"
+                          fill="currentColor"
+                          d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                        />
                       </svg>
                       Memuat data cabang...
                     </div>
@@ -146,15 +186,25 @@ function CabangPage() {
                 </TableRow>
               ) : filtered.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={5} className="text-center text-sm text-muted-foreground py-12">
+                  <TableCell
+                    colSpan={5}
+                    className="text-center text-sm text-muted-foreground py-12"
+                  >
                     Belum ada cabang. Klik "Tambah Cabang" untuk memulai.
                   </TableCell>
                 </TableRow>
               ) : (
                 filtered.map((b) => (
-                  <TableRow key={b.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-900/50 transition-colors">
-                    <TableCell className="font-semibold text-slate-900 dark:text-slate-100">{b.nama}</TableCell>
-                    <TableCell className="text-slate-600 dark:text-slate-400">{b.alamat || "-"}</TableCell>
+                  <TableRow
+                    key={b.id}
+                    className="hover:bg-slate-50/50 dark:hover:bg-slate-900/50 transition-colors"
+                  >
+                    <TableCell className="font-semibold text-slate-900 dark:text-slate-100">
+                      {b.nama}
+                    </TableCell>
+                    <TableCell className="text-slate-600 dark:text-slate-400">
+                      {b.alamat || "-"}
+                    </TableCell>
                     <TableCell>
                       {b.aktif ? (
                         <Badge className="bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 shadow-sm rounded-lg">
@@ -243,7 +293,17 @@ function BranchDialog({
   const [alamat, setAlamat] = useState("");
   const [catatan, setCatatan] = useState("");
   const [aktif, setAktif] = useState(true);
+  const [kuotaKerja, setKuotaKerja] = useState(2);
+  const [kuotaPekan, setKuotaPekan] = useState(1);
+  const [waGroupJid, setWaGroupJid] = useState("");
+  const [waGroupNama, setWaGroupNama] = useState("");
   const [saving, setSaving] = useState(false);
+
+  const { data: groups = [] } = useQuery({
+    queryKey: ["wa_groups_cabang"],
+    queryFn: getWaGroups,
+    enabled: open,
+  });
 
   // Reset on open
   useState(() => {});
@@ -259,7 +319,16 @@ function BranchDialog({
     e.preventDefault();
     if (!nama.trim()) return;
     setSaving(true);
-    const payload = { nama: nama.trim(), alamat: alamat || null, catatan: catatan || null, aktif };
+    const payload = {
+      nama: nama.trim(),
+      alamat: alamat || null,
+      catatan: catatan || null,
+      aktif,
+      kuota_cuti_hari_kerja: Math.max(1, Number(kuotaKerja) || 2),
+      kuota_cuti_akhir_pekan: Math.max(1, Number(kuotaPekan) || 1),
+      wa_group_jid: waGroupJid.trim() || null,
+      wa_group_nama: waGroupNama.trim() || null,
+    };
     const res = editing
       ? await supabase.from("branches").update(payload).eq("id", editing.id)
       : await supabase.from("branches").insert(payload);
@@ -283,6 +352,10 @@ function BranchDialog({
           setAlamat(editing?.alamat ?? "");
           setCatatan(editing?.catatan ?? "");
           setAktif(editing?.aktif ?? true);
+          setKuotaKerja(editing?.kuota_cuti_hari_kerja ?? 2);
+          setKuotaPekan(editing?.kuota_cuti_akhir_pekan ?? 1);
+          setWaGroupJid(editing?.wa_group_jid ?? "");
+          setWaGroupNama(editing?.wa_group_nama ?? "");
         }
       }}
     >
@@ -332,6 +405,81 @@ function BranchDialog({
               </div>
             </div>
             <Switch checked={aktif} onCheckedChange={setAktif} />
+          </div>
+          <div className="grid grid-cols-2 gap-3 rounded-md border border-border p-3">
+            <div className="space-y-1">
+              <Label htmlFor="kuotaKerja">Kuota hari kerja</Label>
+              <Input
+                id="kuotaKerja"
+                type="number"
+                min={1}
+                max={50}
+                value={kuotaKerja}
+                onChange={(e) => setKuotaKerja(Number(e.target.value))}
+              />
+              <p className="text-[10px] text-muted-foreground">
+                Maks orang cuti per hari (Sen–Jum).
+              </p>
+            </div>
+            <div className="space-y-1">
+              <Label htmlFor="kuotaPekan">Kuota akhir pekan</Label>
+              <Input
+                id="kuotaPekan"
+                type="number"
+                min={1}
+                max={50}
+                value={kuotaPekan}
+                onChange={(e) => setKuotaPekan(Number(e.target.value))}
+              />
+              <p className="text-[10px] text-muted-foreground">
+                Maks orang cuti per hari (Sab–Min).
+              </p>
+            </div>
+          </div>
+          <div className="space-y-2 rounded-md border border-border p-3">
+            <div>
+              <div className="text-sm font-medium">Grup WhatsApp</div>
+              <div className="text-xs text-muted-foreground">
+                Grup tujuan saat kalender cuti cabang ini dibagikan.
+              </div>
+            </div>
+            {groups.length > 0 ? (
+              <Select
+                value={waGroupJid}
+                onValueChange={(v) => {
+                  setWaGroupJid(v);
+                  setWaGroupNama(groups.find((g) => g.id === v)?.subject ?? "");
+                }}
+              >
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="Pilih grup..." />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="">— Tanpa grup —</SelectItem>
+                  {groups.map((g) => (
+                    <SelectItem key={g.id} value={g.id}>
+                      {g.subject || g.id}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            ) : (
+              <Input
+                placeholder="JID grup (contoh: 120363347759137613@g.us)"
+                value={waGroupJid}
+                onChange={(e) => setWaGroupJid(e.target.value)}
+              />
+            )}
+            <Input
+              placeholder="Nama grup (opsional)"
+              value={waGroupNama}
+              onChange={(e) => setWaGroupNama(e.target.value)}
+            />
+            <p className="text-[10px] text-muted-foreground">
+              {groups.length === 0
+                ? "Daftar grup dimuat dari gateway WA saat terhubung — atau tempel JID grup secara manual."
+                : `${groups.length} grup diikuti bot gateway.`}
+            </p>
           </div>
           <DialogFooter>
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>

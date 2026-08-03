@@ -24,7 +24,7 @@ import {
   Info,
   RotateCcw,
 } from "lucide-react";
-import { JENIS_CUTI, getJenisCuti, formatTanggalHR, countDays, toISODate } from "@/lib/hr";
+import { JENIS_CUTI, getJenisCuti, formatTanggalHR, toISODate } from "@/lib/hr";
 import { enumerateDates, getKuotaLabel, maskPhone } from "@/lib/cuti-request";
 
 export const Route = createFileRoute("/request-cuti")({
@@ -35,6 +35,13 @@ type KaryawanMatch = {
   id: string;
   nama: string;
   whatsapp: string | null;
+  branch_id: string | null;
+};
+
+type BranchInfo = {
+  nama: string;
+  kuota_cuti_hari_kerja: number;
+  kuota_cuti_akhir_pekan: number;
 };
 
 type HasilKirim =
@@ -52,26 +59,33 @@ function RequestCutiPage() {
   const [phoneError, setPhoneError] = useState("");
   const [isSearching, setIsSearching] = useState(false);
   const [employee, setEmployee] = useState<KaryawanMatch | null>(null);
+  const [branchInfo, setBranchInfo] = useState<BranchInfo | null>(null);
 
-  // Langkah 2: form
+  // Langkah 2: form — multi-tanggal
   const [jenis, setJenis] = useState("tahunan");
   const [tglMulai, setTglMulai] = useState("");
   const [tglSelesai, setTglSelesai] = useState("");
+  const [tglTerpilih, setTglTerpilih] = useState<string[]>([]);
+  const [modeTanggal, setModeTanggal] = useState<"range" | "multi">("range");
   const [alasan, setAlasan] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Langkah 3: hasil
   const [hasil, setHasil] = useState<HasilKirim | null>(null);
 
-  const jumlahHari = useMemo(() => {
-    if (!tglMulai || !tglSelesai) return 0;
-    return countDays(tglMulai, tglSelesai);
-  }, [tglMulai, tglSelesai]);
-
   const tanggalTerpakai = useMemo(() => {
+    if (modeTanggal === "multi") return tglTerpilih.sort();
     if (!tglMulai || !tglSelesai) return [];
     return enumerateDates(tglMulai, tglSelesai);
-  }, [tglMulai, tglSelesai]);
+  }, [modeTanggal, tglTerpilih, tglMulai, tglSelesai]);
+
+  const jumlahHari = tanggalTerpakai.length;
+
+  const toggleTanggal = (tgl: string) => {
+    setTglTerpilih((prev) =>
+      prev.includes(tgl) ? prev.filter((d) => d !== tgl) : [...prev, tgl].sort(),
+    );
+  };
 
   const cariAkun = async () => {
     const digits = phone.replace(/[^0-9]/g, "");
@@ -94,8 +108,20 @@ function RequestCutiPage() {
         return;
       }
       setEmployee(data[0]);
+      if (data[0].branch_id) {
+        const { data: br } = await supabase
+          .from("branches")
+          .select("nama, kuota_cuti_hari_kerja, kuota_cuti_akhir_pekan")
+          .eq("id", data[0].branch_id)
+          .single();
+        setBranchInfo(br || null);
+      } else {
+        setBranchInfo(null);
+      }
       setTglMulai(todayLocalISO());
       setTglSelesai("");
+      setTglTerpilih([]);
+      setModeTanggal("range");
       setStep("form");
     } catch (err) {
       console.error(err);
@@ -107,12 +133,8 @@ function RequestCutiPage() {
 
   const kirimPermohonan = async () => {
     if (!employee) return;
-    if (!tglMulai || !tglSelesai) {
-      toast.error("Lengkapi tanggal mulai dan selesai cuti.");
-      return;
-    }
-    if (tglSelesai < tglMulai) {
-      toast.error("Tanggal selesai tidak boleh sebelum tanggal mulai.");
+    if (tanggalTerpakai.length === 0) {
+      toast.error("Pilih minimal satu tanggal cuti.");
       return;
     }
     if (jenis === "izin" && alasan.trim().length < 5) {
@@ -122,11 +144,14 @@ function RequestCutiPage() {
 
     setIsSubmitting(true);
     try {
+      const tglMulaiSimpan = tanggalTerpakai[0];
+      const tglSelesaiSimpan = tanggalTerpakai[tanggalTerpakai.length - 1];
+
       // 1. Cek permohonan aktif yang tumpang tindih
       const { data: duplikat, error: errDup } = await supabase.rpc("cek_duplikat_cuti", {
         p_emp: employee.id,
-        p_mulai: tglMulai,
-        p_selesai: tglSelesai,
+        p_mulai: tglMulaiSimpan,
+        p_selesai: tglSelesaiSimpan,
       });
       if (errDup) throw errDup;
       if (duplikat) {
@@ -139,10 +164,11 @@ function RequestCutiPage() {
         return;
       }
 
-      // 2. Cek kuota harian
+      // 2. Cek kuota harian (per cabang karyawan) — hanya untuk tanggal yang dipilih
       const { data: kuota, error: errKuota } = await supabase.rpc("cek_kuota_cuti", {
-        p_mulai: tglMulai,
-        p_selesai: tglSelesai,
+        p_mulai: tglMulaiSimpan,
+        p_selesai: tglSelesaiSimpan,
+        p_branch: employee.branch_id,
       });
       if (errKuota) throw errKuota;
 
@@ -161,13 +187,14 @@ function RequestCutiPage() {
         alasanFinal = alasanPermohonan ? `${alasanPermohonan}. ${catatanKuota}` : catatanKuota;
       }
 
-      // 3. Simpan permohonan
+      // 3. Simpan permohonan dengan tanggal_list
       const { error: errInsert } = await supabase.from("cuti").insert([
         {
           employee_id: employee.id,
           jenis,
-          tanggal_mulai: tglMulai,
-          tanggal_selesai: tglSelesai,
+          tanggal_mulai: tglMulaiSimpan,
+          tanggal_selesai: tglSelesaiSimpan,
+          tanggal_list: tanggalTerpakai,
           alasan: alasanFinal,
           status,
         },
@@ -193,9 +220,12 @@ function RequestCutiPage() {
     setPhone("");
     setPhoneError("");
     setEmployee(null);
+    setBranchInfo(null);
     setJenis("tahunan");
     setTglMulai("");
     setTglSelesai("");
+    setTglTerpilih([]);
+    setModeTanggal("range");
     setAlasan("");
     setHasil(null);
   };
@@ -293,10 +323,20 @@ function RequestCutiPage() {
               <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-3.5 text-xs leading-relaxed text-emerald-900">
                 <p className="flex items-center gap-1.5 font-semibold">
                   <Info className="h-3.5 w-3.5" /> Aturan kuota cuti per hari
+                  {branchInfo && (
+                    <span className="ml-auto rounded-full bg-emerald-100 px-2 py-0.5 font-semibold text-emerald-700">
+                      {branchInfo.nama}
+                    </span>
+                  )}
                 </p>
                 <ul className="mt-1 list-inside list-disc space-y-0.5 text-emerald-800">
-                  <li>Hari kerja (Senin–Jumat): maksimal 2 orang.</li>
-                  <li>Sabtu &amp; Minggu: maksimal 1 orang.</li>
+                  <li>
+                    Hari kerja (Senin–Jumat): maksimal {branchInfo?.kuota_cuti_hari_kerja ?? 2}{" "}
+                    orang.
+                  </li>
+                  <li>
+                    Sabtu &amp; Minggu: maksimal {branchInfo?.kuota_cuti_akhir_pekan ?? 1} orang.
+                  </li>
                   <li>Prioritas diberikan kepada pengaju lebih dulu.</li>
                 </ul>
               </div>
@@ -319,31 +359,141 @@ function RequestCutiPage() {
                 </Select>
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-1.5">
-                  <Label className="text-xs font-semibold uppercase tracking-wider text-slate-500">
-                    Tanggal Mulai
-                  </Label>
-                  <Input
-                    type="date"
-                    value={tglMulai}
-                    onChange={(e) => setTglMulai(e.target.value)}
-                    className="h-12 rounded-xl"
-                  />
-                </div>
-                <div className="space-y-1.5">
-                  <Label className="text-xs font-semibold uppercase tracking-wider text-slate-500">
-                    Tanggal Selesai
-                  </Label>
-                  <Input
-                    type="date"
-                    value={tglSelesai}
-                    min={tglMulai}
-                    onChange={(e) => setTglSelesai(e.target.value)}
-                    className="h-12 rounded-xl"
-                  />
-                </div>
+              {/* Mode pemilihan tanggal */}
+              <div className="flex items-center gap-2 rounded-xl border border-slate-200 bg-slate-50/50 p-1">
+                <button
+                  type="button"
+                  onClick={() => setModeTanggal("range")}
+                  className={`flex-1 rounded-lg px-3 py-2 text-xs font-semibold transition-all ${
+                    modeTanggal === "range"
+                      ? "bg-white text-emerald-700 shadow-sm"
+                      : "text-slate-500 hover:text-slate-700"
+                  }`}
+                >
+                  Rentang Tanggal
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setModeTanggal("multi")}
+                  className={`flex-1 rounded-lg px-3 py-2 text-xs font-semibold transition-all ${
+                    modeTanggal === "multi"
+                      ? "bg-white text-emerald-700 shadow-sm"
+                      : "text-slate-500 hover:text-slate-700"
+                  }`}
+                >
+                  Pilih Beberapa Tanggal
+                </button>
               </div>
+
+              {modeTanggal === "range" ? (
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-1.5">
+                    <Label className="text-xs font-semibold uppercase tracking-wider text-slate-500">
+                      Tanggal Mulai
+                    </Label>
+                    <Input
+                      type="date"
+                      value={tglMulai}
+                      onChange={(e) => {
+                        setTglMulai(e.target.value);
+                        if (e.target.value > tglSelesai) setTglSelesai(e.target.value);
+                      }}
+                      className="h-12 rounded-xl"
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label className="text-xs font-semibold uppercase tracking-wider text-slate-500">
+                      Tanggal Selesai
+                    </Label>
+                    <Input
+                      type="date"
+                      value={tglSelesai}
+                      min={tglMulai}
+                      onChange={(e) => setTglSelesai(e.target.value)}
+                      className="h-12 rounded-xl"
+                    />
+                  </div>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  <Label className="text-xs font-semibold uppercase tracking-wider text-slate-500">
+                    Klik tanggal untuk memilih
+                  </Label>
+                  <div className="grid grid-cols-7 gap-1.5">
+                    {["Sen", "Sel", "Rab", "Kam", "Jum", "Sab", "Min"].map((h, i) => (
+                      <div
+                        key={h}
+                        className={`text-center text-[10px] font-bold uppercase tracking-wider ${
+                          i >= 5 ? "text-rose-400" : "text-slate-400"
+                        }`}
+                      >
+                        {h}
+                      </div>
+                    ))}
+                    {(() => {
+                      const today = new Date();
+                      const year = today.getFullYear();
+                      const month = today.getMonth();
+                      const firstDay = new Date(year, month, 1);
+                      const startWeekday = (firstDay.getDay() + 6) % 7;
+                      const daysInMonth = new Date(year, month + 1, 0).getDate();
+                      const cells: (number | null)[] = [];
+                      for (let i = 0; i < startWeekday; i++) cells.push(null);
+                      for (let d = 1; d <= daysInMonth; d++) cells.push(d);
+                      while (cells.length % 7 !== 0) cells.push(null);
+                      return cells.map((day, i) => {
+                        if (day === null) return <div key={i} className="h-8" />;
+                        const dateStr = `${year}-${String(month + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+                        const isPast = dateStr < todayLocalISO();
+                        const isSelected = tglTerpilih.includes(dateStr);
+                        const isSunday = i % 7 === 6;
+                        return (
+                          <button
+                            key={i}
+                            type="button"
+                            disabled={isPast}
+                            onClick={() => toggleTanggal(dateStr)}
+                            className={`flex h-8 w-full items-center justify-center rounded-lg text-xs font-medium transition-all active:scale-95 ${
+                              isPast
+                                ? "cursor-not-allowed text-slate-300"
+                                : isSelected
+                                  ? "bg-gradient-to-br from-emerald-500 to-teal-400 text-white shadow-sm shadow-emerald-500/20"
+                                  : "text-slate-700 hover:bg-emerald-50 hover:text-emerald-700"
+                            } ${isSunday && !isSelected ? "text-rose-500" : ""}`}
+                          >
+                            {day}
+                          </button>
+                        );
+                      });
+                    })()}
+                  </div>
+                  {tglTerpilih.length > 0 && (
+                    <div className="flex flex-wrap items-center gap-1.5">
+                      <span className="text-xs font-semibold text-slate-500">
+                        Terpilih {tglTerpilih.length} hari:
+                      </span>
+                      {tglTerpilih.map((t) => {
+                        const d = new Date(`${t}T00:00:00`);
+                        return (
+                          <span
+                            key={t}
+                            className="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-semibold text-emerald-800"
+                          >
+                            {d.toLocaleDateString("id-ID", { day: "numeric", month: "short" })}
+                            <button
+                              type="button"
+                              onClick={() => toggleTanggal(t)}
+                              className="text-emerald-500 hover:text-emerald-700"
+                            >
+                              ×
+                            </button>
+                          </span>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              )}
 
               {jumlahHari > 0 && (
                 <div className="flex flex-wrap items-center gap-1.5 text-xs text-slate-500">
@@ -408,7 +558,7 @@ function RequestCutiPage() {
                     <p className="mt-1 text-sm text-slate-500">
                       Permohonan cuti{" "}
                       <span className="font-semibold">{getJenisCuti(jenis).label}</span> Anda (
-                      {formatTanggalHR(tglMulai)} s/d {formatTanggalHR(tglSelesai)}) sedang{" "}
+                      {jumlahHari} hari) sedang{" "}
                       <span className="font-semibold text-amber-600">menunggu persetujuan</span>{" "}
                       admin.
                       <br />

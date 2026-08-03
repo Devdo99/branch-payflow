@@ -21,7 +21,15 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { formatIDR } from "@/lib/format";
-import { Download, FileDown, Loader2, Send, FileSpreadsheet, TrendingUp, BarChart3 } from "lucide-react";
+import {
+  Download,
+  FileDown,
+  Loader2,
+  Send,
+  FileSpreadsheet,
+  TrendingUp,
+  BarChart3,
+} from "lucide-react";
 import { toast } from "sonner";
 import { toCanvas } from "html-to-image";
 import { jsPDF } from "jspdf";
@@ -1004,7 +1012,9 @@ function LaporanPage() {
             <CardHeader className="flex flex-row items-center justify-between pb-4">
               <div className="space-y-0.5">
                 <CardTitle className="text-sm font-semibold text-slate-950">
-                  {selectedCabang === "all" ? "Distribusi Gaji per Cabang" : "Top Karyawan Berdasarkan Take Home Pay"}
+                  {selectedCabang === "all"
+                    ? "Distribusi Gaji per Cabang"
+                    : "Top Karyawan Berdasarkan Take Home Pay"}
                 </CardTitle>
                 <p className="text-xs text-muted-foreground">
                   Perbandingan total pembayaran bersih (rupiah)
@@ -1015,27 +1025,34 @@ function LaporanPage() {
             <CardContent>
               <div className="h-[260px] w-full">
                 <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={chartBranchData} margin={{ top: 10, right: 10, left: 10, bottom: 20 }}>
+                  <BarChart
+                    data={chartBranchData}
+                    margin={{ top: 10, right: 10, left: 10, bottom: 20 }}
+                  >
                     <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-                    <XAxis 
-                      dataKey="name" 
-                      tickLine={false} 
-                      axisLine={false} 
+                    <XAxis
+                      dataKey="name"
+                      tickLine={false}
+                      axisLine={false}
                       fontSize={11}
                       tick={{ fill: "#64748b" }}
                       angle={-15}
                       textAnchor="end"
                     />
-                    <YAxis 
-                      tickLine={false} 
-                      axisLine={false} 
+                    <YAxis
+                      tickLine={false}
+                      axisLine={false}
                       fontSize={10}
                       tick={{ fill: "#64748b" }}
                       tickFormatter={(val) => `Rp ${(val / 1000000).toFixed(1)}jt`}
                     />
-                    <RechartsTooltip 
+                    <RechartsTooltip
                       formatter={(value: any) => [formatIDR(Number(value)), "Total Gaji"]}
-                      contentStyle={{ background: "#ffffff", border: "1px solid #e2e8f0", borderRadius: "8px" }}
+                      contentStyle={{
+                        background: "#ffffff",
+                        border: "1px solid #e2e8f0",
+                        borderRadius: "8px",
+                      }}
                     />
                     <Bar dataKey="Total Gaji" fill="#10b981" radius={[4, 4, 0, 0]} />
                   </BarChart>
@@ -1073,9 +1090,13 @@ function LaporanPage() {
                         <Cell key={`cell-${index}`} fill={entry.color} />
                       ))}
                     </Pie>
-                    <RechartsTooltip 
+                    <RechartsTooltip
                       formatter={(value: any) => [formatIDR(Number(value)), "Total"]}
-                      contentStyle={{ background: "#ffffff", border: "1px solid #e2e8f0", borderRadius: "8px" }}
+                      contentStyle={{
+                        background: "#ffffff",
+                        border: "1px solid #e2e8f0",
+                        borderRadius: "8px",
+                      }}
                     />
                   </PieChart>
                 </ResponsiveContainer>
@@ -1083,11 +1104,20 @@ function LaporanPage() {
               <div className="flex flex-col gap-3 w-full sm:w-auto">
                 {chartComponentData.map((item) => (
                   <div key={item.name} className="flex items-center gap-3 text-xs">
-                    <div className="h-3 w-3 rounded-full shrink-0" style={{ backgroundColor: item.color }} />
+                    <div
+                      className="h-3 w-3 rounded-full shrink-0"
+                      style={{ backgroundColor: item.color }}
+                    />
                     <div className="grid gap-0.5">
                       <span className="font-medium text-slate-700">{item.name}</span>
                       <span className="text-muted-foreground font-semibold">
-                        {formatIDR(item.value)} ({(item.value / (grandTotal.gaji_pokok + grandTotal.tunjangan + grandTotal.potongan) * 100 || 0).toFixed(1)}%)
+                        {formatIDR(item.value)} (
+                        {(
+                          (item.value /
+                            (grandTotal.gaji_pokok + grandTotal.tunjangan + grandTotal.potongan)) *
+                            100 || 0
+                        ).toFixed(1)}
+                        %)
                       </span>
                     </div>
                   </div>
@@ -1377,7 +1407,14 @@ function LaporanPage() {
               </p>
             </div>
             <div className="text-right text-xs text-slate-500">
-              <p>Tanggal Unduh: {new Date().toLocaleDateString("id-ID", { day: "numeric", month: "long", year: "numeric" })}</p>
+              <p>
+                Tanggal Unduh:{" "}
+                {new Date().toLocaleDateString("id-ID", {
+                  day: "numeric",
+                  month: "long",
+                  year: "numeric",
+                })}
+              </p>
               <p>Sistem: Branch Payflow</p>
             </div>
           </div>
@@ -1387,23 +1424,30 @@ function LaporanPage() {
             {/* Card 1: Distribusi Gaji */}
             <div className="rounded-xl border bg-white p-6 shadow-sm">
               <h3 className="text-sm font-semibold text-slate-950 mb-4">
-                {selectedCabang === "all" ? "Distribusi Gaji per Cabang" : "Top Karyawan Berdasarkan Take Home Pay"}
+                {selectedCabang === "all"
+                  ? "Distribusi Gaji per Cabang"
+                  : "Top Karyawan Berdasarkan Take Home Pay"}
               </h3>
               <div className="h-[250px] w-full">
-                <BarChart width={500} height={240} data={chartBranchData} margin={{ top: 10, right: 10, left: 10, bottom: 20 }}>
+                <BarChart
+                  width={500}
+                  height={240}
+                  data={chartBranchData}
+                  margin={{ top: 10, right: 10, left: 10, bottom: 20 }}
+                >
                   <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-                  <XAxis 
-                    dataKey="name" 
-                    tickLine={false} 
-                    axisLine={false} 
+                  <XAxis
+                    dataKey="name"
+                    tickLine={false}
+                    axisLine={false}
                     fontSize={10}
                     tick={{ fill: "#64748b" }}
                     angle={-15}
                     textAnchor="end"
                   />
-                  <YAxis 
-                    tickLine={false} 
-                    axisLine={false} 
+                  <YAxis
+                    tickLine={false}
+                    axisLine={false}
                     fontSize={9}
                     tick={{ fill: "#64748b" }}
                     tickFormatter={(val) => `Rp ${(val / 1000000).toFixed(1)}jt`}
@@ -1439,7 +1483,10 @@ function LaporanPage() {
                 <div className="flex flex-col gap-3 justify-center">
                   {chartComponentData.map((item) => (
                     <div key={item.name} className="flex items-center gap-3 text-xs">
-                      <div className="h-3 w-3 rounded-full shrink-0" style={{ backgroundColor: item.color }} />
+                      <div
+                        className="h-3 w-3 rounded-full shrink-0"
+                        style={{ backgroundColor: item.color }}
+                      />
                       <div className="grid gap-0.5">
                         <span className="font-medium text-slate-700">{item.name}</span>
                         <span className="text-slate-900 font-semibold">

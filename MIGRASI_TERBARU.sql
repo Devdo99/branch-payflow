@@ -4,6 +4,7 @@
 -- Gabungan dari:
 --   1) 20260803140000_jadwal_cuti_cabang.sql
 --   2) 20260803150000_cuti_multi_tanggal.sql
+--   3) 20260803160000_rekap_cuti_dan_sinkron.sql (BAGIAN 3 di bawah)
 -- Buka: https://supabase.com/dashboard/project/fbnjacadlbpmvxtgmyzl/sql/new
 -- ============================================================
 
@@ -391,10 +392,11 @@ BEGIN
 
     arr := NEW.tanggal_list;
     IF jsonb_array_length(arr) > 0 THEN
-      -- Iterasi dari tanggal_list (multi-tanggal)
+      -- Iterasi dari tanggal_list (multi-tanggal).
+      -- Alias kolom 'dt' (bukan 'd') agar tidak bentrok dgn variabel PL/pgSQL d.
       FOR d IN
-        SELECT d::date FROM jsonb_array_elements_text(arr) AS t(d)
-        ORDER BY d::date
+        SELECT dt::date FROM jsonb_array_elements_text(arr) AS t(dt)
+        ORDER BY dt::date
       LOOP
         INSERT INTO public.absensi (employee_id, tanggal, status, keterangan, sumber, cuti_id)
         VALUES (NEW.employee_id, d, 'cuti', label, 'cuti', NEW.id)
@@ -427,3 +429,109 @@ BEGIN
   RETURN NEW;
 END;
 $$;
+-- ============================================================
+-- BAGIAN 3: REKAP CUTI + SINKRON ABSENSI MANUAL
+-- ============================================================
+-- RPC sinkron_absen_cuti untuk tombol "Sinkron Cuti -> Absen"
+-- di halaman Rekap Absen. Baris absensi manual tidak ditimpa.
+
+CREATE OR REPLACE FUNCTION public.sinkron_absen_cuti(p_mulai DATE DEFAULT NULL, p_selesai DATE DEFAULT NULL)
+RETURNS INTEGER
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  c RECORD;
+  d DATE;
+  label TEXT;
+  arr jsonb;
+  total INTEGER := 0;
+  mulai DATE := COALESCE(p_mulai, '1900-01-01'::date);
+  selesai DATE := COALESCE(p_selesai, '2999-12-31'::date);
+BEGIN
+  DELETE FROM public.absensi
+  WHERE sumber = 'cuti'
+    AND (
+      cuti_id IS NULL
+      OR NOT EXISTS (
+        SELECT 1 FROM public.cuti cc
+        WHERE cc.id = public.absensi.cuti_id
+          AND cc.status = 'disetujui'
+      )
+    );
+
+  FOR c IN
+    SELECT * FROM public.cuti
+    WHERE status = 'disetujui'
+      AND tanggal_mulai <= selesai
+      AND tanggal_selesai >= mulai
+  LOOP
+    label := CASE c.jenis
+      WHEN 'tahunan'   THEN 'Cuti Tahunan'
+      WHEN 'sakit'     THEN 'Cuti Sakit'
+      WHEN 'izin'      THEN 'Cuti Izin'
+      WHEN 'besar'     THEN 'Cuti Besar'
+      WHEN 'melahirkan' THEN 'Cuti Melahirkan'
+      ELSE 'Cuti Lainnya'
+    END;
+
+    arr := COALESCE(c.tanggal_list, '[]'::jsonb);
+
+    DELETE FROM public.absensi
+    WHERE cuti_id = c.id AND sumber = 'cuti'
+      AND NOT (tanggal BETWEEN c.tanggal_mulai AND c.tanggal_selesai);
+
+    IF jsonb_array_length(arr) > 0 THEN
+      DELETE FROM public.absensi
+      WHERE cuti_id = c.id AND sumber = 'cuti'
+        AND NOT EXISTS (
+          SELECT 1 FROM jsonb_array_elements_text(arr) AS t(dt)
+          WHERE t.dt::date = public.absensi.tanggal
+        );
+    END IF;
+
+    IF jsonb_array_length(arr) > 0 THEN
+      FOR d IN
+        SELECT dt::date FROM jsonb_array_elements_text(arr) AS t(dt)
+        WHERE dt::date BETWEEN GREATEST(mulai, c.tanggal_mulai)
+                          AND LEAST(selesai, c.tanggal_selesai)
+        ORDER BY dt::date
+      LOOP
+        INSERT INTO public.absensi (employee_id, tanggal, status, keterangan, sumber, cuti_id)
+        VALUES (c.employee_id, d, 'cuti', label, 'cuti', c.id)
+        ON CONFLICT (employee_id, tanggal) DO UPDATE
+          SET status = 'cuti',
+              keterangan = EXCLUDED.keterangan,
+              sumber = 'cuti',
+              cuti_id = EXCLUDED.cuti_id
+          WHERE public.absensi.sumber = 'cuti'
+            AND public.absensi.cuti_id = EXCLUDED.cuti_id;
+        total := total + 1;
+      END LOOP;
+    ELSE
+      d := GREATEST(mulai, c.tanggal_mulai);
+      WHILE d <= LEAST(selesai, c.tanggal_selesai) LOOP
+        INSERT INTO public.absensi (employee_id, tanggal, status, keterangan, sumber, cuti_id)
+        VALUES (c.employee_id, d, 'cuti', label, 'cuti', c.id)
+        ON CONFLICT (employee_id, tanggal) DO UPDATE
+          SET status = 'cuti',
+              keterangan = EXCLUDED.keterangan,
+              sumber = 'cuti',
+              cuti_id = EXCLUDED.cuti_id
+          WHERE public.absensi.sumber = 'cuti'
+            AND public.absensi.cuti_id = EXCLUDED.cuti_id;
+        total := total + 1;
+        d := d + 1;
+      END LOOP;
+    END IF;
+  END LOOP;
+
+  RETURN total;
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.sinkron_absen_cuti(DATE, DATE) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION public.sinkron_absen_cuti(DATE, DATE) TO authenticated, service_role;
+
+CREATE INDEX IF NOT EXISTS idx_cuti_status_tanggal ON public.cuti(status, tanggal_mulai, tanggal_selesai);

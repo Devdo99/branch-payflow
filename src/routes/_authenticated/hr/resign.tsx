@@ -116,7 +116,9 @@ function ResignPage() {
 
   const stats = useMemo(() => {
     const total = resignList.length;
-    const tahunIni = resignList.filter((r) => r.tanggal_resign?.startsWith(String(currentYear))).length;
+    const tahunIni = resignList.filter((r) =>
+      r.tanggal_resign?.startsWith(String(currentYear)),
+    ).length;
     const bulanIni = resignList.filter((r) =>
       r.tanggal_resign?.startsWith(`${currentYear}-${String(currentMonth + 1).padStart(2, "0")}`),
     ).length;
@@ -245,24 +247,12 @@ function ResignPage() {
       r.alasan || "-",
       r.laporan || "-",
     ]);
-    downloadCSV(
-      `Laporan_Resign_Karyawan_${currentYear}.csv`,
-      headers,
-      rows,
-    );
+    downloadCSV(`Laporan_Resign_Karyawan_${currentYear}.csv`, headers, rows);
   };
 
   const exportPDF = () => {
     if (resignList.length === 0) return toast.error("Tidak ada data resign untuk diekspor.");
-    const headers = [
-      "Kode",
-      "Nama",
-      "Cabang",
-      "Jabatan",
-      "Tgl Masuk",
-      "Tgl Resign",
-      "Alasan",
-    ];
+    const headers = ["Kode", "Nama", "Cabang", "Jabatan", "Tgl Masuk", "Tgl Resign", "Alasan"];
     const rows = resignList.map((r) => [
       r.employees?.kode_karyawan || "-",
       r.employees?.nama || "-",
@@ -317,7 +307,10 @@ function ResignPage() {
             >
               <FileDown className="mr-2 h-4 w-4 text-emerald-600" /> PDF
             </Button>
-            <Dialog open={isOpen} onOpenChange={(open) => (!open ? handleClose() : setIsOpen(true))}>
+            <Dialog
+              open={isOpen}
+              onOpenChange={(open) => (!open ? handleClose() : setIsOpen(true))}
+            >
               <DialogTrigger asChild>
                 <Button className="bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-white border-none rounded-xl shadow-md shadow-emerald-500/10 hover:shadow-emerald-500/20 active:scale-[0.98] transition-all cursor-pointer">
                   <Plus className="w-4 h-4 mr-2" /> Catat Resign
@@ -391,7 +384,11 @@ function ResignPage() {
                       Batal
                     </Button>
                     <Button type="submit" disabled={saveMutation.isPending}>
-                      {saveMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : "Simpan"}
+                      {saveMutation.isPending ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        "Simpan"
+                      )}
                     </Button>
                   </DialogFooter>
                 </form>
@@ -569,10 +566,7 @@ function ResignPage() {
                     "Laporan Resign Karyawan",
                     `${viewLaporan.employees?.nama} • ${viewLaporan.employees?.kode_karyawan || "-"}`,
                     ["Alasan", "Laporan"],
-                    [
-                      [viewLaporan.alasan || "-"],
-                      [viewLaporan.laporan || "-"],
-                    ],
+                    [[viewLaporan.alasan || "-"], [viewLaporan.laporan || "-"]],
                   );
                 }}
               >

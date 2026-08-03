@@ -158,10 +158,11 @@ BEGIN
 
     arr := NEW.tanggal_list;
     IF jsonb_array_length(arr) > 0 THEN
-      -- Iterasi dari tanggal_list (multi-tanggal)
+      -- Iterasi dari tanggal_list (multi-tanggal).
+      -- Alias kolom 'dt' (bukan 'd') agar tidak bentrok dgn variabel PL/pgSQL d.
       FOR d IN
-        SELECT d::date FROM jsonb_array_elements_text(arr) AS t(d)
-        ORDER BY d::date
+        SELECT dt::date FROM jsonb_array_elements_text(arr) AS t(dt)
+        ORDER BY dt::date
       LOOP
         INSERT INTO public.absensi (employee_id, tanggal, status, keterangan, sumber, cuti_id)
         VALUES (NEW.employee_id, d, 'cuti', label, 'cuti', NEW.id)

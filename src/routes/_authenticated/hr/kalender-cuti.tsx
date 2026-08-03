@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { PageHeader } from "@/components/page-header";
@@ -49,7 +49,12 @@ import {
   Share2,
   Wifi,
   WifiOff,
+  Image as ImageIcon,
+  UserRound,
+  UsersRound,
+  RefreshCw,
 } from "lucide-react";
+import html2canvas from "html2canvas";
 import {
   JENIS_CUTI,
   STATUS_CUTI,
@@ -62,8 +67,13 @@ import {
   getDaysInMonth,
   countDays,
 } from "@/lib/hr";
-import { buildKalenderCutiMessage } from "@/lib/cuti-request";
-import { getWaGatewayStatus, getWaGroups, sendWaMessageToJid } from "@/lib/wa-gateway";
+import { buildKalenderCutiMessage, type KalenderCutiItem } from "@/lib/cuti-request";
+import {
+  getWaGatewayStatus,
+  getWaGroups,
+  sendWaMessageToJid,
+  sendWaImageToJid,
+} from "@/lib/wa-gateway";
 import { downloadCSV, downloadPDFTable, safeFileName } from "@/lib/hr-export";
 
 export const Route = createFileRoute("/_authenticated/hr/kalender-cuti")({
@@ -77,6 +87,7 @@ type Employee = {
   jabatan?: string | null;
   aktif?: boolean;
   branch_id?: string | null;
+  whatsapp?: string | null;
   branches?: { nama?: string } | null;
 };
 
@@ -100,11 +111,261 @@ type BranchOption = {
   kuota_cuti_akhir_pekan?: number;
 };
 
+/**
+ * Poster kalender yang dirender di luar layar (posisi fixed -9999px)
+ * lalu ditangkap menjadi gambar PNG via html2canvas untuk dibagikan ke WhatsApp.
+ * Semua gaya memakai inline style agar html2canvas merendernya konsisten.
+ */
+function KalenderPoster({
+  bulan,
+  tahun,
+  month,
+  cabang,
+  grid,
+  items,
+}: {
+  bulan: string;
+  tahun: number;
+  month: number; // 0-based
+  cabang: string;
+  grid: (number | null)[];
+  items: KalenderCutiItem[];
+}) {
+  const todayKey = toISODate(new Date());
+
+  const byDate = useMemo(() => {
+    const map: Record<string, KalenderCutiItem[]> = {};
+    items.forEach((it) => {
+      if (!map[it.tanggal]) map[it.tanggal] = [];
+      map[it.tanggal].push(it);
+    });
+    return map;
+  }, [items]);
+
+  const totalDisetujui = items.filter((it) => it.status === "disetujui").length;
+  const orangSet = new Set(items.map((it) => it.nama));
+
+  const headerCell = (h: string) => (
+    <div
+      key={h}
+      style={{
+        textAlign: "center",
+        fontSize: 12,
+        fontWeight: 700,
+        color: h === "Min" ? "#e11d48" : "#64748b",
+        padding: "6px 0",
+        textTransform: "uppercase",
+        letterSpacing: 1,
+      }}
+    >
+      {h}
+    </div>
+  );
+
+  const cell = (day: number, i: number) => {
+    const dateKey = `${tahun}-${String(month + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+    const isToday = dateKey === todayKey;
+    const isSunday = i % 7 === 6;
+    const dayCuti = byDate[dateKey] || [];
+    const seen = new Set<string>();
+    const unique = dayCuti.filter((c) => {
+      const k = `${c.nama}|${c.jenis}`;
+      if (seen.has(k)) return false;
+      seen.add(k);
+      return true;
+    });
+    return (
+      <div
+        key={i}
+        style={{
+          minHeight: 96,
+          borderRadius: 10,
+          border: isToday
+            ? "2px solid #10b981"
+            : isSunday
+              ? "1px solid #ffe4e6"
+              : "1px solid #e2e8f0",
+          background: isToday ? "#ecfdf5" : isSunday ? "#fff1f2" : "#ffffff",
+          padding: 6,
+          overflow: "hidden",
+        }}
+      >
+        <div
+          style={{
+            fontSize: 12,
+            fontWeight: 700,
+            color: isToday ? "#047857" : "#334155",
+            marginBottom: 4,
+          }}
+        >
+          {day}
+        </div>
+        <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
+          {unique.slice(0, 3).map((c, ci) => {
+            const jenisCuti = getJenisCuti(c.jenis);
+            return (
+              <div
+                key={ci}
+                style={{
+                  borderRadius: 6,
+                  background: `${jenisCuti.color}1F`,
+                  color: "#0f172a",
+                  fontSize: 10,
+                  fontWeight: 600,
+                  padding: "3px 6px",
+                  whiteSpace: "nowrap",
+                  overflow: "hidden",
+                  textOverflow: "ellipsis",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 4,
+                }}
+              >
+                <span
+                  style={{
+                    width: 6,
+                    height: 6,
+                    borderRadius: 999,
+                    background: jenisCuti.color,
+                    display: "inline-block",
+                    flexShrink: 0,
+                  }}
+                />
+                <span style={{ overflow: "hidden", textOverflow: "ellipsis" }}>{c.nama}</span>
+              </div>
+            );
+          })}
+          {unique.length > 3 && (
+            <div style={{ fontSize: 10, color: "#94a3b8", fontWeight: 700, paddingLeft: 2 }}>
+              +{unique.length - 3} lainnya
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  };
+
+  return (
+    <div
+      style={{
+        width: 1080,
+        background: "#ffffff",
+        fontFamily: "Arial, Helvetica, sans-serif",
+        color: "#0f172a",
+      }}
+    >
+      {/* Header */}
+      <div
+        style={{
+          background: "linear-gradient(135deg,#047857,#0d9488)",
+          padding: "26px 36px",
+          color: "#ffffff",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+        }}
+      >
+        <div>
+          <div style={{ fontSize: 25, fontWeight: 800, letterSpacing: 0.5 }}>
+            JADWAL CUTI KARYAWAN
+          </div>
+          <div style={{ fontSize: 14, marginTop: 4, opacity: 0.9 }}>
+            {bulan} {tahun} • {cabang}
+          </div>
+        </div>
+        <div style={{ textAlign: "right", fontSize: 13, opacity: 0.92, lineHeight: 1.7 }}>
+          Total: {items.length} catatan cuti
+          <br />
+          Disetujui: {totalDisetujui} • {orangSet.size} karyawan
+        </div>
+      </div>
+
+      {/* Legenda */}
+      <div
+        style={{
+          display: "flex",
+          flexWrap: "wrap",
+          gap: 14,
+          padding: "12px 36px",
+          borderBottom: "2px solid #e2e8f0",
+        }}
+      >
+        {JENIS_CUTI.map((j) => (
+          <span
+            key={j.value}
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 6,
+              fontSize: 12,
+              color: "#334155",
+            }}
+          >
+            <span
+              style={{
+                width: 10,
+                height: 10,
+                borderRadius: 999,
+                background: j.color,
+                display: "inline-block",
+              }}
+            />
+            {j.label}
+          </span>
+        ))}
+      </div>
+
+      {/* Grid */}
+      <div style={{ padding: "16px 36px 20px" }}>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 6 }}>
+          {HARI_PENDEK.map(headerCell)}
+          {grid.map((day, i) =>
+            day === null ? (
+              <div
+                key={i}
+                style={{
+                  minHeight: 96,
+                  borderRadius: 10,
+                  background: "#f8fafc",
+                  border: "1px solid #f1f5f9",
+                }}
+              />
+            ) : (
+              cell(day, i)
+            ),
+          )}
+        </div>
+      </div>
+
+      {/* Footer */}
+      <div
+        style={{
+          padding: "12px 36px",
+          borderTop: "2px solid #e2e8f0",
+          display: "flex",
+          justifyContent: "space-between",
+          fontSize: 11,
+          color: "#94a3b8",
+        }}
+      >
+        <span>Dibuat otomatis dari sistem PayFlow HR</span>
+        <span>
+          {new Date().toLocaleDateString("id-ID", {
+            day: "numeric",
+            month: "long",
+            year: "numeric",
+          })}
+        </span>
+      </div>
+    </div>
+  );
+}
+
 function KalenderCutiPage() {
   const queryClient = useQueryClient();
-  const today = new Date();
-  const [viewYear, setViewYear] = useState(today.getFullYear());
-  const [viewMonth, setViewMonth] = useState(today.getMonth()); // 0-based
+  const today = useMemo(() => new Date(), []);
+  const [viewYear, setViewYear] = useState(() => new Date().getFullYear());
+  const [viewMonth, setViewMonth] = useState(() => new Date().getMonth()); // 0-based
   const [selectedBranch, setSelectedBranch] = useState("all");
 
   // Dialog state
@@ -120,11 +381,18 @@ function KalenderCutiPage() {
   const [alasan, setAlasan] = useState("");
   const [status, setStatus] = useState("diajukan");
 
-  // Share ke grup WA
+  // Share ke grup WA / personal
   const [shareOpen, setShareOpen] = useState(false);
+  const [shareMode, setShareMode] = useState<"group" | "personal">("group");
   const [shareBranchId, setShareBranchId] = useState("");
   const [shareGroupJid, setShareGroupJid] = useState("");
+  const [sharePhone, setSharePhone] = useState("");
   const [shareSending, setShareSending] = useState(false);
+
+  // Poster gambar kalender (html2canvas)
+  const posterRef = useRef<HTMLDivElement>(null);
+  const [posterData, setPosterData] = useState<string | null>(null);
+  const [posterBuilding, setPosterBuilding] = useState(false);
 
   const monthStart = `${viewYear}-${String(viewMonth + 1).padStart(2, "0")}-01`;
   const monthEnd = `${viewYear}-${String(viewMonth + 1).padStart(2, "0")}-${String(
@@ -163,7 +431,7 @@ function KalenderCutiPage() {
     queryFn: async () => {
       const { data } = await supabase
         .from("employees")
-        .select("id, nama, kode_karyawan, jabatan, aktif, branch_id, branches ( nama )")
+        .select("id, nama, kode_karyawan, jabatan, aktif, branch_id, whatsapp, branches ( nama )")
         .order("nama");
       return (data || []) as Employee[];
     },
@@ -412,35 +680,7 @@ function KalenderCutiPage() {
     setViewYear(y);
   };
 
-  // ---- Share kalender ke grup WhatsApp ----
-  const buildShareItems = () => {
-    const scope = shareBranchId || selectedBranch;
-    const items: {
-      tanggal: string;
-      nama: string;
-      jenis: string;
-      status: string;
-    }[] = [];
-    cutiList.forEach((c) => {
-      if (c.status === "ditolak") return; // jangan share yang ditolak
-      if (scope !== "all" && c.employees?.branch_id !== scope) return;
-      const s = new Date(`${c.tanggal_mulai}T00:00:00`);
-      const e = new Date(`${c.tanggal_selesai}T00:00:00`);
-      for (let d = new Date(s); d <= e; d.setDate(d.getDate() + 1)) {
-        const key = toISODate(d);
-        if (key >= monthStart && key <= monthEnd) {
-          items.push({
-            tanggal: key,
-            nama: c.employees?.nama || "-",
-            jenis: c.jenis,
-            status: c.status,
-          });
-        }
-      }
-    });
-    return items;
-  };
-
+  // ---- Share kalender ke grup WhatsApp / personal ----
   const shareMessage = useMemo(() => {
     const scope = shareBranchId || selectedBranch;
     const cabangName =
@@ -463,6 +703,58 @@ function KalenderCutiPage() {
     monthEnd,
   ]);
 
+  const buildShareItems = () => {
+    const scope = shareBranchId || selectedBranch;
+    const items: KalenderCutiItem[] = [];
+    cutiList.forEach((c) => {
+      if (c.status === "ditolak") return; // jangan share yang ditolak
+      if (scope !== "all" && c.employees?.branch_id !== scope) return;
+      const s = new Date(`${c.tanggal_mulai}T00:00:00`);
+      const e = new Date(`${c.tanggal_selesai}T00:00:00`);
+      for (let d = new Date(s); d <= e; d.setDate(d.getDate() + 1)) {
+        const key = toISODate(d);
+        if (key >= monthStart && key <= monthEnd) {
+          items.push({
+            tanggal: key,
+            nama: c.employees?.nama || "-",
+            jenis: c.jenis,
+            status: c.status,
+          });
+        }
+      }
+    });
+    return items;
+  };
+
+  // Bangun gambar poster kalender untuk scope saat ini
+  const buildPoster = useCallback(async () => {
+    if (!posterRef.current) return;
+    setPosterBuilding(true);
+    try {
+      const canvas = await html2canvas(posterRef.current, {
+        scale: 2,
+        useCORS: true,
+        backgroundColor: "#ffffff",
+        logging: false,
+      });
+      setPosterData(canvas.toDataURL("image/png"));
+    } catch (err) {
+      console.error("Gagal membuat gambar kalender:", err);
+      setPosterData(null);
+      toast.error("Gagal membuat gambar kalender. Kirim akan memakai pesan teks.");
+    } finally {
+      setPosterBuilding(false);
+    }
+  }, []);
+
+  // Rebuild gambar setiap kali dialog dibuka / scope bulan-cabang berubah
+  useEffect(() => {
+    if (!shareOpen) return;
+    setPosterData(null);
+    const t = setTimeout(buildPoster, 80);
+    return () => clearTimeout(t);
+  }, [shareOpen, shareBranchId, viewMonth, viewYear, buildPoster]);
+
   const openShare = () => {
     if (buildShareItems().length === 0) {
       toast.error("Tidak ada jadwal cuti untuk dibagikan pada bulan ini.");
@@ -474,6 +766,8 @@ function KalenderCutiPage() {
         ? ""
         : branches.find((b) => b.id === selectedBranch)?.wa_group_jid || "";
     setShareGroupJid(initial);
+    setSharePhone("");
+    setShareMode("group");
     setShareOpen(true);
   };
 
@@ -483,25 +777,39 @@ function KalenderCutiPage() {
       toast.error("Pilih cabang terlebih dahulu.");
       return;
     }
-    const jid = shareGroupJid.trim();
-    if (!jid) {
-      toast.error("Pilih grup WhatsApp tujuan terlebih dahulu.");
-      return;
-    }
     const items = buildShareItems();
     if (items.length === 0) {
       toast.error("Tidak ada jadwal cuti untuk dibagikan.");
       return;
     }
+
+    // Tentukan tujuan: grup (JID) atau personal (nomor HP)
+    let target = "";
+    if (shareMode === "group") {
+      target = shareGroupJid.trim();
+      if (!target) {
+        toast.error("Pilih grup WhatsApp tujuan terlebih dahulu.");
+        return;
+      }
+    } else {
+      target = sharePhone.trim();
+      const digits = target.replace(/[^0-9]/g, "");
+      if (digits.length < 9) {
+        toast.error("Masukkan nomor WhatsApp tujuan (min. 9 digit).");
+        return;
+      }
+    }
+
     setShareSending(true);
     try {
       const branch = branches.find((b) => b.id === scope);
-      // Simpan grup pilihan ke cabang agar dipakai lagi nanti
-      if (branch && branch.wa_group_jid !== jid) {
-        const groupName = waGroups.find((g) => g.id === jid)?.subject || null;
+      const cabangNama = branch?.nama || scope;
+      // Simpan grup pilihan ke cabang agar dipakai lagi nanti (hanya mode grup)
+      if (shareMode === "group" && branch && branch.wa_group_jid !== target) {
+        const groupName = waGroups.find((g) => g.id === target)?.subject || null;
         const { error } = await supabase
           .from("branches")
-          .update({ wa_group_jid: jid, wa_group_nama: groupName })
+          .update({ wa_group_jid: target, wa_group_nama: groupName })
           .eq("id", scope);
         if (error) throw error;
         queryClient.invalidateQueries({ queryKey: ["branches_hr"] });
@@ -509,12 +817,19 @@ function KalenderCutiPage() {
       const message = buildKalenderCutiMessage({
         bulan: BULAN_PANJANG[viewMonth],
         tahun: viewYear,
-        cabang: branch?.nama || scope,
+        cabang: cabangNama,
         items,
       });
-      const res = await sendWaMessageToJid(jid, message);
+      // Kirim gambar kalender (fallback ke teks bila gambar gagal dibuat)
+      const res = posterData
+        ? await sendWaImageToJid(target, message, posterData)
+        : await sendWaMessageToJid(target, message);
       if (!res.ok) throw new Error(res.error || "Gagal mengirim pesan.");
-      toast.success("Jadwal cuti berhasil dikirim ke grup WhatsApp!");
+      toast.success(
+        shareMode === "group"
+          ? "Gambar kalender cuti berhasil dikirim ke grup WhatsApp!"
+          : "Gambar kalender cuti berhasil dikirim ke personal WhatsApp!",
+      );
       setShareOpen(false);
     } catch (err) {
       toast.error(`Gagal mengirim: ${(err as Error).message}`);
@@ -525,6 +840,30 @@ function KalenderCutiPage() {
 
   return (
     <div className="flex flex-col gap-6 p-4 sm:p-6">
+      {/* Poster tersembunyi untuk di-capture jadi gambar (kirim via WA) */}
+      {(() => {
+        const scope = shareBranchId || selectedBranch;
+        const cabangNama =
+          scope === "all" ? "Semua Cabang" : branches.find((b) => b.id === scope)?.nama || scope;
+        return (
+          <div
+            ref={posterRef}
+            aria-hidden
+            className="pointer-events-none fixed top-0 z-[-1]"
+            style={{ left: -9999 }}
+          >
+            <KalenderPoster
+              bulan={BULAN_PANJANG[viewMonth]}
+              tahun={viewYear}
+              month={viewMonth}
+              cabang={cabangNama}
+              grid={grid}
+              items={buildShareItems()}
+            />
+          </div>
+        );
+      })()}
+
       <PageHeader
         title="Kalender Cuti Staf"
         description="Pantau jadwal cuti seluruh staf dalam tampilan kalender yang mudah dibaca."
@@ -549,7 +888,7 @@ function KalenderCutiPage() {
               className="border-sky-200 hover:bg-sky-50 hover:text-sky-700"
               onClick={openShare}
             >
-              <Share2 className="mr-2 h-4 w-4 text-sky-600" /> Share ke Grup WA
+              <Share2 className="mr-2 h-4 w-4 text-sky-600" /> Share ke WhatsApp
             </Button>
             <Dialog
               open={isOpen}
@@ -844,16 +1183,16 @@ function KalenderCutiPage() {
         </div>
       </div>
 
-      {/* Dialog share ke grup WA */}
+      {/* Dialog share kalender ke WhatsApp (grup / personal) */}
       <Dialog open={shareOpen} onOpenChange={setShareOpen}>
-        <DialogContent className="rounded-2xl sm:max-w-lg">
+        <DialogContent className="rounded-2xl sm:max-w-xl">
           <DialogHeader>
             <DialogTitle className="text-lg font-bold text-slate-900 dark:text-slate-100">
-              Share Kalender Cuti ke Grup WA
+              Share Kalender Cuti via WhatsApp
             </DialogTitle>
             <DialogDescription>
-              Kirim ringkasan jadwal cuti {BULAN_PANJANG[viewMonth]} {viewYear} ke grup WhatsApp
-              cabang terkait.
+              Kirim gambar jadwal cuti {BULAN_PANJANG[viewMonth]} {viewYear} ke grup WhatsApp atau
+              personal tim.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 pt-1">
@@ -871,11 +1210,37 @@ function KalenderCutiPage() {
                 <WifiOff className="h-3.5 w-3.5 shrink-0" />
               )}
               {gateway?.status === "connected"
-                ? "Gateway WhatsApp terhubung — pesan siap dikirim."
+                ? "Gateway WhatsApp terhubung — gambar siap dikirim."
                 : "Gateway WhatsApp offline — pastikan backend WA berjalan & terhubung."}
             </div>
 
-            {/* Pilih cabang */}
+            {/* Pilih mode: grup / personal */}
+            <div className="flex items-center gap-2 rounded-xl border border-slate-200 bg-slate-50/50 p-1">
+              <button
+                type="button"
+                onClick={() => setShareMode("group")}
+                className={`flex flex-1 items-center justify-center gap-1.5 rounded-lg px-3 py-2 text-xs font-semibold transition-all ${
+                  shareMode === "group"
+                    ? "bg-white text-emerald-700 shadow-sm"
+                    : "text-slate-500 hover:text-slate-700"
+                }`}
+              >
+                <UsersRound className="h-3.5 w-3.5" /> Grup WhatsApp
+              </button>
+              <button
+                type="button"
+                onClick={() => setShareMode("personal")}
+                className={`flex flex-1 items-center justify-center gap-1.5 rounded-lg px-3 py-2 text-xs font-semibold transition-all ${
+                  shareMode === "personal"
+                    ? "bg-white text-emerald-700 shadow-sm"
+                    : "text-slate-500 hover:text-slate-700"
+                }`}
+              >
+                <UserRound className="h-3.5 w-3.5" /> Personal / Tim
+              </button>
+            </div>
+
+            {/* Pilih cabang (lingkup data kalender) */}
             <div className="space-y-1.5">
               <Label className="text-xs font-semibold uppercase tracking-wider text-slate-500">
                 Cabang
@@ -906,64 +1271,160 @@ function KalenderCutiPage() {
               </Select>
             </div>
 
-            {/* Pilih grup */}
+            {shareMode === "group" ? (
+              /* Pilih grup */
+              <div className="space-y-1.5">
+                <Label className="text-xs font-semibold uppercase tracking-wider text-slate-500">
+                  Grup WhatsApp Tujuan
+                </Label>
+                {waGroups.length > 0 ? (
+                  <Select value={shareGroupJid} onValueChange={setShareGroupJid}>
+                    <SelectTrigger className="w-full">
+                      <SelectValue placeholder="Pilih grup..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {waGroups.map((g) => (
+                        <SelectItem key={g.id} value={g.id}>
+                          {g.subject || g.id}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                ) : (
+                  <Input
+                    placeholder="Paste JID grup (contoh: 120363347759137613@g.us)"
+                    value={shareGroupJid}
+                    onChange={(e) => setShareGroupJid(e.target.value)}
+                  />
+                )}
+                <p className="text-[11px] text-slate-400">
+                  {shareGroupJid
+                    ? `ID grup: ${shareGroupJid}`
+                    : "Pilih grup yang diikuti bot gateway, atau tempel JID grup secara manual."}
+                </p>
+              </div>
+            ) : (
+              /* Pilih personal / tim */
+              <div className="space-y-2">
+                <div className="space-y-1.5">
+                  <Label className="text-xs font-semibold uppercase tracking-wider text-slate-500">
+                    Pilih Tim (opsional)
+                  </Label>
+                  <Select value={sharePhone} onValueChange={(v) => setSharePhone(v)}>
+                    <SelectTrigger className="w-full">
+                      <SelectValue placeholder="Pilih karyawan tim..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {employees
+                        .filter((e) => e.whatsapp)
+                        .map((e) => (
+                          <SelectItem key={e.id} value={e.whatsapp || ""}>
+                            {e.nama} {e.branches?.nama ? `(${e.branches.nama})` : ""}
+                          </SelectItem>
+                        ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-xs font-semibold uppercase tracking-wider text-slate-500">
+                    Nomor WhatsApp Tujuan <span className="text-rose-500">*</span>
+                  </Label>
+                  <Input
+                    type="tel"
+                    inputMode="tel"
+                    placeholder="08xxxxxxxxxx atau 628xxxxxxxxxx"
+                    value={sharePhone}
+                    onChange={(e) => setSharePhone(e.target.value)}
+                  />
+                  <p className="text-[11px] text-slate-400">
+                    Gambar kalender akan dikirim langsung ke nomor WhatsApp tersebut.
+                  </p>
+                </div>
+              </div>
+            )}
+
+            {/* Pratinjau gambar kalender */}
             <div className="space-y-1.5">
-              <Label className="text-xs font-semibold uppercase tracking-wider text-slate-500">
-                Grup WhatsApp Tujuan
-              </Label>
-              {waGroups.length > 0 ? (
-                <Select value={shareGroupJid} onValueChange={setShareGroupJid}>
-                  <SelectTrigger className="w-full">
-                    <SelectValue placeholder="Pilih grup..." />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {waGroups.map((g) => (
-                      <SelectItem key={g.id} value={g.id}>
-                        {g.subject || g.id}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              ) : (
-                <Input
-                  placeholder="Paste JID grup (contoh: 120363347759137613@g.us)"
-                  value={shareGroupJid}
-                  onChange={(e) => setShareGroupJid(e.target.value)}
-                />
-              )}
-              <p className="text-[11px] text-slate-400">
-                {shareGroupJid
-                  ? `ID grup: ${shareGroupJid}`
-                  : "Pilih grup yang diikuti bot gateway, atau tempel JID grup secara manual."}
-              </p>
+              <div className="flex items-center justify-between">
+                <Label className="text-xs font-semibold uppercase tracking-wider text-slate-500">
+                  Pratinjau Gambar Kalender
+                </Label>
+                {posterData && (
+                  <button
+                    type="button"
+                    onClick={buildPoster}
+                    className="inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-600 transition-colors hover:text-emerald-700"
+                  >
+                    <RefreshCw className="h-3 w-3" /> Buat ulang gambar
+                  </button>
+                )}
+              </div>
+              <div className="flex min-h-32 items-center justify-center overflow-hidden rounded-xl border border-slate-200 bg-slate-50">
+                {posterBuilding ? (
+                  <div className="flex flex-col items-center gap-2 py-8 text-xs text-slate-500">
+                    <Loader2 className="h-5 w-5 animate-spin text-emerald-500" />
+                    Menyiapkan gambar kalender...
+                  </div>
+                ) : posterData ? (
+                  <img
+                    src={posterData}
+                    alt="Pratinjau kalender cuti"
+                    className="max-h-80 w-full object-contain"
+                  />
+                ) : (
+                  <div className="flex flex-col items-center gap-2 py-8 text-xs text-slate-400">
+                    <ImageIcon className="h-5 w-5" />
+                    Gambar gagal dibuat — pesan teks akan dikirim sebagai pengganti.
+                  </div>
+                )}
+              </div>
             </div>
 
-            {/* Pratinjau pesan */}
+            {/* Pratinjau caption pesan */}
             <div className="space-y-1.5">
               <Label className="text-xs font-semibold uppercase tracking-wider text-slate-500">
-                Pratinjau Pesan
+                Caption Pesan
               </Label>
-              <pre className="max-h-56 overflow-y-auto whitespace-pre-wrap rounded-xl border border-slate-200 bg-slate-50 p-3 font-mono text-[11px] leading-relaxed text-slate-700">
+              <pre className="max-h-40 overflow-y-auto whitespace-pre-wrap rounded-xl border border-slate-200 bg-slate-50 p-3 font-mono text-[11px] leading-relaxed text-slate-700">
                 {shareMessage}
               </pre>
             </div>
           </div>
-          <DialogFooter>
-            <Button variant="ghost" onClick={() => setShareOpen(false)}>
-              Batal
-            </Button>
-            <Button
-              onClick={handleShare}
-              disabled={shareSending}
-              className="bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-white border-none rounded-xl shadow-md shadow-emerald-500/10 active:scale-[0.98] transition-all"
-            >
-              {shareSending ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
+          <DialogFooter className="sm:justify-between">
+            <div className="flex items-center text-[11px] text-slate-400">
+              {shareMode === "group" ? (
+                shareGroupJid ? (
+                  <span className="truncate">→ {shareGroupJid}</span>
+                ) : (
+                  "Pilih grup tujuan"
+                )
+              ) : sharePhone ? (
+                <span className="truncate">→ {sharePhone}</span>
               ) : (
-                <Send className="mr-2 h-4 w-4" />
+                "Masukkan nomor tujuan"
               )}
-              {shareSending ? "Mengirim..." : "Kirim ke Grup"}
-            </Button>
+            </div>
+            <div className="flex gap-2">
+              <Button variant="ghost" onClick={() => setShareOpen(false)}>
+                Batal
+              </Button>
+              <Button
+                onClick={handleShare}
+                disabled={shareSending}
+                className="bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-white border-none rounded-xl shadow-md shadow-emerald-500/10 active:scale-[0.98] transition-all"
+              >
+                {shareSending ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Send className="mr-2 h-4 w-4" />
+                )}
+                {shareSending
+                  ? "Mengirim..."
+                  : shareMode === "group"
+                    ? "Kirim Gambar ke Grup"
+                    : "Kirim Gambar ke Personal"}
+              </Button>
+            </div>
           </DialogFooter>
         </DialogContent>
       </Dialog>

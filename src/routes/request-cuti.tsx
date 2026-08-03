@@ -503,6 +503,44 @@ function RequestCutiPage() {
                 </div>
               )}
 
+              {/* Ringkasan periode: tanggal berapa saja yang diminta */}
+              {jumlahHari > 0 && (
+                <div className="rounded-xl border border-emerald-200 bg-emerald-50/60 p-3.5">
+                  <div className="flex items-center justify-between gap-2">
+                    <p className="flex items-center gap-1.5 text-xs font-bold text-emerald-800">
+                      <CalendarDays className="h-3.5 w-3.5" />
+                      Periode Permohonan — {jumlahHari} hari
+                    </p>
+                    <span className="shrink-0 rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-bold text-emerald-700">
+                      {formatTanggalHR(tanggalTerpakai[0])} s/d{" "}
+                      {formatTanggalHR(tanggalTerpakai[tanggalTerpakai.length - 1])}
+                    </span>
+                  </div>
+                  <div className="mt-2 flex flex-wrap gap-1.5">
+                    {tanggalTerpakai.map((t) => {
+                      const d = new Date(`${t}T00:00:00`);
+                      const isWeekend = d.getDay() === 0 || d.getDay() === 6;
+                      return (
+                        <span
+                          key={t}
+                          className={`inline-flex items-center rounded-lg border px-2 py-1 text-[11px] font-semibold ${
+                            isWeekend
+                              ? "border-rose-200 bg-rose-50 text-rose-700"
+                              : "border-emerald-200 bg-white text-slate-700"
+                          }`}
+                        >
+                          {d.toLocaleDateString("id-ID", {
+                            weekday: "short",
+                            day: "numeric",
+                            month: "short",
+                          })}
+                        </span>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
               <div className="space-y-1.5">
                 <Label className="text-xs font-semibold uppercase tracking-wider text-slate-500">
                   Alasan{" "}
@@ -564,6 +602,25 @@ function RequestCutiPage() {
                       <br />
                       Status akan dikonfirmasi melalui WhatsApp.
                     </p>
+                    {tanggalTerpakai.length > 0 && (
+                      <div className="mt-2 flex flex-wrap items-center justify-center gap-1.5">
+                        {tanggalTerpakai.map((t) => {
+                          const d = new Date(`${t}T00:00:00`);
+                          return (
+                            <span
+                              key={t}
+                              className="inline-flex items-center rounded-lg bg-emerald-50 border border-emerald-200 px-2 py-1 text-[11px] font-semibold text-slate-700"
+                            >
+                              {d.toLocaleDateString("id-ID", {
+                                weekday: "short",
+                                day: "numeric",
+                                month: "short",
+                              })}
+                            </span>
+                          );
+                        })}
+                      </div>
+                    )}
                   </div>
                 </>
               )}

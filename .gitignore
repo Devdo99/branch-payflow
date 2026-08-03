@@ -20,6 +20,15 @@ dist-ssr
 .wrangler/
 .dev.vars
 
+# Script debugging / kredensial database (JANGAN di-commit)
+tmp-*.cjs
+tmp-*.mjs
+supabase-check.*
+*.dbcheck.*
+
+# Sesi WhatsApp gateway (berisi kredensial akun)
+backend/auth_session/
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json

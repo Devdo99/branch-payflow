@@ -61,7 +61,9 @@ function TunjanganPage() {
 
   const [nama, setNama] = useState("");
   const [nominal, setNominal] = useState<number | "">("");
-  const [metode, setMetode] = useState<"fixed" | "per_day" | "per_hour" | "per_event" | "manual">("fixed");
+  const [metode, setMetode] = useState<"fixed" | "per_day" | "per_hour" | "per_event" | "manual">(
+    "fixed",
+  );
   const [aktif, setAktif] = useState(true);
 
   // Relasi Jobdesk Explicit
@@ -166,7 +168,6 @@ function TunjanganPage() {
     return "Nominal Tetap";
   };
 
-
   return (
     <>
       <PageHeader
@@ -187,7 +188,12 @@ function TunjanganPage() {
               </DialogHeader>
               <form onSubmit={handleSubmit} className="space-y-4 pt-2">
                 <div className="space-y-1.5">
-                  <Label htmlFor="nama" className="text-xs font-semibold uppercase tracking-wider text-slate-500">Nama Tunjangan</Label>
+                  <Label
+                    htmlFor="nama"
+                    className="text-xs font-semibold uppercase tracking-wider text-slate-500"
+                  >
+                    Nama Tunjangan
+                  </Label>
                   <Input
                     id="nama"
                     placeholder="Contoh: Tunjangan Dapur"
@@ -199,7 +205,12 @@ function TunjanganPage() {
                 </div>
 
                 <div className="space-y-1.5">
-                  <Label htmlFor="metode" className="text-xs font-semibold uppercase tracking-wider text-slate-500">Model Perhitungan</Label>
+                  <Label
+                    htmlFor="metode"
+                    className="text-xs font-semibold uppercase tracking-wider text-slate-500"
+                  >
+                    Model Perhitungan
+                  </Label>
                   <Select value={metode} onValueChange={(val) => setMetode(val as any)}>
                     <SelectTrigger id="metode" className="h-10 border-slate-200 rounded-xl">
                       <SelectValue />
@@ -215,7 +226,12 @@ function TunjanganPage() {
 
                 {metode !== "manual" && (
                   <div className="space-y-1.5">
-                    <Label htmlFor="nominal" className="text-xs font-semibold uppercase tracking-wider text-slate-500">Nominal Default (Rp)</Label>
+                    <Label
+                      htmlFor="nominal"
+                      className="text-xs font-semibold uppercase tracking-wider text-slate-500"
+                    >
+                      Nominal Default (Rp)
+                    </Label>
                     <Input
                       id="nominal"
                       type="number"
@@ -232,7 +248,9 @@ function TunjanganPage() {
                 <div className="flex items-center justify-between border border-slate-100 rounded-xl p-3 bg-slate-50/30">
                   <div className="space-y-0.5">
                     <Label className="text-sm font-semibold">Berlaku Global</Label>
-                    <p className="text-[10px] text-slate-500 leading-tight">Aktif = Semua karyawan dapat.</p>
+                    <p className="text-[10px] text-slate-500 leading-tight">
+                      Aktif = Semua karyawan dapat.
+                    </p>
                   </div>
                   <Switch checked={isGlobal} onCheckedChange={setIsGlobal} />
                 </div>
@@ -273,9 +291,9 @@ function TunjanganPage() {
                   <Switch checked={aktif} onCheckedChange={setAktif} />
                 </div>
 
-                <Button 
-                  type="submit" 
-                  className="w-full h-10 mt-2 bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-white rounded-xl shadow-md border-none font-semibold active:scale-[0.98] transition-all cursor-pointer" 
+                <Button
+                  type="submit"
+                  className="w-full h-10 mt-2 bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-white rounded-xl shadow-md border-none font-semibold active:scale-[0.98] transition-all cursor-pointer"
                   disabled={saveMutation.isPending}
                 >
                   {saveMutation.isPending ? (
@@ -305,12 +323,17 @@ function TunjanganPage() {
             </DialogHeader>
             <div className="space-y-4 py-2">
               <p className="text-sm text-slate-600 dark:text-slate-400 leading-relaxed">
-                Apakah Anda yakin ingin menghapus tunjangan <strong className="text-slate-950 dark:text-white">{deleteTarget?.nama}</strong>?
+                Apakah Anda yakin ingin menghapus tunjangan{" "}
+                <strong className="text-slate-950 dark:text-white">{deleteTarget?.nama}</strong>?
                 Tindakan ini bersifat permanen dan tidak dapat dibatalkan.
               </p>
             </div>
             <div className="flex justify-end gap-2 pt-2 mt-2">
-              <Button variant="outline" className="rounded-xl h-10" onClick={() => setDeleteTarget(null)}>
+              <Button
+                variant="outline"
+                className="rounded-xl h-10"
+                onClick={() => setDeleteTarget(null)}
+              >
                 Batal
               </Button>
               <Button
@@ -333,11 +356,21 @@ function TunjanganPage() {
           <Table>
             <TableHeader>
               <TableRow className="bg-slate-50/80 dark:bg-slate-900/60 hover:bg-transparent">
-                <TableHead className="font-semibold text-slate-900 dark:text-slate-100">Nama Tunjangan</TableHead>
-                <TableHead className="font-semibold text-slate-900 dark:text-slate-100">Target Penerima</TableHead>
-                <TableHead className="font-semibold text-slate-900 dark:text-slate-100">Model Perhitungan</TableHead>
-                <TableHead className="font-semibold text-slate-900 dark:text-slate-100">Nominal Default</TableHead>
-                <TableHead className="text-right font-semibold text-slate-900 dark:text-slate-100">Aksi</TableHead>
+                <TableHead className="font-semibold text-slate-900 dark:text-slate-100">
+                  Nama Tunjangan
+                </TableHead>
+                <TableHead className="font-semibold text-slate-900 dark:text-slate-100">
+                  Target Penerima
+                </TableHead>
+                <TableHead className="font-semibold text-slate-900 dark:text-slate-100">
+                  Model Perhitungan
+                </TableHead>
+                <TableHead className="font-semibold text-slate-900 dark:text-slate-100">
+                  Nominal Default
+                </TableHead>
+                <TableHead className="text-right font-semibold text-slate-900 dark:text-slate-100">
+                  Aksi
+                </TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -345,9 +378,24 @@ function TunjanganPage() {
                 <TableRow>
                   <TableCell colSpan={5} className="text-center py-12">
                     <div className="flex items-center justify-center gap-2 text-slate-500">
-                      <svg className="animate-spin h-5 w-5 text-emerald-500" fill="none" viewBox="0 0 24 24">
-                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                      <svg
+                        className="animate-spin h-5 w-5 text-emerald-500"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                      >
+                        <circle
+                          className="opacity-25"
+                          cx="12"
+                          cy="12"
+                          r="10"
+                          stroke="currentColor"
+                          strokeWidth="4"
+                        />
+                        <path
+                          className="opacity-75"
+                          fill="currentColor"
+                          d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                        />
                       </svg>
                       Memuat data tunjangan...
                     </div>
@@ -361,8 +409,13 @@ function TunjanganPage() {
                 </TableRow>
               ) : (
                 allowances?.map((item) => (
-                  <TableRow key={item.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-900/50 transition-colors">
-                    <TableCell className="font-semibold text-slate-900 dark:text-slate-100">{item.nama}</TableCell>
+                  <TableRow
+                    key={item.id}
+                    className="hover:bg-slate-50/50 dark:hover:bg-slate-900/50 transition-colors"
+                  >
+                    <TableCell className="font-semibold text-slate-900 dark:text-slate-100">
+                      {item.nama}
+                    </TableCell>
                     <TableCell>
                       {!item.catatan || item.catatan === "GLOBAL" ? (
                         <Badge className="bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20 shadow-sm rounded-lg py-1 px-2.5">
@@ -389,9 +442,9 @@ function TunjanganPage() {
                     </TableCell>
                     <TableCell className="text-right">
                       <div className="inline-flex gap-1">
-                        <Button 
-                          variant="ghost" 
-                          size="icon" 
+                        <Button
+                          variant="ghost"
+                          size="icon"
                           className="h-8 w-8 hover:bg-emerald-500/10 hover:text-emerald-600 dark:hover:text-emerald-400 rounded-lg transition-colors"
                           onClick={() => handleEdit(item)}
                         >

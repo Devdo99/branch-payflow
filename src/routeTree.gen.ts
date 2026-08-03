@@ -29,6 +29,7 @@ import { Route as AuthenticatedSlipGajiRouteImport } from './routes/_authenticat
 import { Route as AuthenticatedTunjanganRouteImport } from './routes/_authenticated/tunjangan'
 import { Route as AuthenticatedHrKalenderCutiRouteImport } from './routes/_authenticated/hr/kalender-cuti'
 import { Route as AuthenticatedHrRekapAbsenRouteImport } from './routes/_authenticated/hr/rekap-absen'
+import { Route as AuthenticatedHrRekapCutiRouteImport } from './routes/_authenticated/hr/rekap-cuti'
 import { Route as AuthenticatedHrRequestCutiRouteImport } from './routes/_authenticated/hr/request-cuti'
 import { Route as AuthenticatedHrResignRouteImport } from './routes/_authenticated/hr/resign'
 
@@ -136,6 +137,12 @@ const AuthenticatedHrRekapAbsenRoute =
     path: '/hr/rekap-absen',
     getParentRoute: () => AuthenticatedRoute,
   } as any)
+const AuthenticatedHrRekapCutiRoute =
+  AuthenticatedHrRekapCutiRouteImport.update({
+    id: '/hr/rekap-cuti',
+    path: '/hr/rekap-cuti',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
 const AuthenticatedHrRequestCutiRoute =
   AuthenticatedHrRequestCutiRouteImport.update({
     id: '/hr/request-cuti',
@@ -168,6 +175,7 @@ export interface FileRoutesByFullPath {
   '/tunjangan': typeof AuthenticatedTunjanganRoute
   '/hr/kalender-cuti': typeof AuthenticatedHrKalenderCutiRoute
   '/hr/rekap-absen': typeof AuthenticatedHrRekapAbsenRoute
+  '/hr/rekap-cuti': typeof AuthenticatedHrRekapCutiRoute
   '/hr/request-cuti': typeof AuthenticatedHrRequestCutiRoute
   '/hr/resign': typeof AuthenticatedHrResignRoute
 }
@@ -191,6 +199,7 @@ export interface FileRoutesByTo {
   '/tunjangan': typeof AuthenticatedTunjanganRoute
   '/hr/kalender-cuti': typeof AuthenticatedHrKalenderCutiRoute
   '/hr/rekap-absen': typeof AuthenticatedHrRekapAbsenRoute
+  '/hr/rekap-cuti': typeof AuthenticatedHrRekapCutiRoute
   '/hr/request-cuti': typeof AuthenticatedHrRequestCutiRoute
   '/hr/resign': typeof AuthenticatedHrResignRoute
 }
@@ -216,6 +225,7 @@ export interface FileRoutesById {
   '/_authenticated/tunjangan': typeof AuthenticatedTunjanganRoute
   '/_authenticated/hr/kalender-cuti': typeof AuthenticatedHrKalenderCutiRoute
   '/_authenticated/hr/rekap-absen': typeof AuthenticatedHrRekapAbsenRoute
+  '/_authenticated/hr/rekap-cuti': typeof AuthenticatedHrRekapCutiRoute
   '/_authenticated/hr/request-cuti': typeof AuthenticatedHrRequestCutiRoute
   '/_authenticated/hr/resign': typeof AuthenticatedHrResignRoute
 }
@@ -241,6 +251,7 @@ export interface FileRouteTypes {
     | '/tunjangan'
     | '/hr/kalender-cuti'
     | '/hr/rekap-absen'
+    | '/hr/rekap-cuti'
     | '/hr/request-cuti'
     | '/hr/resign'
   fileRoutesByTo: FileRoutesByTo
@@ -264,6 +275,7 @@ export interface FileRouteTypes {
     | '/tunjangan'
     | '/hr/kalender-cuti'
     | '/hr/rekap-absen'
+    | '/hr/rekap-cuti'
     | '/hr/request-cuti'
     | '/hr/resign'
   id:
@@ -288,6 +300,7 @@ export interface FileRouteTypes {
     | '/_authenticated/tunjangan'
     | '/_authenticated/hr/kalender-cuti'
     | '/_authenticated/hr/rekap-absen'
+    | '/_authenticated/hr/rekap-cuti'
     | '/_authenticated/hr/request-cuti'
     | '/_authenticated/hr/resign'
   fileRoutesById: FileRoutesById
@@ -441,6 +454,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedHrRekapAbsenRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
+    '/_authenticated/hr/rekap-cuti': {
+      id: '/_authenticated/hr/rekap-cuti'
+      path: '/hr/rekap-cuti'
+      fullPath: '/hr/rekap-cuti'
+      preLoaderRoute: typeof AuthenticatedHrRekapCutiRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
     '/_authenticated/hr/request-cuti': {
       id: '/_authenticated/hr/request-cuti'
       path: '/hr/request-cuti'
@@ -475,6 +495,7 @@ interface AuthenticatedRouteChildren {
   AuthenticatedTunjanganRoute: typeof AuthenticatedTunjanganRoute
   AuthenticatedHrKalenderCutiRoute: typeof AuthenticatedHrKalenderCutiRoute
   AuthenticatedHrRekapAbsenRoute: typeof AuthenticatedHrRekapAbsenRoute
+  AuthenticatedHrRekapCutiRoute: typeof AuthenticatedHrRekapCutiRoute
   AuthenticatedHrRequestCutiRoute: typeof AuthenticatedHrRequestCutiRoute
   AuthenticatedHrResignRoute: typeof AuthenticatedHrResignRoute
 }
@@ -496,6 +517,7 @@ const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedTunjanganRoute: AuthenticatedTunjanganRoute,
   AuthenticatedHrKalenderCutiRoute: AuthenticatedHrKalenderCutiRoute,
   AuthenticatedHrRekapAbsenRoute: AuthenticatedHrRekapAbsenRoute,
+  AuthenticatedHrRekapCutiRoute: AuthenticatedHrRekapCutiRoute,
   AuthenticatedHrRequestCutiRoute: AuthenticatedHrRequestCutiRoute,
   AuthenticatedHrResignRoute: AuthenticatedHrResignRoute,
 }

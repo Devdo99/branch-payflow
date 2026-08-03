@@ -67,6 +67,7 @@ type CutiRequest = {
   jenis: string;
   tanggal_mulai: string;
   tanggal_selesai: string;
+  tanggal_list?: string[] | null;
   alasan?: string | null;
   status: string;
   created_at?: string;
@@ -136,7 +137,7 @@ function RequestCutiAdminPage() {
       const { data, error } = await supabase
         .from("cuti")
         .select(
-          "id, employee_id, jenis, tanggal_mulai, tanggal_selesai, alasan, status, created_at, employees ( nama, kode_karyawan, whatsapp, branch_id, branches ( nama ) )",
+          "id, employee_id, jenis, tanggal_mulai, tanggal_selesai, tanggal_list, alasan, status, created_at, employees ( nama, kode_karyawan, whatsapp, branch_id, branches ( nama ) )",
         )
         .order("created_at", { ascending: true });
       if (error) throw error;
@@ -575,7 +576,7 @@ function RequestCutiAdminPage() {
                           {jenisCuti.label}
                         </span>
                       </TableCell>
-                      <TableCell className="whitespace-nowrap text-xs">
+                      <TableCell className="text-xs">
                         <span className="font-medium text-slate-700">
                           {formatTanggalHR(c.tanggal_mulai)}
                         </span>
@@ -583,6 +584,36 @@ function RequestCutiAdminPage() {
                         <span className="font-medium text-slate-700">
                           {formatTanggalHR(c.tanggal_selesai)}
                         </span>
+                        {c.tanggal_list && c.tanggal_list.length > 0 && (
+                          <div className="mt-1 flex max-w-56 flex-wrap gap-1">
+                            {c.tanggal_list.slice(0, 6).map((t) => {
+                              const d = new Date(`${t}T00:00:00`);
+                              const isWeekend = d.getDay() === 0 || d.getDay() === 6;
+                              return (
+                                <span
+                                  key={t}
+                                  title={formatTanggalHR(t)}
+                                  className={`rounded-md border px-1.5 py-0.5 text-[10px] font-semibold ${
+                                    isWeekend
+                                      ? "border-rose-200 bg-rose-50 text-rose-600"
+                                      : "border-slate-200 bg-slate-50 text-slate-600"
+                                  }`}
+                                >
+                                  {d.toLocaleDateString("id-ID", {
+                                    weekday: "short",
+                                    day: "numeric",
+                                    month: "short",
+                                  })}
+                                </span>
+                              );
+                            })}
+                            {c.tanggal_list.length > 6 && (
+                              <span className="rounded-md border border-slate-200 bg-slate-50 px-1.5 py-0.5 text-[10px] font-semibold text-slate-400">
+                                +{c.tanggal_list.length - 6}
+                              </span>
+                            )}
+                          </div>
+                        )}
                       </TableCell>
                       <TableCell className="text-center">
                         <Badge variant="secondary">

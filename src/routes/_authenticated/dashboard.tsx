@@ -85,32 +85,40 @@ function DashboardPage() {
           {cards.map((c) => {
             const isWarn = c.warn && Number(c.value) > 0;
             return (
-              <div 
-                key={c.label} 
+              <div
+                key={c.label}
                 className={`premium-card p-5 relative overflow-hidden group border border-border/60 ${
-                  isWarn 
-                    ? "border-rose-500/20 bg-rose-500/5 shadow-sm shadow-rose-500/5" 
-                    : ""
+                  isWarn ? "border-rose-500/20 bg-rose-500/5 shadow-sm shadow-rose-500/5" : ""
                 }`}
               >
                 {/* Hover decorative glowing aura */}
-                <div className={`absolute -right-6 -bottom-6 w-20 h-20 rounded-full opacity-0 group-hover:opacity-10 blur-xl scale-75 group-hover:scale-150 transition-all duration-300 ${
-                  isWarn ? "bg-rose-500" : "bg-emerald-500"
-                }`} />
+                <div
+                  className={`absolute -right-6 -bottom-6 w-20 h-20 rounded-full opacity-0 group-hover:opacity-10 blur-xl scale-75 group-hover:scale-150 transition-all duration-300 ${
+                    isWarn ? "bg-rose-500" : "bg-emerald-500"
+                  }`}
+                />
 
                 <div className="flex items-start justify-between relative z-10">
-                  <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">{c.label}</span>
-                  <div className={`p-2 rounded-xl transition-colors duration-200 ${
-                    isWarn 
-                      ? "bg-rose-500/10 text-rose-500" 
-                      : "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 group-hover:bg-emerald-500/20"
-                  }`}>
+                  <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
+                    {c.label}
+                  </span>
+                  <div
+                    className={`p-2 rounded-xl transition-colors duration-200 ${
+                      isWarn
+                        ? "bg-rose-500/10 text-rose-500"
+                        : "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 group-hover:bg-emerald-500/20"
+                    }`}
+                  >
                     <c.icon className="h-4.5 w-4.5" />
                   </div>
                 </div>
-                <div className={`mt-4 text-xl font-bold tracking-tight relative z-10 tabular-nums ${
-                  isWarn ? "text-rose-600 dark:text-rose-400" : "text-slate-900 dark:text-slate-100"
-                }`}>
+                <div
+                  className={`mt-4 text-xl font-bold tracking-tight relative z-10 tabular-nums ${
+                    isWarn
+                      ? "text-rose-600 dark:text-rose-400"
+                      : "text-slate-900 dark:text-slate-100"
+                  }`}
+                >
                   {c.format ? formatIDR(Number(c.value)) : c.value}
                 </div>
               </div>
@@ -126,8 +134,9 @@ function DashboardPage() {
             Catatan Pengembangan Sistem
           </div>
           <p className="mt-2 text-sm leading-relaxed text-slate-600 dark:text-slate-400">
-            Fitur peringatan kenaikan gaji otomatis, peninjauan visualisasi analitis performa per cabang, 
-            dan ekspor laporan grafis mutakhir akan diaktifkan secara bertahap pada modul iterasi berikutnya.
+            Fitur peringatan kenaikan gaji otomatis, peninjauan visualisasi analitis performa per
+            cabang, dan ekspor laporan grafis mutakhir akan diaktifkan secara bertahap pada modul
+            iterasi berikutnya.
           </p>
         </div>
       </div>

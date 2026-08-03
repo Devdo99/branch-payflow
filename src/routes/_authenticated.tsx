@@ -38,14 +38,14 @@ function AuthenticatedLayout() {
                 Sistem Portal Penggajian • PayFlow
               </span>
             </div>
-            
+
             <div className="flex items-center gap-2">
               <span className="text-xs px-2.5 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-600 dark:text-emerald-400 font-semibold shadow-sm">
                 Server Online
               </span>
             </div>
           </header>
-          
+
           <main className="flex-1 min-w-0 animate-fade-in duration-300">
             <Outlet />
           </main>

@@ -17,7 +17,17 @@ import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
 import { toast } from "sonner";
-import { Loader2, CheckCircle2, XCircle, Search, QrCode, LogOut, RefreshCw, Wifi, WifiOff } from "lucide-react";
+import {
+  Loader2,
+  CheckCircle2,
+  XCircle,
+  Search,
+  QrCode,
+  LogOut,
+  RefreshCw,
+  Wifi,
+  WifiOff,
+} from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/ringkasan-whatsapp")({
   component: RingkasanWhatsappPage,
@@ -38,7 +48,11 @@ function RingkasanWhatsappPage() {
   const queryClient = useQueryClient();
 
   // Query untuk memantau status WhatsApp Gateway lokal
-  const { data: gatewayStatus, isLoading: isLoadingGateway, refetch: refetchGateway } = useQuery({
+  const {
+    data: gatewayStatus,
+    isLoading: isLoadingGateway,
+    refetch: refetchGateway,
+  } = useQuery({
     queryKey: ["whatsapp_gateway_status"],
     queryFn: async () => {
       try {
@@ -137,7 +151,8 @@ function RingkasanWhatsappPage() {
               ) : (
                 runs?.map((run) => {
                   const totalItems = run.payroll_items?.length || 0;
-                  const sentItems = run.payroll_items?.filter((i: any) => i.slip_dibuat).length || 0;
+                  const sentItems =
+                    run.payroll_items?.filter((i: any) => i.slip_dibuat).length || 0;
                   const progressPercent =
                     totalItems === 0 ? 0 : Math.round((sentItems / totalItems) * 100);
                   const isAllSent = totalItems > 0 && sentItems === totalItems;
@@ -151,7 +166,11 @@ function RingkasanWhatsappPage() {
                       <TableCell className="text-center">
                         <Badge
                           variant={isAllSent ? "default" : "secondary"}
-                          className={isAllSent ? "bg-green-500 hover:bg-green-600 text-white animate-none" : ""}
+                          className={
+                            isAllSent
+                              ? "bg-green-500 hover:bg-green-600 text-white animate-none"
+                              : ""
+                          }
                         >
                           {sentItems} / {totalItems} Terkirim
                         </Badge>
@@ -200,15 +219,24 @@ function RingkasanWhatsappPage() {
               <div className="flex items-center justify-between border-b pb-3">
                 <span className="text-sm font-medium text-muted-foreground">Status Server:</span>
                 {gatewayStatus?.status === "connected" ? (
-                  <Badge variant="default" className="bg-green-500 hover:bg-green-600 text-white gap-1 flex items-center py-1 animate-none border-none">
+                  <Badge
+                    variant="default"
+                    className="bg-green-500 hover:bg-green-600 text-white gap-1 flex items-center py-1 animate-none border-none"
+                  >
                     <Wifi className="h-3.5 w-3.5" /> Terhubung (Online)
                   </Badge>
                 ) : gatewayStatus?.status === "connecting" ? (
-                  <Badge variant="secondary" className="bg-amber-500 hover:bg-amber-600 text-white gap-1 flex items-center py-1 animate-none border-none">
+                  <Badge
+                    variant="secondary"
+                    className="bg-amber-500 hover:bg-amber-600 text-white gap-1 flex items-center py-1 animate-none border-none"
+                  >
                     <RefreshCw className="h-3.5 w-3.5 animate-spin" /> Menghubungkan...
                   </Badge>
                 ) : gatewayStatus?.status === "disconnected" ? (
-                  <Badge variant="outline" className="text-amber-500 border-amber-500 gap-1 flex items-center py-1">
+                  <Badge
+                    variant="outline"
+                    className="text-amber-500 border-amber-500 gap-1 flex items-center py-1"
+                  >
                     <WifiOff className="h-3.5 w-3.5" /> Terputus (Offline)
                   </Badge>
                 ) : (
@@ -227,7 +255,8 @@ function RingkasanWhatsappPage() {
                   <div>
                     <h4 className="font-semibold text-sm">Gateway Siap Digunakan</h4>
                     <p className="text-xs text-muted-foreground mt-1 max-w-[240px] mx-auto">
-                      Slip gaji akan dikirim langsung secara otomatis di latar belakang menggunakan akun WhatsApp Anda.
+                      Slip gaji akan dikirim langsung secara otomatis di latar belakang menggunakan
+                      akun WhatsApp Anda.
                     </p>
                   </div>
                   <Button
@@ -245,10 +274,15 @@ function RingkasanWhatsappPage() {
                   {gatewayStatus.qr ? (
                     <div className="text-center space-y-3">
                       <p className="text-xs text-muted-foreground">
-                        Pindai QR code ini melalui menu <strong>Perangkat Tertaut</strong> di WhatsApp HP Anda:
+                        Pindai QR code ini melalui menu <strong>Perangkat Tertaut</strong> di
+                        WhatsApp HP Anda:
                       </p>
                       <div className="bg-white p-3 rounded-lg border max-w-[200px] mx-auto shadow-sm">
-                        <img src={gatewayStatus.qr} className="w-full aspect-square" alt="Scan QR Code" />
+                        <img
+                          src={gatewayStatus.qr}
+                          className="w-full aspect-square"
+                          alt="Scan QR Code"
+                        />
                       </div>
                     </div>
                   ) : (
@@ -257,10 +291,10 @@ function RingkasanWhatsappPage() {
                       <p className="text-xs text-muted-foreground">Sedang memuat QR Code...</p>
                     </div>
                   )}
-                  <Button 
-                    variant="outline" 
-                    size="sm" 
-                    onClick={() => refetchGateway()} 
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => refetchGateway()}
                     className="gap-2"
                   >
                     <RefreshCw className="h-3.5 w-3.5" /> Segarkan Status
@@ -277,14 +311,24 @@ function RingkasanWhatsappPage() {
                   <div className="bg-red-50 p-3 rounded-lg text-red-600 text-xs text-left leading-relaxed space-y-2">
                     <p className="font-semibold">Langkah Mengaktifkan Server:</p>
                     <ol className="list-decimal pl-4 space-y-1">
-                      <li>Buka folder proyek <code>D:\kreatif\branch-payflow</code></li>
-                      <li>Double-click berkas <strong><code>start_payflow.bat</code></strong></li>
-                      <li>Atau jalankan <code>npm start</code> di dalam folder <code>/backend</code> lewat terminal</li>
+                      <li>
+                        Buka folder proyek <code>D:\kreatif\branch-payflow</code>
+                      </li>
+                      <li>
+                        Double-click berkas{" "}
+                        <strong>
+                          <code>start_payflow.bat</code>
+                        </strong>
+                      </li>
+                      <li>
+                        Atau jalankan <code>npm start</code> di dalam folder <code>/backend</code>{" "}
+                        lewat terminal
+                      </li>
                     </ol>
                   </div>
-                  <Button 
-                    variant="default" 
-                    onClick={() => refetchGateway()} 
+                  <Button
+                    variant="default"
+                    onClick={() => refetchGateway()}
                     className="w-full gap-2"
                   >
                     <RefreshCw className="h-4 w-4" /> Coba Hubungkan Kembali
@@ -295,7 +339,6 @@ function RingkasanWhatsappPage() {
           </Card>
         </div>
       </div>
-
 
       {/* Modal Detail Pengiriman per Karyawan */}
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>

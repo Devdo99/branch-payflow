@@ -43,6 +43,8 @@ import {
   FileSpreadsheet,
   FileDown,
   ClipboardCheck,
+  RefreshCw,
+  CalendarSync,
 } from "lucide-react";
 import {
   STATUS_ABSEN,
@@ -253,6 +255,27 @@ function RekapAbsenPage() {
     onError: (err) => toast.error(`Gagal menghapus: ${(err as Error).message}`),
   });
 
+  // Sinkronkan status 'Cuti' otomatis dari jadwal cuti yang disetujui
+  const syncCutiMutation = useMutation({
+    mutationFn: async () => {
+      const { data, error } = await supabase.rpc("sinkron_absen_cuti", {
+        p_mulai: monthStart,
+        p_selesai: monthEnd,
+      });
+      if (error) throw error;
+      return (data as number) || 0;
+    },
+    onSuccess: (n) => {
+      queryClient.invalidateQueries({ queryKey: ["absen_list"] });
+      toast.success(`Sinkronisasi selesai — ${n} catatan cuti diperbarui di rekap absen.`);
+    },
+    onError: (err) => {
+      toast.error(
+        `Gagal sinkronisasi: ${(err as Error).message}. Pastikan migrasi sinkron_absen_cuti sudah dijalankan di database.`,
+      );
+    },
+  });
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!empId) return toast.error("Pilih karyawan terlebih dahulu.");
@@ -352,6 +375,20 @@ function RekapAbsenPage() {
         description="Rekap kehadiran, izin masuk, sakit, telat, absen, dan status resign karyawan."
         actions={
           <div className="flex flex-wrap items-center gap-2">
+            <Button
+              variant="outline"
+              className="border-sky-200 hover:bg-sky-50 hover:text-sky-700"
+              onClick={() => syncCutiMutation.mutate()}
+              disabled={syncCutiMutation.isPending}
+              title="Isi status Cuti dari jadwal cuti yang disetujui di kalender cuti"
+            >
+              {syncCutiMutation.isPending ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : (
+                <CalendarSync className="mr-2 h-4 w-4 text-sky-600" />
+              )}
+              {syncCutiMutation.isPending ? "Menyinkronkan..." : "Sinkron Cuti → Absen"}
+            </Button>
             <Button
               variant="outline"
               className="border-emerald-200 hover:bg-emerald-50 hover:text-emerald-700"
@@ -537,7 +574,7 @@ function RekapAbsenPage() {
         ))}
         <span className="ml-auto hidden text-xs text-slate-400 sm:block">
           Klik sel untuk mengubah status. Status Cuti dibuat otomatis dari jadwal cuti yang
-          disetujui, tetapi tetap bisa diedit manual.
+          disetujui (tombol "Sinkron Cuti → Absen"), tetapi tetap bisa diedit manual.
         </span>
       </div>
 

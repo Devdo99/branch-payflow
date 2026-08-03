@@ -89,7 +89,7 @@ export function formatPeriodeList(tanggalList: string[]): string {
 
 export function buildCutiApprovedMessage(
   emp: EmployeeInfo,
-  c: CutiInfo & { tanggal_list?: string[] },
+  c: CutiInfo & { tanggal_list?: string[] | null },
 ): string {
   const jenis = getJenisCuti(c.jenis).label;
   const periode = c.tanggal_list
@@ -107,7 +107,7 @@ export function buildCutiApprovedMessage(
 
 export function buildCutiRejectedMessage(
   emp: EmployeeInfo,
-  c: CutiInfo & { tanggal_list?: string[] },
+  c: CutiInfo & { tanggal_list?: string[] | null },
 ): string {
   const jenis = getJenisCuti(c.jenis).label;
   const periode = c.tanggal_list

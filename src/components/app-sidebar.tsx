@@ -20,6 +20,7 @@ import {
   CalendarDays,
   ClipboardCheck,
   ClipboardList,
+  FileBarChart2,
   UserX,
   HeartHandshake,
   ChevronRight,
@@ -84,6 +85,7 @@ const groups: SidebarGroup[] = [
     items: [],
     hrSubmenu: [
       { title: "Kalender Cuti", url: "/hr/kalender-cuti", icon: CalendarDays },
+      { title: "Rekap Cuti", url: "/hr/rekap-cuti", icon: FileBarChart2 },
       { title: "Rekap Absen", url: "/hr/rekap-absen", icon: ClipboardCheck },
       { title: "Request Cuti", url: "/hr/request-cuti", icon: ClipboardList },
       { title: "Resign Karyawan", url: "/hr/resign", icon: UserX },

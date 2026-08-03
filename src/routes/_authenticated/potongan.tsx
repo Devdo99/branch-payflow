@@ -106,9 +106,9 @@ function PotonganPage() {
 
   return (
     <>
-      <PageHeader 
-        title="Master Potongan" 
-        description="Atur logika pemotongan gaji karyawan." 
+      <PageHeader
+        title="Master Potongan"
+        description="Atur logika pemotongan gaji karyawan."
         actions={
           <Dialog
             open={isOpen}
@@ -118,7 +118,10 @@ function PotonganPage() {
             }}
           >
             <DialogTrigger asChild>
-              <Button onClick={resetForm} className="bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-white border-none rounded-xl shadow-md shadow-emerald-500/10 hover:shadow-emerald-500/20 active:scale-[0.98] transition-all cursor-pointer">
+              <Button
+                onClick={resetForm}
+                className="bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-white border-none rounded-xl shadow-md shadow-emerald-500/10 hover:shadow-emerald-500/20 active:scale-[0.98] transition-all cursor-pointer"
+              >
                 <Plus className="mr-2 h-4 w-4" /> Tambah Potongan
               </Button>
             </DialogTrigger>
@@ -131,12 +134,22 @@ function PotonganPage() {
               <form
                 onSubmit={(e) => {
                   e.preventDefault();
-                  saveMutation.mutate({ nama, nominal_default: Number(nominal) || 0, metode, aktif });
+                  saveMutation.mutate({
+                    nama,
+                    nominal_default: Number(nominal) || 0,
+                    metode,
+                    aktif,
+                  });
                 }}
                 className="space-y-4 pt-2"
               >
                 <div className="space-y-1.5">
-                  <Label htmlFor="nama" className="text-xs font-semibold uppercase tracking-wider text-slate-500">Nama Potongan</Label>
+                  <Label
+                    htmlFor="nama"
+                    className="text-xs font-semibold uppercase tracking-wider text-slate-500"
+                  >
+                    Nama Potongan
+                  </Label>
                   <Input
                     id="nama"
                     value={nama}
@@ -147,20 +160,32 @@ function PotonganPage() {
                   />
                 </div>
                 <div className="space-y-1.5">
-                  <Label htmlFor="metode" className="text-xs font-semibold uppercase tracking-wider text-slate-500">Metode Perhitungan</Label>
+                  <Label
+                    htmlFor="metode"
+                    className="text-xs font-semibold uppercase tracking-wider text-slate-500"
+                  >
+                    Metode Perhitungan
+                  </Label>
                   <Select value={metode} onValueChange={setMetode}>
                     <SelectTrigger id="metode" className="h-10 border-slate-200 rounded-xl">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="fixed">Tetap (Otomatis memotong tiap bulan)</SelectItem>
-                      <SelectItem value="per_day">Harian (Muncul Form "Jumlah Hari/Kali")</SelectItem>
+                      <SelectItem value="per_day">
+                        Harian (Muncul Form "Jumlah Hari/Kali")
+                      </SelectItem>
                       <SelectItem value="manual">Manual (Muncul Form "Nominal Rupiah")</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
                 <div className="space-y-1.5">
-                  <Label htmlFor="nominal" className="text-xs font-semibold uppercase tracking-wider text-slate-500">Nominal Default (Rp)</Label>
+                  <Label
+                    htmlFor="nominal"
+                    className="text-xs font-semibold uppercase tracking-wider text-slate-500"
+                  >
+                    Nominal Default (Rp)
+                  </Label>
                   <Input
                     id="nominal"
                     type="number"
@@ -171,7 +196,8 @@ function PotonganPage() {
                   />
                   {metode === "per_day" && (
                     <p className="text-[10px] text-slate-500 leading-tight">
-                      Untuk potongan harian, isi 0 agar sistem menghitung gaji pokok / 30 x jumlah hari/kali.
+                      Untuk potongan harian, isi 0 agar sistem menghitung gaji pokok / 30 x jumlah
+                      hari/kali.
                     </p>
                   )}
                 </div>
@@ -179,9 +205,9 @@ function PotonganPage() {
                   <Label className="text-sm font-semibold">Status Aktif</Label>
                   <Switch checked={aktif} onCheckedChange={setAktif} />
                 </div>
-                <Button 
-                  type="submit" 
-                  className="w-full h-10 mt-2 bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-white rounded-xl shadow-md border-none font-semibold active:scale-[0.98] transition-all cursor-pointer" 
+                <Button
+                  type="submit"
+                  className="w-full h-10 mt-2 bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-white rounded-xl shadow-md border-none font-semibold active:scale-[0.98] transition-all cursor-pointer"
                   disabled={saveMutation.isPending}
                 >
                   {saveMutation.isPending ? (
@@ -201,11 +227,21 @@ function PotonganPage() {
           <Table>
             <TableHeader>
               <TableRow className="bg-slate-50/80 dark:bg-slate-900/60 hover:bg-transparent">
-                <TableHead className="font-semibold text-slate-900 dark:text-slate-100">Nama Potongan</TableHead>
-                <TableHead className="font-semibold text-slate-900 dark:text-slate-100">Metode Perhitungan</TableHead>
-                <TableHead className="text-right font-semibold text-slate-900 dark:text-slate-100">Nominal Default</TableHead>
-                <TableHead className="text-center font-semibold text-slate-900 dark:text-slate-100">Status</TableHead>
-                <TableHead className="text-right font-semibold text-slate-900 dark:text-slate-100">Aksi</TableHead>
+                <TableHead className="font-semibold text-slate-900 dark:text-slate-100">
+                  Nama Potongan
+                </TableHead>
+                <TableHead className="font-semibold text-slate-900 dark:text-slate-100">
+                  Metode Perhitungan
+                </TableHead>
+                <TableHead className="text-right font-semibold text-slate-900 dark:text-slate-100">
+                  Nominal Default
+                </TableHead>
+                <TableHead className="text-center font-semibold text-slate-900 dark:text-slate-100">
+                  Status
+                </TableHead>
+                <TableHead className="text-right font-semibold text-slate-900 dark:text-slate-100">
+                  Aksi
+                </TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -223,8 +259,13 @@ function PotonganPage() {
                 </TableRow>
               ) : (
                 deductions?.map((item) => (
-                  <TableRow key={item.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-900/50 transition-colors">
-                    <TableCell className="font-semibold text-slate-900 dark:text-slate-100">{item.nama}</TableCell>
+                  <TableRow
+                    key={item.id}
+                    className="hover:bg-slate-50/50 dark:hover:bg-slate-900/50 transition-colors"
+                  >
+                    <TableCell className="font-semibold text-slate-900 dark:text-slate-100">
+                      {item.nama}
+                    </TableCell>
                     <TableCell>
                       <Badge className="bg-slate-100 hover:bg-slate-200 text-slate-600 dark:bg-slate-800 dark:text-slate-300 rounded-lg shadow-sm border border-slate-200/50 py-1 px-2.5">
                         {item.metode === "fixed"
@@ -253,9 +294,9 @@ function PotonganPage() {
                     </TableCell>
                     <TableCell className="text-right">
                       <div className="inline-flex gap-1">
-                        <Button 
-                          variant="ghost" 
-                          size="icon" 
+                        <Button
+                          variant="ghost"
+                          size="icon"
                           className="h-8 w-8 hover:bg-emerald-500/10 hover:text-emerald-600 dark:hover:text-emerald-400 rounded-lg transition-colors"
                           onClick={() => handleEdit(item)}
                         >

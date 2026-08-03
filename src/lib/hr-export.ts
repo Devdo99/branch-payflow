@@ -121,11 +121,7 @@ export function downloadPDFTable(
   // Footer
   pdf.setFontSize(8);
   pdf.setTextColor(muted[0], muted[1], muted[2]);
-  pdf.text(
-    "Dokumen ini dibuat otomatis dari sistem PayFlow HR.",
-    margin,
-    pageHeight - 8,
-  );
+  pdf.text("Dokumen ini dibuat otomatis dari sistem PayFlow HR.", margin, pageHeight - 8);
   pdf.text(
     new Date().toLocaleDateString("id-ID", { day: "numeric", month: "long", year: "numeric" }),
     pageWidth - margin,

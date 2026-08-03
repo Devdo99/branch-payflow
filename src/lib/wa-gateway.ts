@@ -76,3 +76,29 @@ export async function sendWaMessageToJid(jid: string, message: string): Promise<
     };
   }
 }
+
+/**
+ * Kirim GAMBAR (data URL base64 PNG/JPEG) dengan caption ke JID WhatsApp penuh
+ * (grup …@g.us) atau nomor HP Indonesia (08xx / 628xx) — backend yang menormalkan.
+ */
+export async function sendWaImageToJid(
+  jid: string,
+  caption: string,
+  imageDataUrl: string,
+): Promise<SendWaResult> {
+  try {
+    const res = await fetch(`${GATEWAY_URL}/api/send-message`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ phone: jid, message: caption, image: imageDataUrl }),
+    });
+    const data = await res.json();
+    if (res.ok && data.success) return { ok: true };
+    return { ok: false, error: data.error || "Gagal mengirim gambar." };
+  } catch (err) {
+    return {
+      ok: false,
+      error: (err as Error).message || "Server gateway WhatsApp tidak dapat dijangkau.",
+    };
+  }
+}

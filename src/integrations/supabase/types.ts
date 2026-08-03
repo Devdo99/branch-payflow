@@ -766,6 +766,13 @@ export type Database = {
         };
         Returns: { tanggal: string; kuota: number; terpakai: number }[];
       };
+      sinkron_absen_cuti: {
+        Args: {
+          p_mulai?: string | null;
+          p_selesai?: string | null;
+        };
+        Returns: number;
+      };
     };
     Enums: {
       bank_status: "valid" | "belum_dicek" | "perlu_dicek_ulang";

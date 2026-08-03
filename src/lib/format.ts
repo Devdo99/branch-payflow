@@ -49,4 +49,3 @@ export function parseNumberDots(value: string): number {
   const num = parseInt(cleanValue, 10);
   return isNaN(num) ? 0 : num;
 }
-

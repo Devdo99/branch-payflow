@@ -55,7 +55,7 @@ import {
   Pause,
   Wallet,
   Sparkles,
-  Plus
+  Plus,
 } from "lucide-react";
 import html2canvas from "html2canvas";
 import { jsPDF } from "jspdf";
@@ -689,7 +689,8 @@ function SlipGajiPage() {
 
   // State for template live customizer
   const [isTemplateDialogOpen, setIsTemplateDialogOpen] = useState(false);
-  const [tempTemplateConfig, setTempTemplateConfig] = useState<SlipTemplateConfig>(defaultSlipTemplateConfig);
+  const [tempTemplateConfig, setTempTemplateConfig] =
+    useState<SlipTemplateConfig>(defaultSlipTemplateConfig);
   const [tempNamaPerusahaan, setTempNamaPerusahaan] = useState("");
   const [tempAlamat, setTempAlamat] = useState("");
   const [tempFooterSlip, setTempFooterSlip] = useState("");
@@ -901,7 +902,10 @@ function SlipGajiPage() {
     const totalItems = filteredPayrollItems.length;
     const sentCount = filteredPayrollItems.filter((item) => item.slip_dibuat).length;
     const pendingCount = totalItems - sentCount;
-    const totalNetPay = filteredPayrollItems.reduce((acc, item) => acc + toNumber(item.gaji_bersih), 0);
+    const totalNetPay = filteredPayrollItems.reduce(
+      (acc, item) => acc + toNumber(item.gaji_bersih),
+      0,
+    );
     const sentPercentage = totalItems > 0 ? Math.round((sentCount / totalItems) * 100) : 0;
 
     return {
@@ -934,19 +938,47 @@ function SlipGajiPage() {
         branches: { nama: "Cabang Utama" },
         nama_bank: "BCA",
         nomor_rekening: "1234567890",
-        whatsapp: "628123456789"
+        whatsapp: "628123456789",
       },
       payroll_runs: {
-        periode: "2026-08"
+        periode: "2026-08",
       },
       payroll_item_allowances: [
-        { id: "1", nama: "Tunjangan Makan", subtotal: 500000, qty: 1, nominal: 500000, metode: "fixed" },
-        { id: "2", nama: "Tunjangan Transport", subtotal: 250000, qty: 1, nominal: 250000, metode: "fixed" }
+        {
+          id: "1",
+          nama: "Tunjangan Makan",
+          subtotal: 500000,
+          qty: 1,
+          nominal: 500000,
+          metode: "fixed",
+        },
+        {
+          id: "2",
+          nama: "Tunjangan Transport",
+          subtotal: 250000,
+          qty: 1,
+          nominal: 250000,
+          metode: "fixed",
+        },
       ],
       payroll_item_deductions: [
-        { id: "3", nama: "Potongan Keterlambatan", subtotal: 100000, qty: 2, nominal: 50000, metode: "fixed" },
-        { id: "4", nama: "BPJS Kesehatan", subtotal: 50000, qty: 1, nominal: 50000, metode: "fixed" }
-      ]
+        {
+          id: "3",
+          nama: "Potongan Keterlambatan",
+          subtotal: 100000,
+          qty: 2,
+          nominal: 50000,
+          metode: "fixed",
+        },
+        {
+          id: "4",
+          nama: "BPJS Kesehatan",
+          subtotal: 50000,
+          qty: 1,
+          nominal: 50000,
+          metode: "fixed",
+        },
+      ],
     } as SlipItem;
   }, [filteredPayrollItems, payrollItems]);
 
@@ -970,34 +1002,34 @@ function SlipGajiPage() {
   const recalculateSlipTotals = (slip: SlipItem): SlipItem => {
     const allowances = slip.payroll_item_allowances || [];
     const deductions = slip.payroll_item_deductions || [];
-    
-    const updatedAllowances = allowances.map(alw => ({
+
+    const updatedAllowances = allowances.map((alw) => ({
       ...alw,
-      subtotal: Number(alw.qty ?? 1) * Number(alw.nominal ?? 0)
+      subtotal: Number(alw.qty ?? 1) * Number(alw.nominal ?? 0),
     }));
-    
-    const updatedDeductions = deductions.map(ded => ({
+
+    const updatedDeductions = deductions.map((ded) => ({
       ...ded,
-      subtotal: Number(ded.qty ?? 1) * Number(ded.nominal ?? 0)
+      subtotal: Number(ded.qty ?? 1) * Number(ded.nominal ?? 0),
     }));
-    
+
     const total_tunjangan = updatedAllowances.reduce((acc, alw) => acc + (alw.subtotal ?? 0), 0);
     const total_potongan = updatedDeductions.reduce((acc, ded) => acc + (ded.subtotal ?? 0), 0);
     const gaji_pokok = Number(slip.gaji_pokok ?? 0);
     const gaji_bersih = gaji_pokok + total_tunjangan - total_potongan;
-    
+
     return {
       ...slip,
       payroll_item_allowances: updatedAllowances,
       payroll_item_deductions: updatedDeductions,
       total_tunjangan,
       total_potongan,
-      gaji_bersih
+      gaji_bersih,
     };
   };
 
   const handleAllowanceChange = (index: number, field: "nama" | "qty" | "nominal", val: any) => {
-    setEditingSlip(prev => {
+    setEditingSlip((prev) => {
       if (!prev) return null;
       const allowances = [...(prev.payroll_item_allowances || [])];
       allowances[index] = { ...allowances[index], [field]: val };
@@ -1006,7 +1038,7 @@ function SlipGajiPage() {
   };
 
   const handleDeductionChange = (index: number, field: "nama" | "qty" | "nominal", val: any) => {
-    setEditingSlip(prev => {
+    setEditingSlip((prev) => {
       if (!prev) return null;
       const deductions = [...(prev.payroll_item_deductions || [])];
       deductions[index] = { ...deductions[index], [field]: val };
@@ -1015,7 +1047,7 @@ function SlipGajiPage() {
   };
 
   const handleAddAllowanceEdit = () => {
-    setEditingSlip(prev => {
+    setEditingSlip((prev) => {
       if (!prev) return null;
       const allowances = [
         ...(prev.payroll_item_allowances || []),
@@ -1025,15 +1057,15 @@ function SlipGajiPage() {
           nama: "Tunjangan Baru",
           qty: 1,
           nominal: 0,
-          subtotal: 0
-        }
+          subtotal: 0,
+        },
       ];
       return recalculateSlipTotals({ ...prev, payroll_item_allowances: allowances });
     });
   };
 
   const handleAddDeductionEdit = () => {
-    setEditingSlip(prev => {
+    setEditingSlip((prev) => {
       if (!prev) return null;
       const deductions = [
         ...(prev.payroll_item_deductions || []),
@@ -1043,15 +1075,15 @@ function SlipGajiPage() {
           nama: "Potongan Baru",
           qty: 1,
           nominal: 0,
-          subtotal: 0
-        }
+          subtotal: 0,
+        },
       ];
       return recalculateSlipTotals({ ...prev, payroll_item_deductions: deductions });
     });
   };
 
   const handleRemoveAllowanceEdit = (index: number) => {
-    setEditingSlip(prev => {
+    setEditingSlip((prev) => {
       if (!prev) return null;
       const allowances = (prev.payroll_item_allowances || []).filter((_, idx) => idx !== index);
       return recalculateSlipTotals({ ...prev, payroll_item_allowances: allowances });
@@ -1059,7 +1091,7 @@ function SlipGajiPage() {
   };
 
   const handleRemoveDeductionEdit = (index: number) => {
-    setEditingSlip(prev => {
+    setEditingSlip((prev) => {
       if (!prev) return null;
       const deductions = (prev.payroll_item_deductions || []).filter((_, idx) => idx !== index);
       return recalculateSlipTotals({ ...prev, payroll_item_deductions: deductions });
@@ -1068,38 +1100,41 @@ function SlipGajiPage() {
 
   const handleSaveEdit = async () => {
     if (!editingSlip || !originalSlip) return;
-    
+
     setIsSavingEdit(true);
     try {
       const originalAllowanceIds = (originalSlip.payroll_item_allowances || [])
-        .map(a => a.id)
+        .map((a) => a.id)
         .filter((id): id is string => !!id && !id.startsWith("new-"));
-      const currentAllowanceIds = (editingSlip.payroll_item_allowances || [])
-        .map(a => a.id);
-      const deletedAllowanceIds = originalAllowanceIds.filter(id => !currentAllowanceIds.includes(id));
-      
+      const currentAllowanceIds = (editingSlip.payroll_item_allowances || []).map((a) => a.id);
+      const deletedAllowanceIds = originalAllowanceIds.filter(
+        (id) => !currentAllowanceIds.includes(id),
+      );
+
       const originalDeductionIds = (originalSlip.payroll_item_deductions || [])
-        .map(d => d.id)
+        .map((d) => d.id)
         .filter((id): id is string => !!id && !id.startsWith("new-"));
-      const currentDeductionIds = (editingSlip.payroll_item_deductions || [])
-        .map(d => d.id);
-      const deletedDeductionIds = originalDeductionIds.filter(id => !currentDeductionIds.includes(id));
-      
+      const currentDeductionIds = (editingSlip.payroll_item_deductions || []).map((d) => d.id);
+      const deletedDeductionIds = originalDeductionIds.filter(
+        (id) => !currentDeductionIds.includes(id),
+      );
+
       const promises = [];
-      
+
       if (deletedAllowanceIds.length > 0) {
         promises.push(
-          supabase.from("payroll_item_allowances").delete().in("id", deletedAllowanceIds)
+          supabase.from("payroll_item_allowances").delete().in("id", deletedAllowanceIds),
         );
       }
       if (deletedDeductionIds.length > 0) {
         promises.push(
-          supabase.from("payroll_item_deductions").delete().in("id", deletedDeductionIds)
+          supabase.from("payroll_item_deductions").delete().in("id", deletedDeductionIds),
         );
       }
-      
-      const allowancesToUpsert = (editingSlip.payroll_item_allowances || []).map(alw => {
-        const { id, payroll_item_id, allowance_type_id, nama, metode, qty, nominal, subtotal } = alw as any;
+
+      const allowancesToUpsert = (editingSlip.payroll_item_allowances || []).map((alw) => {
+        const { id, payroll_item_id, allowance_type_id, nama, metode, qty, nominal, subtotal } =
+          alw as any;
         const isNew = !id || id.startsWith("new-");
         return {
           ...(isNew ? {} : { id }),
@@ -1109,18 +1144,17 @@ function SlipGajiPage() {
           metode: metode || "manual",
           qty: Number(qty || 0),
           nominal: Number(nominal || 0),
-          subtotal: Number(subtotal || 0)
+          subtotal: Number(subtotal || 0),
         };
       });
-      
+
       if (allowancesToUpsert.length > 0) {
-        promises.push(
-          supabase.from("payroll_item_allowances").upsert(allowancesToUpsert)
-        );
+        promises.push(supabase.from("payroll_item_allowances").upsert(allowancesToUpsert));
       }
-      
-      const deductionsToUpsert = (editingSlip.payroll_item_deductions || []).map(ded => {
-        const { id, payroll_item_id, deduction_type_id, nama, metode, qty, nominal, subtotal } = ded as any;
+
+      const deductionsToUpsert = (editingSlip.payroll_item_deductions || []).map((ded) => {
+        const { id, payroll_item_id, deduction_type_id, nama, metode, qty, nominal, subtotal } =
+          ded as any;
         const isNew = !id || id.startsWith("new-");
         return {
           ...(isNew ? {} : { id }),
@@ -1130,16 +1164,14 @@ function SlipGajiPage() {
           metode: metode || "manual",
           qty: Number(qty || 0),
           nominal: Number(nominal || 0),
-          subtotal: Number(subtotal || 0)
+          subtotal: Number(subtotal || 0),
         };
       });
-      
+
       if (deductionsToUpsert.length > 0) {
-        promises.push(
-          supabase.from("payroll_item_deductions").upsert(deductionsToUpsert)
-        );
+        promises.push(supabase.from("payroll_item_deductions").upsert(deductionsToUpsert));
       }
-      
+
       promises.push(
         supabase
           .from("payroll_items")
@@ -1147,19 +1179,19 @@ function SlipGajiPage() {
             gaji_pokok: Number(editingSlip.gaji_pokok || 0),
             total_tunjangan: Number(editingSlip.total_tunjangan || 0),
             total_potongan: Number(editingSlip.total_potongan || 0),
-            gaji_bersih: Number(editingSlip.gaji_bersih || 0)
+            gaji_bersih: Number(editingSlip.gaji_bersih || 0),
           })
-          .eq("id", editingSlip.id)
+          .eq("id", editingSlip.id),
       );
-      
+
       const results = await Promise.all(promises);
-      
+
       for (const res of results) {
         if (res.error) {
           throw res.error;
         }
       }
-      
+
       toast.success("Rincian payroll berhasil diperbarui!");
       queryClient.invalidateQueries({ queryKey: ["payroll_items"] });
       setIsEditOpen(false);
@@ -1214,7 +1246,7 @@ function SlipGajiPage() {
       return toast.error("Pilih minimal satu slip gaji untuk dihapus.");
     }
     const confirmation = window.confirm(
-      `Apakah Anda yakin ingin menghapus ${selectedSlipIds.length} slip gaji terpilih?`
+      `Apakah Anda yakin ingin menghapus ${selectedSlipIds.length} slip gaji terpilih?`,
     );
     if (!confirmation) return;
 
@@ -1226,7 +1258,8 @@ function SlipGajiPage() {
     [filteredPayrollItems],
   );
 
-  const isAllSelected = selectedSlipIds.length > 0 && selectedSlipIds.length === allFilteredSlipIds.length;
+  const isAllSelected =
+    selectedSlipIds.length > 0 && selectedSlipIds.length === allFilteredSlipIds.length;
 
   useEffect(() => {
     setSelectedSlipIds((prev) => prev.filter((id) => allFilteredSlipIds.includes(id)));
@@ -1377,7 +1410,8 @@ function SlipGajiPage() {
 
         const resData = await response.json();
         if (response.ok && resData.success) {
-          if (!skipLoadingState) toast.success(`Slip gaji teks berhasil dikirim langsung ke ${slip.employees?.nama}`);
+          if (!skipLoadingState)
+            toast.success(`Slip gaji teks berhasil dikirim langsung ke ${slip.employees?.nama}`);
           await updateSlipStatusMutation.mutateAsync(slip.id);
         } else {
           throw new Error(resData.error || "Gagal mengirim pesan");
@@ -1462,7 +1496,8 @@ function SlipGajiPage() {
 
         const resData = await response.json();
         if (response.ok && resData.success) {
-          if (!skipLoadingState) toast.success(`Slip gaji gambar berhasil dikirim langsung ke ${slip.employees?.nama}`);
+          if (!skipLoadingState)
+            toast.success(`Slip gaji gambar berhasil dikirim langsung ke ${slip.employees?.nama}`);
           await updateSlipStatusMutation.mutateAsync(slip.id);
         } else {
           throw new Error(resData.error || "Gagal mengirim pesan gambar");
@@ -1472,7 +1507,8 @@ function SlipGajiPage() {
         downloadDataUrl(dataUrl, getSlipFileName(slip, "jpg"));
 
         const manualMsg =
-          msg + "\n\n" +
+          msg +
+          "\n\n" +
           `File JPG slip gaji sudah terunduh dari sistem. Silakan lampirkan gambar slip gaji tersebut di chat ini.`;
 
         const waUrl = getWhatsappUrl(phone, manualMsg);
@@ -1487,7 +1523,8 @@ function SlipGajiPage() {
           }
         }
 
-        if (!skipLoadingState) toast.success(`JPG diunduh dan WhatsApp dibuka ke nomor ${normalizedPhone}`);
+        if (!skipLoadingState)
+          toast.success(`JPG diunduh dan WhatsApp dibuka ke nomor ${normalizedPhone}`);
         await updateSlipStatusMutation.mutateAsync(slip.id);
       }
     } catch (error: any) {
@@ -1516,14 +1553,12 @@ function SlipGajiPage() {
 
     if (gatewayStatus?.status !== "connected" && (type === "wa-txt" || type === "wa-img")) {
       const confirm = window.confirm(
-        "WhatsApp Gateway lokal belum terhubung. Pengiriman massal akan membuka tab browser WhatsApp Web satu per satu untuk setiap karyawan. Apakah Anda yakin ingin melanjutkan?"
+        "WhatsApp Gateway lokal belum terhubung. Pengiriman massal akan membuka tab browser WhatsApp Web satu per satu untuk setiap karyawan. Apakah Anda yakin ingin melanjutkan?",
       );
       if (!confirm) return;
     }
 
-    const itemsToProcess = filteredPayrollItems.filter((slip) =>
-      selectedSlipIds.includes(slip.id)
-    );
+    const itemsToProcess = filteredPayrollItems.filter((slip) => selectedSlipIds.includes(slip.id));
 
     setBulkProcess({
       active: true,
@@ -1602,7 +1637,7 @@ function SlipGajiPage() {
     if (bulkProcess.active && !bulkProcess.isPaused) {
       const nextPendingIndex = bulkProcess.results.findIndex((r) => r.status === "pending");
       const isCurrentlyProcessing = bulkProcess.results.some((r) => r.status === "processing");
-      
+
       if (nextPendingIndex !== -1 && !isCurrentlyProcessing) {
         runBulkProcess();
       }
@@ -1616,7 +1651,7 @@ function SlipGajiPage() {
       items: [],
       currentIndex: 0,
       results: [],
-      isPaused: false
+      isPaused: false,
     });
     queryClient.invalidateQueries({ queryKey: ["payroll_items"] });
   };
@@ -1675,7 +1710,7 @@ function SlipGajiPage() {
     onError: (error) => {
       console.error("Gagal menyimpan template:", error);
       toast.error("Gagal menyimpan desain template slip gaji");
-    }
+    },
   });
 
   const selectedBranchName =
@@ -1692,12 +1727,18 @@ function SlipGajiPage() {
         actions={
           <div className="flex items-center gap-2">
             {gatewayStatus?.status === "connected" ? (
-              <Badge variant="default" className="bg-emerald-500 hover:bg-emerald-600 text-white gap-1.5 flex items-center text-xs py-1 px-3 border-none shadow-sm font-semibold tracking-wide">
+              <Badge
+                variant="default"
+                className="bg-emerald-500 hover:bg-emerald-600 text-white gap-1.5 flex items-center text-xs py-1 px-3 border-none shadow-sm font-semibold tracking-wide"
+              >
                 <span className="w-2 h-2 rounded-full bg-white animate-pulse" />
                 Direct WA Active
               </Badge>
             ) : (
-              <Badge variant="outline" className="text-slate-500 border-slate-200 gap-1.5 flex items-center text-xs py-1 px-3 bg-slate-50/50 font-semibold tracking-wide">
+              <Badge
+                variant="outline"
+                className="text-slate-500 border-slate-200 gap-1.5 flex items-center text-xs py-1 px-3 bg-slate-50/50 font-semibold tracking-wide"
+              >
                 <span className="w-2 h-2 rounded-full bg-slate-300" />
                 Redirect WA Mode
               </Badge>
@@ -1714,9 +1755,13 @@ function SlipGajiPage() {
               <Wallet className="h-6 w-6" />
             </div>
             <div className="space-y-1">
-              <p className="text-xs text-slate-500 font-semibold uppercase tracking-wider">Total Gaji Bersih</p>
+              <p className="text-xs text-slate-500 font-semibold uppercase tracking-wider">
+                Total Gaji Bersih
+              </p>
               <h3 className="text-lg font-bold text-slate-800">{formatIDR(stats.totalNetPay)}</h3>
-              <p className="text-[10px] text-slate-400 font-medium">{stats.totalItems} Karyawan Terfilter</p>
+              <p className="text-[10px] text-slate-400 font-medium">
+                {stats.totalItems} Karyawan Terfilter
+              </p>
             </div>
           </div>
 
@@ -1725,7 +1770,9 @@ function SlipGajiPage() {
               <Users className="h-6 w-6" />
             </div>
             <div className="space-y-1">
-              <p className="text-xs text-slate-500 font-semibold uppercase tracking-wider">Jumlah Slip Gaji</p>
+              <p className="text-xs text-slate-500 font-semibold uppercase tracking-wider">
+                Jumlah Slip Gaji
+              </p>
               <h3 className="text-lg font-bold text-slate-800">{stats.totalItems}</h3>
               <p className="text-[10px] text-slate-400 font-medium">Slip aktif periode ini</p>
             </div>
@@ -1737,12 +1784,19 @@ function SlipGajiPage() {
             </div>
             <div className="space-y-1 flex-1">
               <div className="flex items-center justify-between">
-                <p className="text-xs text-slate-500 font-semibold uppercase tracking-wider">Slip Terkirim</p>
-                <span className="text-[10px] font-bold text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded-full">{stats.sentPercentage}%</span>
+                <p className="text-xs text-slate-500 font-semibold uppercase tracking-wider">
+                  Slip Terkirim
+                </p>
+                <span className="text-[10px] font-bold text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded-full">
+                  {stats.sentPercentage}%
+                </span>
               </div>
               <h3 className="text-lg font-bold text-slate-800">{stats.sentCount}</h3>
               <div className="h-1.5 w-full bg-slate-100 rounded-full overflow-hidden mt-1">
-                <div className="h-full bg-emerald-500 rounded-full" style={{ width: `${stats.sentPercentage}%` }} />
+                <div
+                  className="h-full bg-emerald-500 rounded-full"
+                  style={{ width: `${stats.sentPercentage}%` }}
+                />
               </div>
             </div>
           </div>
@@ -1752,9 +1806,13 @@ function SlipGajiPage() {
               <Clock className="h-6 w-6" />
             </div>
             <div className="space-y-1">
-              <p className="text-xs text-slate-500 font-semibold uppercase tracking-wider">Belum Terkirim</p>
+              <p className="text-xs text-slate-500 font-semibold uppercase tracking-wider">
+                Belum Terkirim
+              </p>
               <h3 className="text-lg font-bold text-slate-800">{stats.pendingCount}</h3>
-              <p className="text-[10px] text-amber-600 font-semibold bg-amber-50 rounded-full px-2 py-0.5 inline-block">Butuh Tindakan</p>
+              <p className="text-[10px] text-amber-600 font-semibold bg-amber-50 rounded-full px-2 py-0.5 inline-block">
+                Butuh Tindakan
+              </p>
             </div>
           </div>
         </div>
@@ -1784,10 +1842,7 @@ function SlipGajiPage() {
 
               <div className="space-y-1.5">
                 <Label className="text-xs text-slate-500 font-semibold uppercase">Bulan</Label>
-                <Select
-                  value={selectedMonth}
-                  onValueChange={setSelectedMonth}
-                >
+                <Select value={selectedMonth} onValueChange={setSelectedMonth}>
                   <SelectTrigger className="w-[140px] h-9 bg-white border border-slate-200 shadow-sm focus:ring-0 text-sm font-semibold text-slate-700">
                     <SelectValue placeholder="Pilih Bulan" />
                   </SelectTrigger>
@@ -1822,7 +1877,9 @@ function SlipGajiPage() {
               </div>
 
               <div className="space-y-1.5">
-                <Label className="text-xs text-slate-500 font-semibold uppercase">Cari Karyawan</Label>
+                <Label className="text-xs text-slate-500 font-semibold uppercase">
+                  Cari Karyawan
+                </Label>
                 <div className="relative w-full sm:w-56">
                   <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-450" />
                   <Input
@@ -1849,21 +1906,43 @@ function SlipGajiPage() {
           </div>
 
           <div className="border-t border-slate-200/60 pt-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <Tabs value={statusTab} onValueChange={(val) => setStatusTab(val as any)} className="w-full sm:w-auto">
+            <Tabs
+              value={statusTab}
+              onValueChange={(val) => setStatusTab(val as any)}
+              className="w-full sm:w-auto"
+            >
               <TabsList className="bg-slate-200/50 p-0.5 border border-slate-200/50 rounded-lg">
-                <TabsTrigger value="all" className="rounded-md text-xs py-1 px-3 data-[state=active]:bg-white data-[state=active]:shadow-sm text-slate-650 font-semibold">Semua</TabsTrigger>
-                <TabsTrigger value="pending" className="rounded-md text-xs py-1 px-3 data-[state=active]:bg-white data-[state=active]:shadow-sm text-slate-650 font-semibold">Belum Terkirim</TabsTrigger>
-                <TabsTrigger value="sent" className="rounded-md text-xs py-1 px-3 data-[state=active]:bg-white data-[state=active]:shadow-sm text-slate-650 font-semibold">Terkirim</TabsTrigger>
+                <TabsTrigger
+                  value="all"
+                  className="rounded-md text-xs py-1 px-3 data-[state=active]:bg-white data-[state=active]:shadow-sm text-slate-650 font-semibold"
+                >
+                  Semua
+                </TabsTrigger>
+                <TabsTrigger
+                  value="pending"
+                  className="rounded-md text-xs py-1 px-3 data-[state=active]:bg-white data-[state=active]:shadow-sm text-slate-650 font-semibold"
+                >
+                  Belum Terkirim
+                </TabsTrigger>
+                <TabsTrigger
+                  value="sent"
+                  className="rounded-md text-xs py-1 px-3 data-[state=active]:bg-white data-[state=active]:shadow-sm text-slate-650 font-semibold"
+                >
+                  Terkirim
+                </TabsTrigger>
               </TabsList>
             </Tabs>
 
             <div className="flex items-center gap-2 self-end sm:self-center">
               {selectedSlipIds.length > 0 && (
                 <div className="flex items-center gap-2 bg-indigo-50 border border-indigo-100 rounded-lg px-3 py-1.5 animate-in fade-in-50 slide-in-from-bottom-1">
-                  <Badge variant="secondary" className="h-6 text-[10px] font-bold tracking-wider bg-indigo-100 text-indigo-700">
+                  <Badge
+                    variant="secondary"
+                    className="h-6 text-[10px] font-bold tracking-wider bg-indigo-100 text-indigo-700"
+                  >
                     {selectedSlipIds.length} TERPILIH
                   </Badge>
-                  
+
                   <div className="w-px h-5 bg-indigo-200/60" />
 
                   <DropdownMenu>
@@ -1878,7 +1957,10 @@ function SlipGajiPage() {
                         Kirim WA
                       </Button>
                     </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end" className="w-52 rounded-xl p-1.5 border-slate-200">
+                    <DropdownMenuContent
+                      align="end"
+                      className="w-52 rounded-xl p-1.5 border-slate-200"
+                    >
                       <DropdownMenuItem
                         onClick={() => startBulkProcess("wa-txt")}
                         className="gap-2 text-xs font-semibold text-slate-700 cursor-pointer rounded-lg py-2"
@@ -1908,7 +1990,10 @@ function SlipGajiPage() {
                         Unduh
                       </Button>
                     </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end" className="w-52 rounded-xl p-1.5 border-slate-200">
+                    <DropdownMenuContent
+                      align="end"
+                      className="w-52 rounded-xl p-1.5 border-slate-200"
+                    >
                       <DropdownMenuItem
                         onClick={() => startBulkProcess("pdf")}
                         className="gap-2 text-xs font-semibold text-slate-700 cursor-pointer rounded-lg py-2"
@@ -1998,7 +2083,10 @@ function SlipGajiPage() {
 
               {isError && !isLoading && (
                 <TableRow>
-                  <TableCell colSpan={7} className="h-24 text-center text-red-500 font-semibold text-sm">
+                  <TableCell
+                    colSpan={7}
+                    className="h-24 text-center text-red-500 font-semibold text-sm"
+                  >
                     Gagal memuat data slip gaji.
                   </TableCell>
                 </TableRow>
@@ -2006,7 +2094,10 @@ function SlipGajiPage() {
 
               {!isLoading && !isError && filteredPayrollItems.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={7} className="h-24 text-center text-slate-450 font-semibold text-sm">
+                  <TableCell
+                    colSpan={7}
+                    className="h-24 text-center text-slate-450 font-semibold text-sm"
+                  >
                     {payrollItems.length === 0
                       ? "Belum ada data slip gaji."
                       : "Tidak ada slip gaji untuk filter yang dipilih. Coba cari nama lain atau ubah filter."}
@@ -2048,12 +2139,18 @@ function SlipGajiPage() {
 
                       <TableCell className="py-3.5 px-4 text-sm">
                         {slip.slip_dibuat ? (
-                          <Badge variant="secondary" className="bg-emerald-50 hover:bg-emerald-50 text-emerald-700 border-emerald-250/50 font-bold gap-1 py-0.5 px-2 text-[11px] border">
+                          <Badge
+                            variant="secondary"
+                            className="bg-emerald-50 hover:bg-emerald-50 text-emerald-700 border-emerald-250/50 font-bold gap-1 py-0.5 px-2 text-[11px] border"
+                          >
                             <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
                             Terkirim
                           </Badge>
                         ) : (
-                          <Badge variant="secondary" className="bg-amber-55/60 hover:bg-amber-55/60 text-amber-700 border-amber-250/50 font-bold gap-1 py-0.5 px-2 text-[11px] border">
+                          <Badge
+                            variant="secondary"
+                            className="bg-amber-55/60 hover:bg-amber-55/60 text-amber-700 border-amber-250/50 font-bold gap-1 py-0.5 px-2 text-[11px] border"
+                          >
                             <span className="w-1.5 h-1.5 rounded-full bg-amber-400" />
                             Belum Terkirim
                           </Badge>
@@ -2091,7 +2188,10 @@ function SlipGajiPage() {
                                 )}
                               </Button>
                             </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end" className="w-56 rounded-xl p-1.5 shadow-md border-slate-200">
+                            <DropdownMenuContent
+                              align="end"
+                              className="w-56 rounded-xl p-1.5 shadow-md border-slate-200"
+                            >
                               <DropdownMenuItem
                                 onClick={() => handleWAText(slip)}
                                 disabled={!!loading}
@@ -2141,7 +2241,7 @@ function SlipGajiPage() {
                               <DropdownMenuItem
                                 onClick={() => {
                                   const confirmation = window.confirm(
-                                    `Apakah Anda yakin ingin menghapus slip gaji ${slip.employees?.nama || "-"}?`
+                                    `Apakah Anda yakin ingin menghapus slip gaji ${slip.employees?.nama || "-"}?`,
                                   );
                                   if (confirmation) {
                                     deleteMutation.mutate(slip.id);
@@ -2183,10 +2283,12 @@ function SlipGajiPage() {
                     {bulkProcess.type === "pdf" && "Unduh PDF Massal"}
                     {bulkProcess.type === "jpg" && "Unduh JPG Massal"}
                   </DialogTitle>
-                  <p className="text-[11px] text-slate-500 font-semibold">Memproses antrean slip gaji</p>
+                  <p className="text-[11px] text-slate-500 font-semibold">
+                    Memproses antrean slip gaji
+                  </p>
                 </div>
               </div>
-              
+
               <Button
                 variant="ghost"
                 size="icon"
@@ -2203,14 +2305,19 @@ function SlipGajiPage() {
                 <div className="flex items-center justify-between text-xs font-bold text-slate-600">
                   <span>Progres Keseluruhan</span>
                   <span>
-                    {bulkProcess.results.filter(r => r.status === "success" || r.status === "error").length} / {bulkProcess.items.length} Selesai
+                    {
+                      bulkProcess.results.filter(
+                        (r) => r.status === "success" || r.status === "error",
+                      ).length
+                    }{" "}
+                    / {bulkProcess.items.length} Selesai
                   </span>
                 </div>
                 <div className="h-2 w-full bg-slate-100 rounded-full overflow-hidden">
                   <div
                     className="h-full bg-indigo-600 rounded-full transition-all duration-300"
                     style={{
-                      width: `${(bulkProcess.results.filter(r => r.status === "success" || r.status === "error").length / bulkProcess.items.length) * 100}%`
+                      width: `${(bulkProcess.results.filter((r) => r.status === "success" || r.status === "error").length / bulkProcess.items.length) * 100}%`,
                     }}
                   />
                 </div>
@@ -2223,7 +2330,8 @@ function SlipGajiPage() {
                 </div>
                 <div className="divide-y divide-slate-100 max-h-48 overflow-y-auto">
                   {bulkProcess.results.map((result, idx) => {
-                    const isCurrent = idx === bulkProcess.currentIndex && result.status === "processing";
+                    const isCurrent =
+                      idx === bulkProcess.currentIndex && result.status === "processing";
                     return (
                       <div
                         key={result.slipId}
@@ -2232,7 +2340,9 @@ function SlipGajiPage() {
                         }`}
                       >
                         <div className="flex flex-col min-w-0 pr-2">
-                          <span className="font-bold text-slate-705 truncate text-xs">{result.employeeName}</span>
+                          <span className="font-bold text-slate-705 truncate text-xs">
+                            {result.employeeName}
+                          </span>
                           {result.error && (
                             <span className="text-[10px] text-rose-500 font-semibold truncate mt-0.5">
                               Error: {result.error}
@@ -2269,11 +2379,13 @@ function SlipGajiPage() {
             </div>
 
             <div className="p-4 bg-slate-50 border-t border-slate-150 flex justify-end gap-2">
-              {bulkProcess.results.some(r => r.status === "pending" || r.status === "processing") ? (
+              {bulkProcess.results.some(
+                (r) => r.status === "pending" || r.status === "processing",
+              ) ? (
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={() => setBulkProcess(prev => ({ ...prev, isPaused: !prev.isPaused }))}
+                  onClick={() => setBulkProcess((prev) => ({ ...prev, isPaused: !prev.isPaused }))}
                   className="h-8 gap-1.5 text-xs font-semibold transition-colors"
                 >
                   {bulkProcess.isPaused ? (
@@ -2305,24 +2417,29 @@ function SlipGajiPage() {
           <DialogContent className="max-w-5xl h-[85vh] flex flex-col p-0 overflow-hidden border-slate-200 shadow-xl rounded-xl">
             <DialogHeader className="p-6 border-b border-slate-100 flex flex-row items-center justify-between bg-slate-50/50">
               <div>
-                <DialogTitle className="text-base font-bold text-slate-800">Kustomisasi Template Slip Gaji</DialogTitle>
-                <p className="text-xs text-slate-500 mt-1">Ubah tata letak, warna aksen, ukuran font, dan komponen slip gaji secara langsung.</p>
+                <DialogTitle className="text-base font-bold text-slate-800">
+                  Kustomisasi Template Slip Gaji
+                </DialogTitle>
+                <p className="text-xs text-slate-500 mt-1">
+                  Ubah tata letak, warna aksen, ukuran font, dan komponen slip gaji secara langsung.
+                </p>
               </div>
             </DialogHeader>
 
             <div className="flex-1 overflow-hidden grid grid-cols-1 md:grid-cols-12">
               {/* Form Editor Column */}
               <div className="md:col-span-5 border-r border-slate-200 overflow-y-auto p-6 space-y-6 bg-white">
-                
                 {/* Tata Letak */}
                 <div className="space-y-2.5">
-                  <Label className="text-xs font-bold uppercase tracking-wider text-slate-500">Tata Letak & Gaya</Label>
+                  <Label className="text-xs font-bold uppercase tracking-wider text-slate-500">
+                    Tata Letak & Gaya
+                  </Label>
                   <div className="grid grid-cols-3 gap-2">
                     {(["classic", "compact", "borderless"] as const).map((lay) => (
                       <button
                         key={lay}
                         type="button"
-                        onClick={() => setTempTemplateConfig(prev => ({ ...prev, layout: lay }))}
+                        onClick={() => setTempTemplateConfig((prev) => ({ ...prev, layout: lay }))}
                         className={`py-2 px-3 text-xs font-semibold rounded-lg border transition-all text-center capitalize ${
                           tempTemplateConfig.layout === lay
                             ? "bg-indigo-50 border-indigo-500 text-indigo-700 shadow-sm"
@@ -2337,13 +2454,15 @@ function SlipGajiPage() {
 
                 {/* Ukuran Font */}
                 <div className="space-y-2.5">
-                  <Label className="text-xs font-bold uppercase tracking-wider text-slate-500">Ukuran Font</Label>
+                  <Label className="text-xs font-bold uppercase tracking-wider text-slate-500">
+                    Ukuran Font
+                  </Label>
                   <div className="grid grid-cols-3 gap-2">
                     {(["small", "normal", "large"] as const).map((fs) => (
                       <button
                         key={fs}
                         type="button"
-                        onClick={() => setTempTemplateConfig(prev => ({ ...prev, fontSize: fs }))}
+                        onClick={() => setTempTemplateConfig((prev) => ({ ...prev, fontSize: fs }))}
                         className={`py-2 px-3 text-xs font-semibold rounded-lg border transition-all text-center capitalize ${
                           tempTemplateConfig.fontSize === fs
                             ? "bg-indigo-50 border-indigo-500 text-indigo-700 shadow-sm"
@@ -2358,24 +2477,32 @@ function SlipGajiPage() {
 
                 {/* Warna Aksen */}
                 <div className="space-y-2.5">
-                  <Label className="text-xs font-bold uppercase tracking-wider text-slate-500">Warna Aksen</Label>
+                  <Label className="text-xs font-bold uppercase tracking-wider text-slate-500">
+                    Warna Aksen
+                  </Label>
                   <div className="flex items-center gap-3">
                     <input
                       type="color"
                       value={tempTemplateConfig.accentColor}
-                      onChange={(e) => setTempTemplateConfig(prev => ({ ...prev, accentColor: e.target.value }))}
+                      onChange={(e) =>
+                        setTempTemplateConfig((prev) => ({ ...prev, accentColor: e.target.value }))
+                      }
                       className="w-10 h-10 rounded-lg border border-slate-200 cursor-pointer p-0.5 bg-white"
                     />
                     <div className="flex flex-wrap gap-1.5">
-                      {["#000000", "#10b981", "#3b82f6", "#8b5cf6", "#f59e0b", "#ef4444"].map((color) => (
-                        <button
-                          key={color}
-                          type="button"
-                          onClick={() => setTempTemplateConfig(prev => ({ ...prev, accentColor: color }))}
-                          className="w-6 h-6 rounded-full border border-slate-200 shadow-sm hover:scale-110 transition-transform"
-                          style={{ backgroundColor: color }}
-                        />
-                      ))}
+                      {["#000000", "#10b981", "#3b82f6", "#8b5cf6", "#f59e0b", "#ef4444"].map(
+                        (color) => (
+                          <button
+                            key={color}
+                            type="button"
+                            onClick={() =>
+                              setTempTemplateConfig((prev) => ({ ...prev, accentColor: color }))
+                            }
+                            className="w-6 h-6 rounded-full border border-slate-200 shadow-sm hover:scale-110 transition-transform"
+                            style={{ backgroundColor: color }}
+                          />
+                        ),
+                      )}
                     </div>
                   </div>
                 </div>
@@ -2384,7 +2511,9 @@ function SlipGajiPage() {
 
                 {/* Checklist Komponen */}
                 <div className="space-y-3">
-                  <Label className="text-xs font-bold uppercase tracking-wider text-slate-500">Komponen Slip</Label>
+                  <Label className="text-xs font-bold uppercase tracking-wider text-slate-500">
+                    Komponen Slip
+                  </Label>
                   <div className="grid grid-cols-1 gap-2">
                     {renderConfigCheckbox("showCompanyName", "Tampilkan Nama Perusahaan")}
                     {renderConfigCheckbox("showCompanyAddress", "Tampilkan Alamat Perusahaan")}
@@ -2406,8 +2535,10 @@ function SlipGajiPage() {
 
                 {/* Teks Perusahaan */}
                 <div className="space-y-4">
-                  <Label className="text-xs font-bold uppercase tracking-wider text-slate-500">Informasi Perusahaan & Ttd</Label>
-                  
+                  <Label className="text-xs font-bold uppercase tracking-wider text-slate-500">
+                    Informasi Perusahaan & Ttd
+                  </Label>
+
                   <div className="space-y-1.5">
                     <Label className="text-xs text-slate-650 font-bold">Nama Perusahaan</Label>
                     <Input
@@ -2442,7 +2573,12 @@ function SlipGajiPage() {
                       <Label className="text-xs text-slate-650 font-bold">Label Ttd Kiri</Label>
                       <Input
                         value={tempTemplateConfig.leftSignatureLabel}
-                        onChange={(e) => setTempTemplateConfig(prev => ({ ...prev, leftSignatureLabel: e.target.value }))}
+                        onChange={(e) =>
+                          setTempTemplateConfig((prev) => ({
+                            ...prev,
+                            leftSignatureLabel: e.target.value,
+                          }))
+                        }
                         className="bg-white border-slate-200 h-9"
                       />
                     </div>
@@ -2450,7 +2586,12 @@ function SlipGajiPage() {
                       <Label className="text-xs text-slate-650 font-bold">Nama Ttd Kiri</Label>
                       <Input
                         value={tempTemplateConfig.leftSignatureName}
-                        onChange={(e) => setTempTemplateConfig(prev => ({ ...prev, leftSignatureName: e.target.value }))}
+                        onChange={(e) =>
+                          setTempTemplateConfig((prev) => ({
+                            ...prev,
+                            leftSignatureName: e.target.value,
+                          }))
+                        }
                         className="bg-white border-slate-200 h-9"
                       />
                     </div>
@@ -2460,7 +2601,12 @@ function SlipGajiPage() {
                     <Label className="text-xs text-slate-650 font-bold">Label Ttd Kanan</Label>
                     <Input
                       value={tempTemplateConfig.rightSignatureLabel}
-                      onChange={(e) => setTempTemplateConfig(prev => ({ ...prev, rightSignatureLabel: e.target.value }))}
+                      onChange={(e) =>
+                        setTempTemplateConfig((prev) => ({
+                          ...prev,
+                          rightSignatureLabel: e.target.value,
+                        }))
+                      }
                       className="bg-white border-slate-200 h-9"
                     />
                   </div>
@@ -2485,7 +2631,7 @@ function SlipGajiPage() {
                           nama_perusahaan: tempNamaPerusahaan,
                           alamat: tempAlamat,
                           footer_slip: tempFooterSlip,
-                          slip_template_config: tempTemplateConfig
+                          slip_template_config: tempTemplateConfig,
                         }),
                       }}
                     />
@@ -2525,9 +2671,11 @@ function SlipGajiPage() {
                 Edit Rincian Payroll
               </DialogTitle>
               <div className="text-xs text-slate-500 mt-1">
-                Karyawan: <strong className="text-slate-800">{editingSlip?.employees?.nama}</strong> | 
-                Jabatan: <strong className="text-slate-800">{editingSlip?.employees?.jabatan}</strong> | 
-                Periode: <strong className="text-slate-800">{editingSlip?.payroll_runs?.periode}</strong>
+                Karyawan: <strong className="text-slate-800">{editingSlip?.employees?.nama}</strong>{" "}
+                | Jabatan:{" "}
+                <strong className="text-slate-800">{editingSlip?.employees?.jabatan}</strong> |
+                Periode:{" "}
+                <strong className="text-slate-800">{editingSlip?.payroll_runs?.periode}</strong>
               </div>
             </DialogHeader>
 
@@ -2538,14 +2686,18 @@ function SlipGajiPage() {
                   <h3 className="text-sm font-semibold text-slate-800">Gaji Pokok</h3>
                   <div className="flex items-center gap-3">
                     <div className="relative flex-1">
-                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs font-semibold text-slate-400">Rp</span>
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs font-semibold text-slate-400">
+                        Rp
+                      </span>
                       <Input
                         type="text"
                         className="pl-9 h-10 text-sm font-semibold border-slate-200"
                         value={formatNumberDots(editingSlip.gaji_pokok)}
                         onChange={(e) => {
                           const parsed = parseNumberDots(e.target.value);
-                          setEditingSlip(prev => prev ? recalculateSlipTotals({ ...prev, gaji_pokok: parsed }) : null);
+                          setEditingSlip((prev) =>
+                            prev ? recalculateSlipTotals({ ...prev, gaji_pokok: parsed }) : null,
+                          );
                         }}
                       />
                     </div>
@@ -2576,7 +2728,10 @@ function SlipGajiPage() {
                       </p>
                     ) : (
                       (editingSlip.payroll_item_allowances || []).map((alw, index) => (
-                        <div key={alw.id} className="flex items-center gap-3 bg-white border border-slate-100 rounded-xl p-3 shadow-sm hover:shadow transition-all group">
+                        <div
+                          key={alw.id}
+                          className="flex items-center gap-3 bg-white border border-slate-100 rounded-xl p-3 shadow-sm hover:shadow transition-all group"
+                        >
                           <Input
                             className="h-8 text-xs font-semibold border-slate-200 flex-[2]"
                             placeholder="Nama Tunjangan"
@@ -2589,18 +2744,28 @@ function SlipGajiPage() {
                               className="h-8 text-xs text-center border-slate-200"
                               placeholder="Qty"
                               value={alw.qty ?? ""}
-                              onChange={(e) => handleAllowanceChange(index, "qty", Number(e.target.value))}
+                              onChange={(e) =>
+                                handleAllowanceChange(index, "qty", Number(e.target.value))
+                              }
                             />
                             <span className="text-[10px] text-slate-400">x</span>
                           </div>
                           <div className="relative flex-1.5 min-w-[120px]">
-                            <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[10px] text-slate-400">Rp</span>
+                            <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[10px] text-slate-400">
+                              Rp
+                            </span>
                             <Input
                               type="text"
                               className="h-8 pl-7 text-xs font-medium border-slate-200 text-right"
                               placeholder="Nominal"
                               value={formatNumberDots(alw.nominal)}
-                              onChange={(e) => handleAllowanceChange(index, "nominal", parseNumberDots(e.target.value))}
+                              onChange={(e) =>
+                                handleAllowanceChange(
+                                  index,
+                                  "nominal",
+                                  parseNumberDots(e.target.value),
+                                )
+                              }
                             />
                           </div>
                           <div className="w-24 text-right text-xs font-semibold text-emerald-600">
@@ -2644,7 +2809,10 @@ function SlipGajiPage() {
                       </p>
                     ) : (
                       (editingSlip.payroll_item_deductions || []).map((ded, index) => (
-                        <div key={ded.id} className="flex items-center gap-3 bg-white border border-slate-100 rounded-xl p-3 shadow-sm hover:shadow transition-all group">
+                        <div
+                          key={ded.id}
+                          className="flex items-center gap-3 bg-white border border-slate-100 rounded-xl p-3 shadow-sm hover:shadow transition-all group"
+                        >
                           <Input
                             className="h-8 text-xs font-semibold border-slate-200 flex-[2]"
                             placeholder="Nama Potongan"
@@ -2657,18 +2825,28 @@ function SlipGajiPage() {
                               className="h-8 text-xs text-center border-slate-200"
                               placeholder="Qty"
                               value={ded.qty ?? ""}
-                              onChange={(e) => handleDeductionChange(index, "qty", Number(e.target.value))}
+                              onChange={(e) =>
+                                handleDeductionChange(index, "qty", Number(e.target.value))
+                              }
                             />
                             <span className="text-[10px] text-slate-400">x</span>
                           </div>
                           <div className="relative flex-1.5 min-w-[120px]">
-                            <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[10px] text-slate-400">Rp</span>
+                            <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[10px] text-slate-400">
+                              Rp
+                            </span>
                             <Input
                               type="text"
                               className="h-8 pl-7 text-xs font-medium border-slate-200 text-right"
                               placeholder="Nominal"
                               value={formatNumberDots(ded.nominal)}
-                              onChange={(e) => handleDeductionChange(index, "nominal", parseNumberDots(e.target.value))}
+                              onChange={(e) =>
+                                handleDeductionChange(
+                                  index,
+                                  "nominal",
+                                  parseNumberDots(e.target.value),
+                                )
+                              }
                             />
                           </div>
                           <div className="w-24 text-right text-xs font-semibold text-rose-600">
@@ -2690,8 +2868,10 @@ function SlipGajiPage() {
 
                 {/* Total Summary Footer */}
                 <div className="bg-slate-900 text-white p-5 rounded-2xl border border-slate-800 shadow-lg space-y-4">
-                  <h3 className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Ikhtisar Perhitungan Baru</h3>
-                  
+                  <h3 className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
+                    Ikhtisar Perhitungan Baru
+                  </h3>
+
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 border-b border-slate-800 pb-4 text-sm">
                     <div className="space-y-1">
                       <span className="text-xs text-slate-400">Gaji Pokok:</span>
@@ -2699,22 +2879,28 @@ function SlipGajiPage() {
                     </div>
                     <div className="space-y-1">
                       <span className="text-xs text-emerald-400">Total Tunjangan (+):</span>
-                      <p className="font-bold text-emerald-300">+{formatIDR(editingSlip.total_tunjangan)}</p>
+                      <p className="font-bold text-emerald-300">
+                        +{formatIDR(editingSlip.total_tunjangan)}
+                      </p>
                     </div>
                     <div className="space-y-1">
                       <span className="text-xs text-rose-400">Total Potongan (-):</span>
-                      <p className="font-bold text-rose-300">-{formatIDR(editingSlip.total_potongan)}</p>
+                      <p className="font-bold text-rose-300">
+                        -{formatIDR(editingSlip.total_potongan)}
+                      </p>
                     </div>
                   </div>
 
                   <div className="flex items-center justify-between">
                     <div>
-                      <span className="text-xs text-slate-300">Total Gaji Bersih (Net Salary):</span>
+                      <span className="text-xs text-slate-300">
+                        Total Gaji Bersih (Net Salary):
+                      </span>
                       <h2 className="text-2xl font-black text-transparent bg-clip-text bg-gradient-to-r from-teal-200 via-white to-indigo-200 mt-1">
                         {formatIDR(editingSlip.gaji_bersih)}
                       </h2>
                     </div>
-                    
+
                     <div className="flex items-center gap-2">
                       <Button
                         variant="ghost"

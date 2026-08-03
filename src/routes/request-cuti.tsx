@@ -1,0 +1,468 @@
+import { createFileRoute } from "@tanstack/react-router";
+import { useMemo, useState } from "react";
+import { supabase } from "@/integrations/supabase/client";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { toast } from "sonner";
+import {
+  CalendarDays,
+  CheckCircle2,
+  Loader2,
+  Phone,
+  Send,
+  ShieldCheck,
+  XCircle,
+  Info,
+  RotateCcw,
+} from "lucide-react";
+import { JENIS_CUTI, getJenisCuti, formatTanggalHR, countDays, toISODate } from "@/lib/hr";
+import { enumerateDates, getKuotaLabel, maskPhone } from "@/lib/cuti-request";
+
+export const Route = createFileRoute("/request-cuti")({
+  component: RequestCutiPage,
+});
+
+type KaryawanMatch = {
+  id: string;
+  nama: string;
+  whatsapp: string | null;
+};
+
+type HasilKirim =
+  | { status: "diajukan" }
+  | { status: "ditolak"; alasan: string }
+  | { status: "error"; alasan: string };
+
+const todayLocalISO = () => toISODate(new Date());
+
+function RequestCutiPage() {
+  const [step, setStep] = useState<"phone" | "form" | "done">("phone");
+
+  // Langkah 1: pencarian akun
+  const [phone, setPhone] = useState("");
+  const [phoneError, setPhoneError] = useState("");
+  const [isSearching, setIsSearching] = useState(false);
+  const [employee, setEmployee] = useState<KaryawanMatch | null>(null);
+
+  // Langkah 2: form
+  const [jenis, setJenis] = useState("tahunan");
+  const [tglMulai, setTglMulai] = useState("");
+  const [tglSelesai, setTglSelesai] = useState("");
+  const [alasan, setAlasan] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Langkah 3: hasil
+  const [hasil, setHasil] = useState<HasilKirim | null>(null);
+
+  const jumlahHari = useMemo(() => {
+    if (!tglMulai || !tglSelesai) return 0;
+    return countDays(tglMulai, tglSelesai);
+  }, [tglMulai, tglSelesai]);
+
+  const tanggalTerpakai = useMemo(() => {
+    if (!tglMulai || !tglSelesai) return [];
+    return enumerateDates(tglMulai, tglSelesai);
+  }, [tglMulai, tglSelesai]);
+
+  const cariAkun = async () => {
+    const digits = phone.replace(/[^0-9]/g, "");
+    if (digits.length < 9) {
+      setPhoneError("Masukkan nomor WhatsApp yang valid (min. 9 digit).");
+      return;
+    }
+    setPhoneError("");
+    setIsSearching(true);
+    try {
+      const { data, error } = await supabase.rpc("cari_karyawan_oleh_wa", {
+        p_wa: phone,
+      });
+      if (error) throw error;
+      if (!data || data.length === 0) {
+        setPhoneError(
+          "Nomor WhatsApp tidak terdaftar sebagai karyawan aktif. Hubungi admin jika menurut Anda ini salah.",
+        );
+        setEmployee(null);
+        return;
+      }
+      setEmployee(data[0]);
+      setTglMulai(todayLocalISO());
+      setTglSelesai("");
+      setStep("form");
+    } catch (err) {
+      console.error(err);
+      setPhoneError("Gagal memeriksa nomor. Coba lagi beberapa saat.");
+    } finally {
+      setIsSearching(false);
+    }
+  };
+
+  const kirimPermohonan = async () => {
+    if (!employee) return;
+    if (!tglMulai || !tglSelesai) {
+      toast.error("Lengkapi tanggal mulai dan selesai cuti.");
+      return;
+    }
+    if (tglSelesai < tglMulai) {
+      toast.error("Tanggal selesai tidak boleh sebelum tanggal mulai.");
+      return;
+    }
+    if (jenis === "izin" && alasan.trim().length < 5) {
+      toast.error("Untuk cuti izin, wajib mencantumkan alasan (min. 5 karakter).");
+      return;
+    }
+
+    setIsSubmitting(true);
+    try {
+      // 1. Cek permohonan aktif yang tumpang tindih
+      const { data: duplikat, error: errDup } = await supabase.rpc("cek_duplikat_cuti", {
+        p_emp: employee.id,
+        p_mulai: tglMulai,
+        p_selesai: tglSelesai,
+      });
+      if (errDup) throw errDup;
+      if (duplikat) {
+        setHasil({
+          status: "error",
+          alasan:
+            "Anda masih memiliki permohonan cuti aktif (diajukan/disetujui) pada periode yang tumpang tindih.",
+        });
+        setStep("done");
+        return;
+      }
+
+      // 2. Cek kuota harian
+      const { data: kuota, error: errKuota } = await supabase.rpc("cek_kuota_cuti", {
+        p_mulai: tglMulai,
+        p_selesai: tglSelesai,
+      });
+      if (errKuota) throw errKuota;
+
+      const penuh = (kuota || []).filter((r) => (r.terpakai || 0) >= (r.kuota || 0));
+      const alasanPermohonan = alasan.trim();
+      let status: "diajukan" | "ditolak" = "diajukan";
+      let alasanFinal = alasanPermohonan || null;
+
+      if (penuh.length > 0) {
+        // Tolak otomatis — kuota sudah penuh (prioritas sesuai urutan pengajuan)
+        status = "ditolak";
+        const daftar = penuh
+          .map((r) => `${formatTanggalHR(r.tanggal)} (maks ${r.kuota} orang)`)
+          .join(", ");
+        const catatanKuota = `Ditolak otomatis: kuota sudah penuh pada ${daftar}.`;
+        alasanFinal = alasanPermohonan ? `${alasanPermohonan}. ${catatanKuota}` : catatanKuota;
+      }
+
+      // 3. Simpan permohonan
+      const { error: errInsert } = await supabase.from("cuti").insert([
+        {
+          employee_id: employee.id,
+          jenis,
+          tanggal_mulai: tglMulai,
+          tanggal_selesai: tglSelesai,
+          alasan: alasanFinal,
+          status,
+        },
+      ]);
+      if (errInsert) throw errInsert;
+
+      setHasil(
+        status === "ditolak"
+          ? { status: "ditolak", alasan: alasanFinal || "" }
+          : { status: "diajukan" },
+      );
+      setStep("done");
+    } catch (err) {
+      console.error(err);
+      toast.error("Gagal mengirim permohonan. Coba lagi beberapa saat.");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const resetForm = () => {
+    setStep("phone");
+    setPhone("");
+    setPhoneError("");
+    setEmployee(null);
+    setJenis("tahunan");
+    setTglMulai("");
+    setTglSelesai("");
+    setAlasan("");
+    setHasil(null);
+  };
+
+  return (
+    <div className="min-h-screen bg-slate-50 font-sans">
+      {/* Header */}
+      <header className="bg-gradient-to-r from-emerald-700 via-emerald-600 to-teal-500 px-4 py-10 text-white">
+        <div className="mx-auto flex max-w-lg flex-col items-center text-center">
+          <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-white/15 backdrop-blur shadow-lg">
+            <CalendarDays className="h-7 w-7" />
+          </div>
+          <h1 className="mt-4 text-2xl font-bold tracking-tight">Permohonan Cuti</h1>
+          <p className="mt-1 text-sm text-emerald-50/90">
+            Isi data di bawah untuk mengajukan cuti atau izin. Persetujuan dikirim via WhatsApp.
+          </p>
+        </div>
+      </header>
+
+      <main className="mx-auto -mt-6 max-w-lg px-4 pb-16">
+        <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-xl shadow-slate-900/5">
+          {step === "phone" && (
+            <div className="space-y-5">
+              <div>
+                <h2 className="text-lg font-bold text-slate-900">Cek Akun Anda</h2>
+                <p className="mt-1 text-sm text-slate-500">
+                  Masukkan nomor WhatsApp yang terdaftar di perusahaan (contoh: 081234567890).
+                </p>
+              </div>
+
+              <div className="space-y-1.5">
+                <Label
+                  htmlFor="phone"
+                  className="text-xs font-semibold uppercase tracking-wider text-slate-500"
+                >
+                  Nomor WhatsApp
+                </Label>
+                <div className="relative">
+                  <Phone className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                  <Input
+                    id="phone"
+                    type="tel"
+                    inputMode="tel"
+                    placeholder="08xxxxxxxxxx"
+                    value={phone}
+                    onChange={(e) => setPhone(e.target.value)}
+                    onKeyDown={(e) => e.key === "Enter" && cariAkun()}
+                    className="h-12 rounded-xl pl-10 text-base"
+                  />
+                </div>
+                {phoneError && <p className="text-xs font-medium text-rose-600">{phoneError}</p>}
+              </div>
+
+              <Button
+                onClick={cariAkun}
+                disabled={isSearching}
+                className="h-12 w-full rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 text-base font-semibold shadow-md shadow-emerald-500/20 hover:from-emerald-400 hover:to-teal-400 active:scale-[0.98] transition-all"
+              >
+                {isSearching ? (
+                  <Loader2 className="h-5 w-5 animate-spin" />
+                ) : (
+                  <ShieldCheck className="h-5 w-5" />
+                )}
+                {isSearching ? "Memeriksa..." : "Lanjutkan"}
+              </Button>
+            </div>
+          )}
+
+          {step === "form" && employee && (
+            <div className="space-y-5">
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <h2 className="text-lg font-bold text-slate-900">Form Permohonan</h2>
+                  <p className="mt-1 text-sm text-slate-500">
+                    Diverifikasi untuk{" "}
+                    <span className="font-semibold text-emerald-700">{employee.nama}</span>
+                    <span className="ml-1 text-xs text-slate-400">
+                      ({maskPhone(employee.whatsapp)})
+                    </span>
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setStep("phone");
+                    setEmployee(null);
+                  }}
+                  className="rounded-lg border border-slate-200 px-2.5 py-1 text-xs font-semibold text-slate-500 transition-colors hover:bg-slate-50 hover:text-slate-700"
+                >
+                  Ganti nomor
+                </button>
+              </div>
+
+              {/* Info kuota */}
+              <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-3.5 text-xs leading-relaxed text-emerald-900">
+                <p className="flex items-center gap-1.5 font-semibold">
+                  <Info className="h-3.5 w-3.5" /> Aturan kuota cuti per hari
+                </p>
+                <ul className="mt-1 list-inside list-disc space-y-0.5 text-emerald-800">
+                  <li>Hari kerja (Senin–Jumat): maksimal 2 orang.</li>
+                  <li>Sabtu &amp; Minggu: maksimal 1 orang.</li>
+                  <li>Prioritas diberikan kepada pengaju lebih dulu.</li>
+                </ul>
+              </div>
+
+              <div className="space-y-1.5">
+                <Label className="text-xs font-semibold uppercase tracking-wider text-slate-500">
+                  Jenis Cuti <span className="text-rose-500">*</span>
+                </Label>
+                <Select value={jenis} onValueChange={setJenis}>
+                  <SelectTrigger className="h-12 rounded-xl">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {JENIS_CUTI.map((j) => (
+                      <SelectItem key={j.value} value={j.value}>
+                        {j.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1.5">
+                  <Label className="text-xs font-semibold uppercase tracking-wider text-slate-500">
+                    Tanggal Mulai
+                  </Label>
+                  <Input
+                    type="date"
+                    value={tglMulai}
+                    onChange={(e) => setTglMulai(e.target.value)}
+                    className="h-12 rounded-xl"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-xs font-semibold uppercase tracking-wider text-slate-500">
+                    Tanggal Selesai
+                  </Label>
+                  <Input
+                    type="date"
+                    value={tglSelesai}
+                    min={tglMulai}
+                    onChange={(e) => setTglSelesai(e.target.value)}
+                    className="h-12 rounded-xl"
+                  />
+                </div>
+              </div>
+
+              {jumlahHari > 0 && (
+                <div className="flex flex-wrap items-center gap-1.5 text-xs text-slate-500">
+                  <span className="font-semibold text-slate-700">{jumlahHari} hari</span>
+                  <span className="text-slate-300">•</span>
+                  <span>{tanggalTerpakai.map((t) => getKuotaLabel(t)).join(", ")}</span>
+                </div>
+              )}
+
+              <div className="space-y-1.5">
+                <Label className="text-xs font-semibold uppercase tracking-wider text-slate-500">
+                  Alasan{" "}
+                  {jenis === "izin" ? (
+                    <span className="text-rose-500">(wajib untuk izin)</span>
+                  ) : (
+                    "(opsional)"
+                  )}
+                </Label>
+                <Textarea
+                  rows={4}
+                  placeholder="Tuliskan alasan permohonan cuti/izin Anda..."
+                  value={alasan}
+                  onChange={(e) => setAlasan(e.target.value)}
+                  className="rounded-xl"
+                />
+              </div>
+
+              <div className="flex items-center gap-3">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={resetForm}
+                  className="h-12 flex-1 rounded-xl"
+                >
+                  <RotateCcw className="mr-2 h-4 w-4" /> Batal
+                </Button>
+                <Button
+                  onClick={kirimPermohonan}
+                  disabled={isSubmitting}
+                  className="h-12 flex-[2] rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 text-base font-semibold shadow-md shadow-emerald-500/20 hover:from-emerald-400 hover:to-teal-400 active:scale-[0.98] transition-all"
+                >
+                  {isSubmitting ? (
+                    <Loader2 className="h-5 w-5 animate-spin" />
+                  ) : (
+                    <Send className="h-5 w-5" />
+                  )}
+                  {isSubmitting ? "Mengirim..." : "Kirim Permohonan"}
+                </Button>
+              </div>
+            </div>
+          )}
+
+          {step === "done" && hasil && (
+            <div className="space-y-5 text-center">
+              {hasil.status === "diajukan" && (
+                <>
+                  <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-emerald-100">
+                    <CheckCircle2 className="h-9 w-9 text-emerald-600" />
+                  </div>
+                  <div>
+                    <h2 className="text-lg font-bold text-slate-900">Permohonan Terkirim</h2>
+                    <p className="mt-1 text-sm text-slate-500">
+                      Permohonan cuti{" "}
+                      <span className="font-semibold">{getJenisCuti(jenis).label}</span> Anda (
+                      {formatTanggalHR(tglMulai)} s/d {formatTanggalHR(tglSelesai)}) sedang{" "}
+                      <span className="font-semibold text-amber-600">menunggu persetujuan</span>{" "}
+                      admin.
+                      <br />
+                      Status akan dikonfirmasi melalui WhatsApp.
+                    </p>
+                  </div>
+                </>
+              )}
+
+              {hasil.status === "ditolak" && (
+                <>
+                  <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-rose-100">
+                    <XCircle className="h-9 w-9 text-rose-600" />
+                  </div>
+                  <div>
+                    <h2 className="text-lg font-bold text-slate-900">Ditolak Otomatis</h2>
+                    <p className="mt-1 text-sm text-slate-500">
+                      Mohon maaf, permohonan cuti Anda{" "}
+                      <span className="font-semibold text-rose-600">ditolak otomatis</span> karena
+                      kuota harian sudah penuh.
+                    </p>
+                    <p className="mt-2 rounded-xl bg-slate-50 px-3 py-2 text-left text-xs text-slate-600">
+                      {hasil.alasan}
+                    </p>
+                  </div>
+                </>
+              )}
+
+              {hasil.status === "error" && (
+                <>
+                  <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-amber-100">
+                    <Info className="h-9 w-9 text-amber-600" />
+                  </div>
+                  <div>
+                    <h2 className="text-lg font-bold text-slate-900">Permohonan Tidak Dikirim</h2>
+                    <p className="mt-1 text-sm text-slate-500">{hasil.alasan}</p>
+                  </div>
+                </>
+              )}
+
+              <Button
+                onClick={resetForm}
+                className="h-12 w-full rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 font-semibold shadow-md shadow-emerald-500/20 hover:from-emerald-400 hover:to-teal-400 active:scale-[0.98] transition-all"
+              >
+                <RotateCcw className="mr-2 h-4 w-4" /> Buat Permohonan Baru
+              </Button>
+            </div>
+          )}
+        </div>
+
+        <p className="mt-6 text-center text-xs text-slate-400">
+          Dibuat otomatis oleh sistem penggajian — hubungi admin untuk pertanyaan.
+        </p>
+      </main>
+    </div>
+  );
+}

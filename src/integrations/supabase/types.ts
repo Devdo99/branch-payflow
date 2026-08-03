@@ -8,6 +8,44 @@ export type Database = {
   };
   public: {
     Tables: {
+      absensi: {
+        Row: {
+          created_at: string;
+          employee_id: string;
+          id: string;
+          keterangan: string | null;
+          status: string;
+          tanggal: string;
+          updated_at: string;
+        };
+        Insert: {
+          created_at?: string;
+          employee_id: string;
+          id?: string;
+          keterangan?: string | null;
+          status?: string;
+          tanggal: string;
+          updated_at?: string;
+        };
+        Update: {
+          created_at?: string;
+          employee_id?: string;
+          id?: string;
+          keterangan?: string | null;
+          status?: string;
+          tanggal?: string;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "absensi_employee_id_fkey";
+            columns: ["employee_id"];
+            isOneToOne: false;
+            referencedRelation: "employees";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       allowance_types: {
         Row: {
           aktif: boolean;
@@ -70,6 +108,104 @@ export type Database = {
           updated_at?: string;
         };
         Relationships: [];
+      };
+      cuti: {
+        Row: {
+          alasan: string | null;
+          created_at: string;
+          employee_id: string;
+          id: string;
+          jenis: string;
+          status: string;
+          tanggal_mulai: string;
+          tanggal_selesai: string;
+          updated_at: string;
+        };
+        Insert: {
+          alasan?: string | null;
+          created_at?: string;
+          employee_id: string;
+          id?: string;
+          jenis?: string;
+          status?: string;
+          tanggal_mulai: string;
+          tanggal_selesai: string;
+          updated_at?: string;
+        };
+        Update: {
+          alasan?: string | null;
+          created_at?: string;
+          employee_id?: string;
+          id?: string;
+          jenis?: string;
+          status?: string;
+          tanggal_mulai?: string;
+          tanggal_selesai?: string;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "cuti_employee_id_fkey";
+            columns: ["employee_id"];
+            isOneToOne: false;
+            referencedRelation: "employees";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      cuti_notifikasi: {
+        Row: {
+          created_at: string;
+          cuti_id: string;
+          employee_id: string;
+          error: string | null;
+          id: string;
+          pesan: string;
+          sent_at: string | null;
+          status: string;
+          tipe: string;
+          updated_at: string;
+        };
+        Insert: {
+          created_at?: string;
+          cuti_id: string;
+          employee_id: string;
+          error?: string | null;
+          id?: string;
+          pesan: string;
+          sent_at?: string | null;
+          status?: string;
+          tipe?: string;
+          updated_at?: string;
+        };
+        Update: {
+          created_at?: string;
+          cuti_id?: string;
+          employee_id?: string;
+          error?: string | null;
+          id?: string;
+          pesan?: string;
+          sent_at?: string | null;
+          status?: string;
+          tipe?: string;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "cuti_notifikasi_cuti_id_fkey";
+            columns: ["cuti_id"];
+            isOneToOne: false;
+            referencedRelation: "cuti";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "cuti_notifikasi_employee_id_fkey";
+            columns: ["employee_id"];
+            isOneToOne: false;
+            referencedRelation: "employees";
+            referencedColumns: ["id"];
+          },
+        ];
       };
       branches: {
         Row: {
@@ -376,6 +512,44 @@ export type Database = {
           },
         ];
       };
+      resign: {
+        Row: {
+          alasan: string | null;
+          created_at: string;
+          employee_id: string;
+          id: string;
+          laporan: string | null;
+          tanggal_resign: string;
+          updated_at: string;
+        };
+        Insert: {
+          alasan?: string | null;
+          created_at?: string;
+          employee_id: string;
+          id?: string;
+          laporan?: string | null;
+          tanggal_resign: string;
+          updated_at?: string;
+        };
+        Update: {
+          alasan?: string | null;
+          created_at?: string;
+          employee_id?: string;
+          id?: string;
+          laporan?: string | null;
+          tanggal_resign?: string;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "resign_employee_id_fkey";
+            columns: ["employee_id"];
+            isOneToOne: false;
+            referencedRelation: "employees";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       payroll_runs: {
         Row: {
           branch_id: string | null;
@@ -534,7 +708,25 @@ export type Database = {
       [_ in never]: never;
     };
     Functions: {
-      [_ in never]: never;
+      cari_karyawan_oleh_wa: {
+        Args: { p_wa: string };
+        Returns: { id: string; nama: string; whatsapp: string | null }[];
+      };
+      cek_duplikat_cuti: {
+        Args: {
+          p_emp: string;
+          p_mulai: string;
+          p_selesai: string;
+        };
+        Returns: boolean;
+      };
+      cek_kuota_cuti: {
+        Args: {
+          p_mulai: string;
+          p_selesai: string;
+        };
+        Returns: { tanggal: string; kuota: number; terpakai: number }[];
+      };
     };
     Enums: {
       bank_status: "valid" | "belum_dicek" | "perlu_dicek_ulang";

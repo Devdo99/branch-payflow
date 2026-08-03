@@ -12,6 +12,7 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AuthenticatedRouteImport } from './routes/_authenticated'
 import { Route as LoginRouteImport } from './routes/login'
+import { Route as RequestCutiRouteImport } from './routes/request-cuti'
 import { Route as AuthenticatedCabangRouteImport } from './routes/_authenticated/cabang'
 import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
 import { Route as AuthenticatedFormatWhatsappRouteImport } from './routes/_authenticated/format-whatsapp'
@@ -26,6 +27,10 @@ import { Route as AuthenticatedRekeningBankRouteImport } from './routes/_authent
 import { Route as AuthenticatedRingkasanWhatsappRouteImport } from './routes/_authenticated/ringkasan-whatsapp'
 import { Route as AuthenticatedSlipGajiRouteImport } from './routes/_authenticated/slip-gaji'
 import { Route as AuthenticatedTunjanganRouteImport } from './routes/_authenticated/tunjangan'
+import { Route as AuthenticatedHrKalenderCutiRouteImport } from './routes/_authenticated/hr/kalender-cuti'
+import { Route as AuthenticatedHrRekapAbsenRouteImport } from './routes/_authenticated/hr/rekap-absen'
+import { Route as AuthenticatedHrRequestCutiRouteImport } from './routes/_authenticated/hr/request-cuti'
+import { Route as AuthenticatedHrResignRouteImport } from './routes/_authenticated/hr/resign'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -39,6 +44,11 @@ const AuthenticatedRoute = AuthenticatedRouteImport.update({
 const LoginRoute = LoginRouteImport.update({
   id: '/login',
   path: '/login',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const RequestCutiRoute = RequestCutiRouteImport.update({
+  id: '/request-cuti',
+  path: '/request-cuti',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AuthenticatedCabangRoute = AuthenticatedCabangRouteImport.update({
@@ -114,10 +124,34 @@ const AuthenticatedTunjanganRoute = AuthenticatedTunjanganRouteImport.update({
   path: '/tunjangan',
   getParentRoute: () => AuthenticatedRoute,
 } as any)
+const AuthenticatedHrKalenderCutiRoute =
+  AuthenticatedHrKalenderCutiRouteImport.update({
+    id: '/hr/kalender-cuti',
+    path: '/hr/kalender-cuti',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
+const AuthenticatedHrRekapAbsenRoute =
+  AuthenticatedHrRekapAbsenRouteImport.update({
+    id: '/hr/rekap-absen',
+    path: '/hr/rekap-absen',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
+const AuthenticatedHrRequestCutiRoute =
+  AuthenticatedHrRequestCutiRouteImport.update({
+    id: '/hr/request-cuti',
+    path: '/hr/request-cuti',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
+const AuthenticatedHrResignRoute = AuthenticatedHrResignRouteImport.update({
+  id: '/hr/resign',
+  path: '/hr/resign',
+  getParentRoute: () => AuthenticatedRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/login': typeof LoginRoute
+  '/request-cuti': typeof RequestCutiRoute
   '/cabang': typeof AuthenticatedCabangRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/format-whatsapp': typeof AuthenticatedFormatWhatsappRoute
@@ -132,10 +166,15 @@ export interface FileRoutesByFullPath {
   '/ringkasan-whatsapp': typeof AuthenticatedRingkasanWhatsappRoute
   '/slip-gaji': typeof AuthenticatedSlipGajiRoute
   '/tunjangan': typeof AuthenticatedTunjanganRoute
+  '/hr/kalender-cuti': typeof AuthenticatedHrKalenderCutiRoute
+  '/hr/rekap-absen': typeof AuthenticatedHrRekapAbsenRoute
+  '/hr/request-cuti': typeof AuthenticatedHrRequestCutiRoute
+  '/hr/resign': typeof AuthenticatedHrResignRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/login': typeof LoginRoute
+  '/request-cuti': typeof RequestCutiRoute
   '/cabang': typeof AuthenticatedCabangRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/format-whatsapp': typeof AuthenticatedFormatWhatsappRoute
@@ -150,12 +189,17 @@ export interface FileRoutesByTo {
   '/ringkasan-whatsapp': typeof AuthenticatedRingkasanWhatsappRoute
   '/slip-gaji': typeof AuthenticatedSlipGajiRoute
   '/tunjangan': typeof AuthenticatedTunjanganRoute
+  '/hr/kalender-cuti': typeof AuthenticatedHrKalenderCutiRoute
+  '/hr/rekap-absen': typeof AuthenticatedHrRekapAbsenRoute
+  '/hr/request-cuti': typeof AuthenticatedHrRequestCutiRoute
+  '/hr/resign': typeof AuthenticatedHrResignRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/_authenticated': typeof AuthenticatedRouteWithChildren
   '/login': typeof LoginRoute
+  '/request-cuti': typeof RequestCutiRoute
   '/_authenticated/cabang': typeof AuthenticatedCabangRoute
   '/_authenticated/dashboard': typeof AuthenticatedDashboardRoute
   '/_authenticated/format-whatsapp': typeof AuthenticatedFormatWhatsappRoute
@@ -170,12 +214,17 @@ export interface FileRoutesById {
   '/_authenticated/ringkasan-whatsapp': typeof AuthenticatedRingkasanWhatsappRoute
   '/_authenticated/slip-gaji': typeof AuthenticatedSlipGajiRoute
   '/_authenticated/tunjangan': typeof AuthenticatedTunjanganRoute
+  '/_authenticated/hr/kalender-cuti': typeof AuthenticatedHrKalenderCutiRoute
+  '/_authenticated/hr/rekap-absen': typeof AuthenticatedHrRekapAbsenRoute
+  '/_authenticated/hr/request-cuti': typeof AuthenticatedHrRequestCutiRoute
+  '/_authenticated/hr/resign': typeof AuthenticatedHrResignRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
     | '/login'
+    | '/request-cuti'
     | '/cabang'
     | '/dashboard'
     | '/format-whatsapp'
@@ -190,10 +239,15 @@ export interface FileRouteTypes {
     | '/ringkasan-whatsapp'
     | '/slip-gaji'
     | '/tunjangan'
+    | '/hr/kalender-cuti'
+    | '/hr/rekap-absen'
+    | '/hr/request-cuti'
+    | '/hr/resign'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
     | '/login'
+    | '/request-cuti'
     | '/cabang'
     | '/dashboard'
     | '/format-whatsapp'
@@ -208,11 +262,16 @@ export interface FileRouteTypes {
     | '/ringkasan-whatsapp'
     | '/slip-gaji'
     | '/tunjangan'
+    | '/hr/kalender-cuti'
+    | '/hr/rekap-absen'
+    | '/hr/request-cuti'
+    | '/hr/resign'
   id:
     | '__root__'
     | '/'
     | '/_authenticated'
     | '/login'
+    | '/request-cuti'
     | '/_authenticated/cabang'
     | '/_authenticated/dashboard'
     | '/_authenticated/format-whatsapp'
@@ -227,12 +286,17 @@ export interface FileRouteTypes {
     | '/_authenticated/ringkasan-whatsapp'
     | '/_authenticated/slip-gaji'
     | '/_authenticated/tunjangan'
+    | '/_authenticated/hr/kalender-cuti'
+    | '/_authenticated/hr/rekap-absen'
+    | '/_authenticated/hr/request-cuti'
+    | '/_authenticated/hr/resign'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AuthenticatedRoute: typeof AuthenticatedRouteWithChildren
   LoginRoute: typeof LoginRoute
+  RequestCutiRoute: typeof RequestCutiRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -256,6 +320,13 @@ declare module '@tanstack/react-router' {
       path: '/login'
       fullPath: '/login'
       preLoaderRoute: typeof LoginRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/request-cuti': {
+      id: '/request-cuti'
+      path: '/request-cuti'
+      fullPath: '/request-cuti'
+      preLoaderRoute: typeof RequestCutiRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/_authenticated/cabang': {
@@ -356,6 +427,34 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedTunjanganRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
+    '/_authenticated/hr/kalender-cuti': {
+      id: '/_authenticated/hr/kalender-cuti'
+      path: '/hr/kalender-cuti'
+      fullPath: '/hr/kalender-cuti'
+      preLoaderRoute: typeof AuthenticatedHrKalenderCutiRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/hr/rekap-absen': {
+      id: '/_authenticated/hr/rekap-absen'
+      path: '/hr/rekap-absen'
+      fullPath: '/hr/rekap-absen'
+      preLoaderRoute: typeof AuthenticatedHrRekapAbsenRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/hr/request-cuti': {
+      id: '/_authenticated/hr/request-cuti'
+      path: '/hr/request-cuti'
+      fullPath: '/hr/request-cuti'
+      preLoaderRoute: typeof AuthenticatedHrRequestCutiRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/hr/resign': {
+      id: '/_authenticated/hr/resign'
+      path: '/hr/resign'
+      fullPath: '/hr/resign'
+      preLoaderRoute: typeof AuthenticatedHrResignRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
   }
 }
 
@@ -374,6 +473,10 @@ interface AuthenticatedRouteChildren {
   AuthenticatedRingkasanWhatsappRoute: typeof AuthenticatedRingkasanWhatsappRoute
   AuthenticatedSlipGajiRoute: typeof AuthenticatedSlipGajiRoute
   AuthenticatedTunjanganRoute: typeof AuthenticatedTunjanganRoute
+  AuthenticatedHrKalenderCutiRoute: typeof AuthenticatedHrKalenderCutiRoute
+  AuthenticatedHrRekapAbsenRoute: typeof AuthenticatedHrRekapAbsenRoute
+  AuthenticatedHrRequestCutiRoute: typeof AuthenticatedHrRequestCutiRoute
+  AuthenticatedHrResignRoute: typeof AuthenticatedHrResignRoute
 }
 
 const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
@@ -391,6 +494,10 @@ const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedRingkasanWhatsappRoute: AuthenticatedRingkasanWhatsappRoute,
   AuthenticatedSlipGajiRoute: AuthenticatedSlipGajiRoute,
   AuthenticatedTunjanganRoute: AuthenticatedTunjanganRoute,
+  AuthenticatedHrKalenderCutiRoute: AuthenticatedHrKalenderCutiRoute,
+  AuthenticatedHrRekapAbsenRoute: AuthenticatedHrRekapAbsenRoute,
+  AuthenticatedHrRequestCutiRoute: AuthenticatedHrRequestCutiRoute,
+  AuthenticatedHrResignRoute: AuthenticatedHrResignRoute,
 }
 
 const AuthenticatedRouteWithChildren = AuthenticatedRoute._addFileChildren(
@@ -401,6 +508,7 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AuthenticatedRoute: AuthenticatedRouteWithChildren,
   LoginRoute: LoginRoute,
+  RequestCutiRoute: RequestCutiRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

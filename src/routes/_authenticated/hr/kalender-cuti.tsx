@@ -756,11 +756,33 @@ function KalenderCutiPage() {
     if (!posterRef.current) return;
     setPosterBuilding(true);
     try {
-      const canvas = await html2canvas(posterRef.current, {
+      const el = posterRef.current;
+      const canvas = await html2canvas(el, {
         scale: 2,
-        useCORS: true,
+        useCORS: false,
         backgroundColor: "#ffffff",
         logging: false,
+        width: el.scrollWidth,
+        height: el.scrollHeight,
+        x: 0,
+        y: 0,
+        scrollX: 0,
+        scrollY: 0,
+        windowWidth: el.scrollWidth,
+        windowHeight: el.scrollHeight,
+        onclone: (doc) => {
+          // Pastikan elemen clone terlihat oleh html2canvas
+          const cloned = doc.querySelector('[aria-hidden="true"]');
+          if (cloned instanceof HTMLElement) {
+            cloned.style.position = "absolute";
+            cloned.style.clip = "";
+            cloned.style.clipPath = "";
+            cloned.style.overflow = "";
+            cloned.style.whiteSpace = "";
+            cloned.style.width = "";
+            cloned.style.height = "";
+          }
+        },
       });
       setPosterData(canvas.toDataURL("image/png"));
     } catch (err) {
@@ -776,8 +798,18 @@ function KalenderCutiPage() {
   useEffect(() => {
     if (!shareOpen) return;
     setPosterData(null);
-    const t = setTimeout(buildPoster, 80);
-    return () => clearTimeout(t);
+    // Tunggu 2 frame untuk memastikan React commit & browser paint selesai
+    let rafId: number;
+    let rafId2: number;
+    rafId = requestAnimationFrame(() => {
+      rafId2 = requestAnimationFrame(() => {
+        buildPoster();
+      });
+    });
+    return () => {
+      cancelAnimationFrame(rafId);
+      cancelAnimationFrame(rafId2);
+    };
   }, [shareOpen, shareBranchId, viewMonth, viewYear, buildPoster]);
 
   const openShare = () => {
@@ -865,7 +897,9 @@ function KalenderCutiPage() {
 
   return (
     <div className="flex flex-col gap-6 p-4 sm:p-6">
-      {/* Poster tersembunyi untuk di-capture jadi gambar (kirim via WA) */}
+      {/* Poster tersembunyi untuk di-capture jadi gambar (kirim via WA)
+          Menggunakan position:absolute + clip:rect(0,0,0,0) agar DOM tetap
+          fully rendered di layout browser — html2canvas bisa menangkapnya. */}
       {(() => {
         const scope = shareBranchId || selectedBranch;
         const cabangNama =
@@ -874,8 +908,18 @@ function KalenderCutiPage() {
           <div
             ref={posterRef}
             aria-hidden
-            className="pointer-events-none fixed top-0 z-[-1]"
-            style={{ left: -9999 }}
+            className=""
+            style={{
+              position: "absolute",
+              top: 0,
+              left: 0,
+              clip: "rect(0,0,0,0)",
+              clipPath: "inset(0)",
+              overflow: "hidden",
+              whiteSpace: "nowrap",
+              width: "1px",
+              height: "1px",
+            }}
           >
             <KalenderPoster
               bulan={BULAN_PANJANG[viewMonth]}

@@ -30,6 +30,16 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { toast } from "sonner";
@@ -113,10 +123,13 @@ function RequestCutiAdminPage() {
   const [alasanTolak, setAlasanTolak] = useState("");
 
   const { data: branches = [] } = useQuery({
-    queryKey: ["branches_hr_request"],
+    queryKey: ["branches_hr_request_full"],
     queryFn: async () => {
-      const { data } = await supabase.from("branches").select("id, nama").order("nama");
-      return (data as { id: string; nama: string }[]) || [];
+      const { data } = await supabase
+        .from("branches")
+        .select("id, nama, kuota_cuti_hari_kerja, kuota_cuti_akhir_pekan")
+        .order("nama");
+      return (data as { id: string; nama: string; kuota_cuti_hari_kerja?: number; kuota_cuti_akhir_pekan?: number }[]) || [];
     },
   });
 
@@ -139,7 +152,7 @@ function RequestCutiAdminPage() {
         .select(
           "id, employee_id, jenis, tanggal_mulai, tanggal_selesai, tanggal_list, alasan, status, created_at, employees ( nama, kode_karyawan, whatsapp, branch_id, branches ( nama ) )",
         )
-        .order("created_at", { ascending: true });
+          .order("created_at", { ascending: false });
       if (error) throw error;
       return (data || []) as CutiRequest[];
     },
@@ -211,7 +224,7 @@ function RequestCutiAdminPage() {
     const term = searchTerm.toLowerCase().trim();
     return cutiList.filter((c) => {
       if (statusFilter !== "all" && c.status !== statusFilter) return false;
-      if (branchFilter !== "all" && c.employees?.branches?.nama !== branchFilter) return false;
+      if (branchFilter !== "all" && c.employees?.branch_id !== branchFilter) return false;
       if (term !== "") {
         const hay = `${c.employees?.nama || ""} ${c.employees?.kode_karyawan || ""}`.toLowerCase();
         if (!hay.includes(term)) return false;
@@ -235,6 +248,9 @@ function RequestCutiAdminPage() {
 
   const isGatewayConnected = gateway?.status === "connected";
 
+  // State untuk approval confirmation dialog
+  const [approvalTarget, setApprovalTarget] = useState<CutiRequest | null>(null);
+
   const approveMutation = useMutation({
     mutationFn: async (c: CutiRequest) => {
       // FCFS: slot diisi oleh (a) permohonan disetujui + (b) permohonan diajukan yang lebih dulu
@@ -247,14 +263,14 @@ function RequestCutiAdminPage() {
 
       let earlierQuery = supabase
         .from("cuti")
-        .select("id, tanggal_mulai, tanggal_selesai")
+        .select("id, tanggal_mulai, tanggal_selesai, employees!inner(branch_id)")
         .eq("status", "diajukan")
         .lt("created_at", c.created_at || new Date().toISOString())
         .lte("tanggal_mulai", c.tanggal_selesai)
         .gte("tanggal_selesai", c.tanggal_mulai);
       // FCFS dihitung dalam lingkup cabang yang sama
       if (c.employees?.branch_id)
-        earlierQuery = earlierQuery.eq("branch_id", c.employees.branch_id);
+        earlierQuery = earlierQuery.eq("employees.branch_id", c.employees.branch_id);
       const { data: earlierPending, error: errEarlier } = await earlierQuery;
       if (errEarlier) throw errEarlier;
 
@@ -291,6 +307,7 @@ function RequestCutiAdminPage() {
     },
     onSuccess: () => {
       toast.success("Permohonan cuti disetujui. Notifikasi ditambahkan ke antrean.");
+      setApprovalTarget(null);
       refetchCuti();
       refetchNotifs();
     },
@@ -499,7 +516,7 @@ function RequestCutiAdminPage() {
             <SelectContent>
               <SelectItem value="all">Semua Cabang</SelectItem>
               {branches.map((b) => (
-                <SelectItem key={b.id} value={b.nama}>
+                <SelectItem key={b.id} value={b.id}>
                   {b.nama}
                 </SelectItem>
               ))}
@@ -520,7 +537,7 @@ function RequestCutiAdminPage() {
           <div>
             <h3 className="text-sm font-semibold text-slate-950">Daftar Permohonan Cuti</h3>
             <p className="text-xs text-slate-500">
-              Diurutkan dari pengajuan terlama (prioritas pertama) • {filteredCuti.length}{" "}
+              Diurutkan dari pengajuan terbaru • {filteredCuti.length}{" "}
               permohonan
             </p>
           </div>
@@ -635,7 +652,7 @@ function RequestCutiAdminPage() {
                                 size="sm"
                                 variant="outline"
                                 className="h-8 border-emerald-200 text-emerald-700 hover:bg-emerald-50"
-                                onClick={() => approveMutation.mutate(c)}
+                                onClick={() => setApprovalTarget(c)}
                                 disabled={approveMutation.isPending}
                               >
                                 <CheckCircle2 className="mr-1 h-3.5 w-3.5" /> Setujui
@@ -768,6 +785,55 @@ function RequestCutiAdminPage() {
           </Table>
         </div>
       </div>
+
+      {/* Dialog konfirmasi persetujuan */}
+      <AlertDialog open={!!approvalTarget} onOpenChange={(open) => !open && setApprovalTarget(null)}>
+        <AlertDialogContent className="rounded-2xl">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="text-lg font-bold text-slate-900">
+              Setujui Permohonan Cuti?
+            </AlertDialogTitle>
+            <AlertDialogDescription className="space-y-2 text-left">
+              <p>
+                <span className="font-semibold text-slate-900">
+                  {approvalTarget?.employees?.nama || "-"}
+                </span>{" "}
+                dari{" "}
+                <span className="font-semibold text-slate-900">
+                  {approvalTarget?.employees?.branches?.nama || "-"}
+                </span>
+              </p>
+              <p>
+                {approvalTarget ? getJenisCuti(approvalTarget.jenis).label : ""} •{" "}
+                {approvalTarget ? formatTanggalHR(approvalTarget.tanggal_mulai) : ""} s/d{" "}
+                {approvalTarget ? formatTanggalHR(approvalTarget.tanggal_selesai) : ""} •{" "}
+                {approvalTarget ? countDays(approvalTarget.tanggal_mulai, approvalTarget.tanggal_selesai) : ""}{" "}
+                hari
+              </p>
+              <p className="text-xs text-slate-500">
+                Sistem akan otomatis membuat notifikasi WhatsApp untuk dikirim ke karyawan.
+              </p>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Batal</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-emerald-600 hover:bg-emerald-700"
+              disabled={approveMutation.isPending}
+              onClick={() => {
+                if (approvalTarget) approveMutation.mutate(approvalTarget);
+              }}
+            >
+              {approveMutation.isPending ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : (
+                <CheckCircle2 className="mr-2 h-4 w-4" />
+              )}
+              Setujui & Buat Notifikasi
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* Dialog tolak */}
       <Dialog open={!!tolakTarget} onOpenChange={(open) => !open && setTolakTarget(null)}>

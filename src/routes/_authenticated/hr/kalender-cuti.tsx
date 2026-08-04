@@ -389,6 +389,9 @@ function KalenderCutiPage() {
   const [sharePhone, setSharePhone] = useState("");
   const [shareSending, setShareSending] = useState(false);
 
+  // Export loading state
+  const [exporting, setExporting] = useState(false);
+
   // Poster gambar kalender (html2canvas)
   const posterRef = useRef<HTMLDivElement>(null);
   const [posterData, setPosterData] = useState<string | null>(null);
@@ -546,6 +549,8 @@ function KalenderCutiPage() {
   const saveMutation = useMutation({
     mutationFn: async () => {
       const tanggal_list = multiView && tglTerpilih.length > 0 ? tglTerpilih : null;
+      // Ambil branch_id dari employee yang dipilih
+      const selectedEmp = employees.find((e) => e.id === empId);
       const payload: {
         employee_id: string;
         jenis: string;
@@ -553,6 +558,7 @@ function KalenderCutiPage() {
         tanggal_selesai: string;
         alasan: string;
         status: string;
+        branch_id?: string;
         tanggal_list?: string[];
       } = {
         employee_id: empId,
@@ -561,6 +567,7 @@ function KalenderCutiPage() {
         tanggal_selesai: tglSelesai,
         alasan,
         status,
+        branch_id: selectedEmp?.branch_id || null,
       };
       if (tanggal_list) {
         payload.tanggal_list = tanggal_list;
@@ -602,68 +609,86 @@ function KalenderCutiPage() {
     saveMutation.mutate();
   };
 
-  const exportExcel = () => {
+  const exportExcel = async () => {
     if (filteredCuti.length === 0) return toast.error("Tidak ada data cuti untuk diekspor.");
-    const headers = [
-      "Kode",
-      "Nama Karyawan",
-      "Cabang",
-      "Jabatan",
-      "Jenis Cuti",
-      "Tanggal Mulai",
-      "Tanggal Selesai",
-      "Jumlah Hari",
-      "Alasan",
-      "Status",
-    ];
-    const rows = filteredCuti.map((c) => [
-      c.employees?.kode_karyawan || "-",
-      c.employees?.nama || "-",
-      c.employees?.branches?.nama || "-",
-      c.employees?.jabatan || "-",
-      getJenisCuti(c.jenis).label,
-      c.tanggal_mulai,
-      c.tanggal_selesai,
-      countDays(c.tanggal_mulai, c.tanggal_selesai),
-      c.alasan || "-",
-      getStatusCuti(c.status).label,
-    ]);
-    downloadCSV(
-      `Kalender_Cuti_${safeFileName(BULAN_PANJANG[viewMonth])}_${viewYear}.csv`,
-      headers,
-      rows,
-    );
+    setExporting(true);
+    try {
+      const headers = [
+        "Kode",
+        "Nama Karyawan",
+        "Cabang",
+        "Jabatan",
+        "Jenis Cuti",
+        "Tanggal Mulai",
+        "Tanggal Selesai",
+        "Jumlah Hari",
+        "Alasan",
+        "Status",
+      ];
+      const rows = filteredCuti.map((c) => [
+        c.employees?.kode_karyawan || "-",
+        c.employees?.nama || "-",
+        c.employees?.branches?.nama || "-",
+        c.employees?.jabatan || "-",
+        getJenisCuti(c.jenis).label,
+        c.tanggal_mulai,
+        c.tanggal_selesai,
+        countDays(c.tanggal_mulai, c.tanggal_selesai),
+        c.alasan || "-",
+        getStatusCuti(c.status).label,
+      ]);
+      downloadCSV(
+        `Kalender_Cuti_${safeFileName(BULAN_PANJANG[viewMonth])}_${viewYear}.csv`,
+        headers,
+        rows,
+      );
+      toast.success("Data berhasil diekspor ke Excel.");
+    } catch (err) {
+      toast.error("Gagal mengekspor data.");
+      console.error(err);
+    } finally {
+      setExporting(false);
+    }
   };
 
-  const exportPDF = () => {
+  const exportPDF = async () => {
     if (filteredCuti.length === 0) return toast.error("Tidak ada data cuti untuk diekspor.");
-    const headers = [
-      "Kode",
-      "Nama Karyawan",
-      "Cabang",
-      "Jenis Cuti",
-      "Tanggal Mulai",
-      "Tanggal Selesai",
-      "Hari",
-      "Status",
-    ];
-    const rows = filteredCuti.map((c) => [
-      c.employees?.kode_karyawan || "-",
-      c.employees?.nama || "-",
-      c.employees?.branches?.nama || "-",
-      getJenisCuti(c.jenis).label,
-      c.tanggal_mulai,
-      c.tanggal_selesai,
-      countDays(c.tanggal_mulai, c.tanggal_selesai),
-      getStatusCuti(c.status).label,
-    ]);
-    downloadPDFTable(
-      `Kalender_Cuti_${safeFileName(BULAN_PANJANG[viewMonth])}_${viewYear}.pdf`,
-      "Kalender Cuti Karyawan",
-      `${selectedBranchName} • ${BULAN_PANJANG[viewMonth]} ${viewYear}`,
-      headers,
-      rows,
-    );
+    setExporting(true);
+    try {
+      const headers = [
+        "Kode",
+        "Nama Karyawan",
+        "Cabang",
+        "Jenis Cuti",
+        "Tanggal Mulai",
+        "Tanggal Selesai",
+        "Hari",
+        "Status",
+      ];
+      const rows = filteredCuti.map((c) => [
+        c.employees?.kode_karyawan || "-",
+        c.employees?.nama || "-",
+        c.employees?.branches?.nama || "-",
+        getJenisCuti(c.jenis).label,
+        c.tanggal_mulai,
+        c.tanggal_selesai,
+        countDays(c.tanggal_mulai, c.tanggal_selesai),
+        getStatusCuti(c.status).label,
+      ]);
+      downloadPDFTable(
+        `Kalender_Cuti_${safeFileName(BULAN_PANJANG[viewMonth])}_${viewYear}.pdf`,
+        "Kalender Cuti Karyawan",
+        `${selectedBranchName} • ${BULAN_PANJANG[viewMonth]} ${viewYear}`,
+        headers,
+        rows,
+      );
+      toast.success("Data berhasil diekspor ke PDF.");
+    } catch (err) {
+      toast.error("Gagal mengekspor data.");
+      console.error(err);
+    } finally {
+      setExporting(false);
+    }
   };
 
   const changeMonth = (delta: number) => {
@@ -873,15 +898,27 @@ function KalenderCutiPage() {
               variant="outline"
               className="border-emerald-200 hover:bg-emerald-50 hover:text-emerald-700"
               onClick={exportExcel}
+              disabled={exporting}
             >
-              <FileSpreadsheet className="mr-2 h-4 w-4 text-emerald-600" /> Excel
+              {exporting ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin text-emerald-600" />
+              ) : (
+                <FileSpreadsheet className="mr-2 h-4 w-4 text-emerald-600" />
+              )}
+              {exporting ? "Mengekspor..." : "Excel"}
             </Button>
             <Button
               variant="outline"
               className="border-emerald-200 hover:bg-emerald-50 hover:text-emerald-700"
               onClick={exportPDF}
+              disabled={exporting}
             >
-              <FileDown className="mr-2 h-4 w-4 text-emerald-600" /> PDF
+              {exporting ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin text-emerald-600" />
+              ) : (
+                <FileDown className="mr-2 h-4 w-4 text-emerald-600" />
+              )}
+              {exporting ? "Mengekspor..." : "PDF"}
             </Button>
             <Button
               variant="outline"

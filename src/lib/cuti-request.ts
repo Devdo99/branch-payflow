@@ -1,7 +1,7 @@
 import { getJenisCuti, formatTanggalHR } from "./hr";
 
 /**
- * Aturan kuota cuti per hari:
+ * Aturan kuota cuti per hari (default fallback jika tidak ada data dari cabang):
  * - Hari kerja (Senin–Jumat): maksimal 2 orang
  * - Sabtu & Minggu: maksimal 1 orang
  */
@@ -17,12 +17,20 @@ export function isAkhirPekan(dateStr: string): boolean {
   return day === 0 || day === 6;
 }
 
-export function getKuotaMax(dateStr: string): number {
+/**
+ * Dapatkan kuota maksimal per hari. Gunakan nilai dari cabang jika tersedia,
+ * fallback ke konstanta default.
+ */
+export function getKuotaMax(dateStr: string, branchKuota?: { hariKerja: number; akhirPekan: number }): number {
+  if (branchKuota) {
+    return isAkhirPekan(dateStr) ? branchKuota.akhirPekan : branchKuota.hariKerja;
+  }
   return isAkhirPekan(dateStr) ? KUOTA_CUTI.akhirPekan : KUOTA_CUTI.hariKerja;
 }
 
-export function getKuotaLabel(dateStr: string): string {
-  return isAkhirPekan(dateStr) ? "Sabtu/Minggu (maks 1 orang)" : "Hari kerja (maks 2 orang)";
+export function getKuotaLabel(dateStr: string, branchKuota?: { hariKerja: number; akhirPekan: number }): string {
+  const max = getKuotaMax(dateStr, branchKuota);
+  return isAkhirPekan(dateStr) ? `Sabtu/Minggu (maks ${max} orang)` : `Hari kerja (maks ${max} orang)`;
 }
 
 /** Daftar semua tanggal (YYYY-MM-DD) dalam rentang mulai–selesai (inklusif). */

@@ -24,8 +24,16 @@ import {
   Info,
   RotateCcw,
 } from "lucide-react";
-import { JENIS_CUTI, getJenisCuti, formatTanggalHR, toISODate } from "@/lib/hr";
-import { enumerateDates, getKuotaLabel, maskPhone } from "@/lib/cuti-request";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 export const Route = createFileRoute("/request-cuti")({
   component: RequestCutiPage,
@@ -72,6 +80,9 @@ function RequestCutiPage() {
 
   // Langkah 3: hasil
   const [hasil, setHasil] = useState<HasilKirim | null>(null);
+
+  // Confirmation dialog
+  const [showConfirmation, setShowConfirmation] = useState(false);
 
   const tanggalTerpakai = useMemo(() => {
     if (modeTanggal === "multi") return tglTerpilih.sort();
@@ -137,10 +148,28 @@ function RequestCutiPage() {
       toast.error("Pilih minimal satu tanggal cuti.");
       return;
     }
+    if (modeTanggal === "range" && (!tglMulai || !tglSelesai)) {
+      toast.error("Lengkapi tanggal mulai dan selesai.");
+      return;
+    }
     if (jenis === "izin" && alasan.trim().length < 5) {
       toast.error("Untuk cuti izin, wajib mencantumkan alasan (min. 5 karakter).");
       return;
     }
+
+    // Validasi tanggal tidak boleh di masa lalu
+    const today = todayLocalISO();
+    if (tanggalTerpakai[0] < today) {
+      toast.error("Tidak dapat mengajukan cuti untuk tanggal yang sudah lalu.");
+      return;
+    }
+
+    // Tampilkan konfirmasi
+    setShowConfirmation(true);
+  };
+
+  const prosesSimpanPermohonan = async () => {
+    if (!employee) return;
 
     setIsSubmitting(true);
     try {
@@ -160,6 +189,7 @@ function RequestCutiPage() {
           alasan:
             "Anda masih memiliki permohonan cuti aktif (diajukan/disetujui) pada periode yang tumpang tindih.",
         });
+        setShowConfirmation(false);
         setStep("done");
         return;
       }
@@ -206,10 +236,12 @@ function RequestCutiPage() {
           ? { status: "ditolak", alasan: alasanFinal || "" }
           : { status: "diajukan" },
       );
+      setShowConfirmation(false);
       setStep("done");
     } catch (err) {
       console.error(err);
       toast.error("Gagal mengirim permohonan. Coba lagi beberapa saat.");
+      setShowConfirmation(false);
     } finally {
       setIsSubmitting(false);
     }
@@ -394,6 +426,7 @@ function RequestCutiPage() {
                     <Input
                       type="date"
                       value={tglMulai}
+                      min={todayLocalISO()}
                       onChange={(e) => {
                         setTglMulai(e.target.value);
                         if (e.target.value > tglSelesai) setTglSelesai(e.target.value);
@@ -408,7 +441,7 @@ function RequestCutiPage() {
                     <Input
                       type="date"
                       value={tglSelesai}
-                      min={tglMulai}
+                      min={tglMulai || todayLocalISO()}
                       onChange={(e) => setTglSelesai(e.target.value)}
                       className="h-12 rounded-xl"
                     />
@@ -669,7 +702,59 @@ function RequestCutiPage() {
         <p className="mt-6 text-center text-xs text-slate-400">
           Dibuat otomatis oleh sistem penggajian — hubungi admin untuk pertanyaan.
         </p>
-      </main>
+        <AlertDialog open={showConfirmation} onOpenChange={setShowConfirmation}>
+          <AlertDialogContent className="rounded-2xl">
+            <AlertDialogHeader>
+              <AlertDialogTitle className="text-lg font-bold text-slate-900">
+                Konfirmasi Permohonan Cuti
+              </AlertDialogTitle>
+              <AlertDialogDescription className="space-y-3 text-left">
+                <div className="rounded-lg bg-slate-50 p-3 text-sm">
+                  <p className="font-semibold text-slate-900">{employee?.nama}</p>
+                  <p className="mt-1 text-xs text-slate-600">{employee?.whatsapp}</p>
+                </div>
+                <div className="space-y-1 text-sm">
+                  <p>
+                    <span className="font-semibold text-slate-700">Jenis:</span>{" "}
+                    {getJenisCuti(jenis).label}
+                  </p>
+                  <p>
+                    <span className="font-semibold text-slate-700">Tanggal:</span> {jumlahHari} hari
+                    ({tanggalTerpakai[0] ? formatTanggalHR(tanggalTerpakai[0]) : "?"} s/d{" "}
+                    {tanggalTerpakai[tanggalTerpakai.length - 1]
+                      ? formatTanggalHR(tanggalTerpakai[tanggalTerpakai.length - 1])
+                      : "?"})
+                  </p>
+                  {alasan && (
+                    <p>
+                      <span className="font-semibold text-slate-700">Alasan:</span> {alasan}
+                    </p>
+                  )}
+                </div>
+                <p className="text-xs text-slate-500">
+                  Permohonan ini akan dikirim ke admin untuk diverifikasi. Hasil persetujuan akan
+                  dikirim via WhatsApp.
+                </p>
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Batal</AlertDialogCancel>
+              <AlertDialogAction
+                className="bg-emerald-600 hover:bg-emerald-700"
+                disabled={isSubmitting}
+                onClick={prosesSimpanPermohonan}
+              >
+                {isSubmitting ? (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                ) : (
+                  <Send className="mr-2 h-4 w-4" />
+                )}
+                Kirim Permohonan
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+      </div>
     </div>
   );
 }

@@ -105,6 +105,7 @@ function RekapCutiPage() {
   const [selectedBranch, setSelectedBranch] = useState("all");
   const [statusFilter, setStatusFilter] = useState("all");
   const [searchTerm, setSearchTerm] = useState("");
+  const [exporting, setExporting] = useState(false);
 
   const daysInMonth = getDaysInMonth(viewYear, viewMonth);
   const monthStart = `${viewYear}-${String(viewMonth + 1).padStart(2, "0")}-01`;
@@ -206,8 +207,7 @@ function RekapCutiPage() {
 
   const stats = useMemo(() => {
     const s = { diajukan: 0, disetujui: 0, ditolak: 0, totalHari: 0, karyawan: 0 };
-    cutiList.forEach((c) => {
-      if (selectedBranch !== "all" && c.employees?.branch_id !== selectedBranch) return;
+    filteredCuti.forEach((c) => {
       if (c.status === "diajukan") s.diajukan += 1;
       else if (c.status === "disetujui") s.disetujui += 1;
       else if (c.status === "ditolak") s.ditolak += 1;
@@ -221,9 +221,9 @@ function RekapCutiPage() {
         );
       }
     });
-    s.karyawan = empRowsWithApproved.length;
+    s.karyawan = new Set(filteredCuti.filter((c) => c.status === "disetujui").map((c) => c.employee_id)).size;
     return s;
-  }, [cutiList, selectedBranch, empRowsWithApproved, monthStart, monthEnd]);
+  }, [filteredCuti, monthStart, monthEnd]);
 
   const changeMonth = (delta: number) => {
     let m = viewMonth + delta;
@@ -244,47 +244,65 @@ function RekapCutiPage() {
       ? "Semua Cabang"
       : branches.find((b) => b.id === selectedBranch)?.nama || selectedBranch;
 
-  const exportExcel = () => {
+  const exportExcel = async () => {
     if (empRowsWithApproved.length === 0) return toast.error("Tidak ada data cuti untuk diekspor.");
-    const headers = [
-      "Kode",
-      "Nama Karyawan",
-      "Cabang",
-      ...JENIS_CUTI.map((j) => j.label),
-      "Total Hari Cuti",
-      "Total Permohonan",
-    ];
-    const rows = empRowsWithApproved.map((r) => [
-      r.emp?.kode_karyawan || "-",
-      r.emp?.nama || "-",
-      r.emp?.branches?.nama || "-",
-      ...JENIS_CUTI.map((j) => r.counts[j.value] || 0),
-      r.total,
-      r.permohonan,
-    ]);
-    downloadCSV(
-      `Rekap_Cuti_${safeFileName(BULAN_PANJANG[viewMonth])}_${viewYear}.csv`,
-      headers,
-      rows,
-    );
+    setExporting(true);
+    try {
+      const headers = [
+        "Kode",
+        "Nama Karyawan",
+        "Cabang",
+        ...JENIS_CUTI.map((j) => j.label),
+        "Total Hari Cuti",
+        "Total Permohonan",
+      ];
+      const rows = empRowsWithApproved.map((r) => [
+        r.emp?.kode_karyawan || "-",
+        r.emp?.nama || "-",
+        r.emp?.branches?.nama || "-",
+        ...JENIS_CUTI.map((j) => r.counts[j.value] || 0),
+        r.total,
+        r.permohonan,
+      ]);
+      downloadCSV(
+        `Rekap_Cuti_${safeFileName(BULAN_PANJANG[viewMonth])}_${viewYear}.csv`,
+        headers,
+        rows,
+      );
+      toast.success("Data berhasil diekspor ke Excel.");
+    } catch (err) {
+      toast.error("Gagal mengekspor data.");
+      console.error(err);
+    } finally {
+      setExporting(false);
+    }
   };
 
-  const exportPDF = () => {
+  const exportPDF = async () => {
     if (empRowsWithApproved.length === 0) return toast.error("Tidak ada data cuti untuk diekspor.");
-    const headers = ["Kode", "Nama", ...JENIS_CUTI.map((j) => j.label), "Total"];
-    const rows = empRowsWithApproved.map((r) => [
-      r.emp?.kode_karyawan || "-",
-      r.emp?.nama || "-",
-      ...JENIS_CUTI.map((j) => r.counts[j.value] || 0),
-      r.total,
-    ]);
-    downloadPDFTable(
-      `Rekap_Cuti_${safeFileName(BULAN_PANJANG[viewMonth])}_${viewYear}.pdf`,
-      "Rekap Cuti Karyawan",
-      `${selectedBranchName} • ${BULAN_PANJANG[viewMonth]} ${viewYear}`,
-      headers,
-      rows,
-    );
+    setExporting(true);
+    try {
+      const headers = ["Kode", "Nama", ...JENIS_CUTI.map((j) => j.label), "Total"];
+      const rows = empRowsWithApproved.map((r) => [
+        r.emp?.kode_karyawan || "-",
+        r.emp?.nama || "-",
+        ...JENIS_CUTI.map((j) => r.counts[j.value] || 0),
+        r.total,
+      ]);
+      downloadPDFTable(
+        `Rekap_Cuti_${safeFileName(BULAN_PANJANG[viewMonth])}_${viewYear}.pdf`,
+        "Rekap Cuti Karyawan",
+        `${selectedBranchName} • ${BULAN_PANJANG[viewMonth]} ${viewYear}`,
+        headers,
+        rows,
+      );
+      toast.success("Data berhasil diekspor ke PDF.");
+    } catch (err) {
+      toast.error("Gagal mengekspor data.");
+      console.error(err);
+    } finally {
+      setExporting(false);
+    }
   };
 
   return (
@@ -298,15 +316,27 @@ function RekapCutiPage() {
               variant="outline"
               className="border-emerald-200 hover:bg-emerald-50 hover:text-emerald-700"
               onClick={exportExcel}
+              disabled={exporting}
             >
-              <FileSpreadsheet className="mr-2 h-4 w-4 text-emerald-600" /> Excel
+              {exporting ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin text-emerald-600" />
+              ) : (
+                <FileSpreadsheet className="mr-2 h-4 w-4 text-emerald-600" />
+              )}
+              {exporting ? "Mengekspor..." : "Excel"}
             </Button>
             <Button
               variant="outline"
               className="border-emerald-200 hover:bg-emerald-50 hover:text-emerald-700"
               onClick={exportPDF}
+              disabled={exporting}
             >
-              <FileDown className="mr-2 h-4 w-4 text-emerald-600" /> PDF
+              {exporting ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin text-emerald-600" />
+              ) : (
+                <FileDown className="mr-2 h-4 w-4 text-emerald-600" />
+              )}
+              {exporting ? "Mengekspor..." : "PDF"}
             </Button>
           </div>
         }

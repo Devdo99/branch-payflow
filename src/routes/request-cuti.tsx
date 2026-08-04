@@ -754,7 +754,7 @@ function RequestCutiPage() {
             </AlertDialogFooter>
           </AlertDialogContent>
         </AlertDialog>
-      </div>
+    </main>
     </div>
   );
 }

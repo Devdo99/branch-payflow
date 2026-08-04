@@ -1,0 +1,649 @@
+
+{
+  "header": {
+    "reportVersion": 5,
+    "event": "Allocation failed - JavaScript heap out of memory",
+    "trigger": "OOMError",
+    "filename": "report.20260804.094651.4464.14.001.json",
+    "dumpEventTime": "2026-08-04T09:46:51Z",
+    "dumpEventTimeStamp": "1785811611738",
+    "processId": 4464,
+    "threadId": 14,
+    "cwd": "D:\\kreatif\\branch-payflow",
+    "commandLine": [
+      "C:\\Users\\Axioo\\AppData\\Local\\Microsoft\\WinGet\\Links\\copilot.exe",
+      "--no-warnings",
+      "--report-on-fatalerror",
+      "--optimize-for-size",
+      "--expose-gc",
+      "--no-maglev",
+      "--no-sparkplug",
+      "C:\\Users\\Axioo\\AppData\\Local\\Microsoft\\WinGet\\Links\\copilot.exe"
+    ],
+    "nodejsVersion": "v24.16.0",
+    "wordSize": 64,
+    "arch": "x64",
+    "platform": "win32",
+    "componentVersions": {
+      "acorn": "8.16.0",
+      "ada": "3.4.4",
+      "amaro": "1.1.9",
+      "ares": "1.34.6",
+      "brotli": "1.2.0",
+      "cldr": "48.0",
+      "icu": "78.3",
+      "llhttp": "9.4.1",
+      "merve": "1.2.2",
+      "modules": "137",
+      "napi": "10",
+      "nbytes": "0.1.4",
+      "ncrypto": "0.0.1",
+      "nghttp2": "1.68.0",
+      "nghttp3": "",
+      "ngtcp2": "",
+      "node": "24.16.0",
+      "openssl": "3.5.6",
+      "simdjson": "4.6.1",
+      "simdutf": "6.4.0",
+      "sqlite": "3.53.0",
+      "tz": "2026b",
+      "undici": "7.25.0",
+      "unicode": "17.0",
+      "uv": "1.52.1",
+      "uvwasi": "0.0.23",
+      "v8": "13.6.233.17-node.49",
+      "zlib": "1.3.1-e00f703",
+      "zstd": "1.5.7"
+    },
+    "release": {
+      "name": "node",
+      "lts": "Krypton",
+      "headersUrl": "https://nodejs.org/download/release/v24.16.0/node-v24.16.0-headers.tar.gz",
+      "sourceUrl": "https://nodejs.org/download/release/v24.16.0/node-v24.16.0.tar.gz",
+      "libUrl": "https://nodejs.org/download/release/v24.16.0/win-x64/node.lib"
+    },
+    "osName": "Windows_NT",
+    "osRelease": "10.0.26200",
+    "osVersion": "Windows 11 Pro",
+    "osMachine": "x86_64",
+    "cpus": [
+      {
+        "model": "Intel(R) Celeron(R) N4020 CPU @ 1.10GHz",
+        "speed": 1094,
+        "user": 2423031,
+        "nice": 0,
+        "sys": 1899203,
+        "idle": 1197234,
+        "irq": 126843
+      },
+      {
+        "model": "Intel(R) Celeron(R) N4020 CPU @ 1.10GHz",
+        "speed": 1094,
+        "user": 2648500,
+        "nice": 0,
+        "sys": 1649921,
+        "idle": 1220796,
+        "irq": 95359
+      }
+    ],
+    "networkInterfaces": [
+      {
+        "name": "Wi-Fi",
+        "internal": false,
+        "mac": "44:01:bb:57:16:e0",
+        "address": "2402:8780:1014:c8bd:1ed:2067:f8fd:3950",
+        "netmask": "ffff:ffff:ffff:ffff::",
+        "family": "IPv6",
+        "scopeid": 0
+      },
+      {
+        "name": "Wi-Fi",
+        "internal": false,
+        "mac": "44:01:bb:57:16:e0",
+        "address": "2402:8780:1014:c8bd:2405:c1e4:465a:d012",
+        "netmask": "ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff",
+        "family": "IPv6",
+        "scopeid": 0
+      },
+      {
+        "name": "Wi-Fi",
+        "internal": false,
+        "mac": "44:01:bb:57:16:e0",
+        "address": "fe80::e589:adfe:840f:3064",
+        "netmask": "ffff:ffff:ffff:ffff::",
+        "family": "IPv6",
+        "scopeid": 6
+      },
+      {
+        "name": "Wi-Fi",
+        "internal": false,
+        "mac": "44:01:bb:57:16:e0",
+        "address": "192.168.1.16",
+        "netmask": "255.255.255.0",
+        "family": "IPv4"
+      },
+      {
+        "name": "Loopback Pseudo-Interface 1",
+        "internal": true,
+        "mac": "00:00:00:00:00:00",
+        "address": "::1",
+        "netmask": "ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff",
+        "family": "IPv6",
+        "scopeid": 0
+      },
+      {
+        "name": "Loopback Pseudo-Interface 1",
+        "internal": true,
+        "mac": "00:00:00:00:00:00",
+        "address": "127.0.0.1",
+        "netmask": "255.0.0.0",
+        "family": "IPv4"
+      }
+    ],
+    "host": "DESKTOP-1UL3UB2"
+  },
+  "javascriptStack": {
+    "message": "No stack.",
+    "stack": [
+      "Unavailable."
+    ],
+    "errorProperties": {
+    }
+  },
+  "javascriptHeap": {
+    "totalMemory": 7806976,
+    "executableMemory": 262144,
+    "totalCommittedMemory": 7806976,
+    "availableMemory": 2144922696,
+    "totalGlobalHandlesMemory": 12360,
+    "usedGlobalHandlesMemory": 3008,
+    "usedMemory": 6742848,
+    "memoryLimit": 2150629376,
+    "mallocedMemory": 294960,
+    "externalMemory": 3643473,
+    "peakMallocedMemory": 4466200,
+    "nativeContextCount": 2,
+    "detachedContextCount": 0,
+    "doesZapGarbage": 0,
+    "heapSpaces": {
+      "read_only_space": {
+        "memorySize": 0,
+        "committedMemory": 0,
+        "capacity": 0,
+        "used": 0,
+        "available": 0
+      },
+      "new_space": {
+        "memorySize": 1048576,
+        "committedMemory": 1048576,
+        "capacity": 1048512,
+        "used": 840048,
+        "available": 208464
+      },
+      "old_space": {
+        "memorySize": 4567040,
+        "committedMemory": 4567040,
+        "capacity": 4558944,
+        "used": 4190248,
+        "available": 368696
+      },
+      "code_space": {
+        "memorySize": 262144,
+        "committedMemory": 262144,
+        "capacity": 262112,
+        "used": 4544,
+        "available": 257568
+      },
+      "shared_space": {
+        "memorySize": 0,
+        "committedMemory": 0,
+        "capacity": 0,
+        "used": 0,
+        "available": 0
+      },
+      "trusted_space": {
+        "memorySize": 1662976,
+        "committedMemory": 1662976,
+        "capacity": 1662840,
+        "used": 1445848,
+        "available": 216992
+      },
+      "shared_trusted_space": {
+        "memorySize": 0,
+        "committedMemory": 0,
+        "capacity": 0,
+        "used": 0,
+        "available": 0
+      },
+      "new_large_object_space": {
+        "memorySize": 0,
+        "committedMemory": 0,
+        "capacity": 1048576,
+        "used": 0,
+        "available": 1048576
+      },
+      "large_object_space": {
+        "memorySize": 266240,
+        "committedMemory": 266240,
+        "capacity": 262160,
+        "used": 262160,
+        "available": 0
+      },
+      "code_large_object_space": {
+        "memorySize": 0,
+        "committedMemory": 0,
+        "capacity": 0,
+        "used": 0,
+        "available": 0
+      },
+      "shared_large_object_space": {
+        "memorySize": 0,
+        "committedMemory": 0,
+        "capacity": 0,
+        "used": 0,
+        "available": 0
+      },
+      "shared_trusted_large_object_space": {
+        "memorySize": 0,
+        "committedMemory": 0,
+        "capacity": 0,
+        "used": 0,
+        "available": 0
+      },
+      "trusted_large_object_space": {
+        "memorySize": 0,
+        "committedMemory": 0,
+        "capacity": 0,
+        "used": 0,
+        "available": 0
+      }
+    }
+  },
+  "nativeStack": [
+    {
+      "pc": "0x00007ff64faa8407",
+      "symbol": ""
+    },
+    {
+      "pc": "0x00007ff64faa564c",
+      "symbol": ""
+    },
+    {
+      "pc": "0x00007ff64faaa3a8",
+      "symbol": ""
+    },
+    {
+      "pc": "0x00007ff64fb70c07",
+      "symbol": ""
+    },
+    {
+      "pc": "0x00007ff6507bf697",
+      "symbol": ""
+    },
+    {
+      "pc": "0x00007ff6505c00c7",
+      "symbol": ""
+    },
+    {
+      "pc": "0x00007ff650558aeb",
+      "symbol": ""
+    },
+    {
+      "pc": "0x00007ff65053053e",
+      "symbol": ""
+    },
+    {
+      "pc": "0x00007ff6505c2b62",
+      "symbol": ""
+    },
+    {
+      "pc": "0x00007ff6505c1b17",
+      "symbol": ""
+    },
+    {
+      "pc": "0x00007ff6505d2a42",
+      "symbol": ""
+    },
+    {
+      "pc": "0x00007ff6505d256b",
+      "symbol": ""
+    },
+    {
+      "pc": "0x00007ff651a5e86d",
+      "symbol": ""
+    },
+    {
+      "pc": "0x00007ff6505bdb90",
+      "symbol": ""
+    },
+    {
+      "pc": "0x00007ff65056e542",
+      "symbol": ""
+    },
+    {
+      "pc": "0x00007ff64fac2b5a",
+      "symbol": ""
+    },
+    {
+      "pc": "0x00007ff64fac1340",
+      "symbol": ""
+    },
+    {
+      "pc": "0x00007ff65082583b",
+      "symbol": ""
+    },
+    {
+      "pc": "0x00007ff6508253af",
+      "symbol": ""
+    },
+    {
+      "pc": "0x00007ff64fc8876f",
+      "symbol": ""
+    },
+    {
+      "pc": "0x00007ff64f9d4291",
+      "symbol": ""
+    },
+    {
+      "pc": "0x00007ff64f9dd6a0",
+      "symbol": ""
+    },
+    {
+      "pc": "0x00007ff6508146d6",
+      "symbol": ""
+    },
+    {
+      "pc": "0x00007ff651a7a033",
+      "symbol": ""
+    },
+    {
+      "pc": "0x00007ff8fd69e957",
+      "symbol": "BaseThreadInitThunk+23"
+    },
+    {
+      "pc": "0x00007ff8fe4ead6c",
+      "symbol": "RtlUserThreadStart+44"
+    }
+  ],
+  "resourceUsage": {
+    "free_memory": 300609536,
+    "total_memory": 8400838656,
+    "rss": 235077632,
+    "available_memory": 300609536,
+    "userCpuSeconds": 459.312,
+    "kernelCpuSeconds": 41.093,
+    "cpuConsumptionPercent": 17.6323,
+    "userCpuConsumptionPercent": 16.1844,
+    "kernelCpuConsumptionPercent": 1.44796,
+    "maxRss": 546660352,
+    "pageFaults": {
+      "IORequired": 746176,
+      "IONotRequired": 0
+    },
+    "fsActivity": {
+      "reads": 7720,
+      "writes": 24474
+    }
+  },
+  "uvthreadResourceUsage": {
+    "userCpuSeconds": 0.437,
+    "kernelCpuSeconds": 0.187,
+    "cpuConsumptionPercent": 0.0219873,
+    "userCpuConsumptionPercent": 0.0153982,
+    "kernelCpuConsumptionPercent": 0.00658915,
+    "fsActivity": {
+      "reads": 0,
+      "writes": 0
+    }
+  },
+  "libuv": [
+    {
+      "type": "async",
+      "is_active": true,
+      "is_referenced": false,
+      "address": "0x000001e7e0dd48e0"
+    },
+    {
+      "type": "async",
+      "is_active": true,
+      "is_referenced": false,
+      "address": "0x000001e7e3fc1348"
+    },
+    {
+      "type": "timer",
+      "is_active": false,
+      "is_referenced": false,
+      "address": "0x000001e7e10962a0",
+      "repeat": 0,
+      "firesInMsFromNow": -5520256,
+      "expired": true
+    },
+    {
+      "type": "check",
+      "is_active": true,
+      "is_referenced": false,
+      "address": "0x000001e7e1096340"
+    },
+    {
+      "type": "idle",
+      "is_active": false,
+      "is_referenced": true,
+      "address": "0x000001e7e10963b8"
+    },
+    {
+      "type": "prepare",
+      "is_active": true,
+      "is_referenced": false,
+      "address": "0x000001e7e1096430"
+    },
+    {
+      "type": "check",
+      "is_active": true,
+      "is_referenced": false,
+      "address": "0x000001e7e10964a8"
+    },
+    {
+      "type": "async",
+      "is_active": true,
+      "is_referenced": false,
+      "address": "0x000001e7e1096520"
+    },
+    {
+      "type": "async",
+      "is_active": true,
+      "is_referenced": false,
+      "address": "0x000001e7e3fc14b8"
+    },
+    {
+      "type": "async",
+      "is_active": true,
+      "is_referenced": false,
+      "address": "0x000001e7e3fc1628"
+    },
+    {
+      "type": "pipe",
+      "is_active": true,
+      "is_referenced": true,
+      "address": "0x000001e7e6c300b8",
+      "localEndpoint": null,
+      "remoteEndpoint": "\\\\.\\pipe\\conpty-8603257.838410618-out",
+      "writeQueueSize": 0,
+      "readable": true,
+      "writable": true
+    },
+    {
+      "type": "pipe",
+      "is_active": true,
+      "is_referenced": true,
+      "address": "0x000001e7e6c2dfb8",
+      "localEndpoint": "\\\\.\\pipe\\conpty-8603257.838410618-out-worker",
+      "remoteEndpoint": null,
+      "writeQueueSize": 0,
+      "readable": false,
+      "writable": false
+    },
+    {
+      "type": "pipe",
+      "is_active": true,
+      "is_referenced": true,
+      "address": "0x000001e7e6c2e5b8",
+      "localEndpoint": null,
+      "remoteEndpoint": "\\\\?\\pipe\\conpty-8603257.838410618-out-worker",
+      "writeQueueSize": 0,
+      "readable": true,
+      "writable": true
+    },
+    {
+      "type": "loop",
+      "is_active": true,
+      "address": "0x00000055685ff948",
+      "loopIdleTimeSeconds": 94.5414
+    }
+  ],
+  "workers": [
+  ],
+  "environmentVariables": {
+    "ALLUSERSPROFILE": "C:\\ProgramData",
+    "ANDROID_HOME": "C:\\Users\\Axioo\\AppData\\Local\\Android\\Sdk",
+    "APPDATA": "C:\\Users\\Axioo\\AppData\\Roaming",
+    "ChocolateyInstall": "C:\\ProgramData\\chocolatey",
+    "ChocolateyLastPathUpdate": "133975042737430357",
+    "CHROME_CRASHPAD_PIPE_NAME": "\\\\.\\pipe\\crashpad_12128_SBCGOUQLSRESJKVA",
+    "COLORTERM": "truecolor",
+    "CommonProgramFiles": "C:\\Program Files\\Common Files",
+    "CommonProgramFiles(x86)": "C:\\Program Files (x86)\\Common Files",
+    "CommonProgramW6432": "C:\\Program Files\\Common Files",
+    "COMPUTERNAME": "DESKTOP-1UL3UB2",
+    "ComSpec": "C:\\WINDOWS\\system32\\cmd.exe",
+    "COPILOT_CLI_BINARY_VERSION": "1.0.55",
+    "COPILOT_DEBUG_NONCE": "fd0d50c01f11fd13509387c178a6c321",
+    "COPILOT_LOADER_PID": "9968",
+    "COPILOT_RUN_APP": "1",
+    "DriverData": "C:\\Windows\\System32\\Drivers\\DriverData",
+    "EFC_4624_1262719628": "1",
+    "EFC_4624_1592913036": "1",
+    "EFC_4624_2283032206": "1",
+    "EFC_4624_2775293581": "1",
+    "EFC_4624_3789132940": "1",
+    "EFC_4624_4126798990": "1",
+    "GIT_ASKPASS": "c:\\Users\\Axioo\\AppData\\Roaming\\Code\\User\\globalStorage\\vscode.git\\askpass\\70789581cae28aa7\\askpass.sh",
+    "GIT_CONFIG_COUNT": "1",
+    "GIT_CONFIG_KEY_0": "safe.bareRepository",
+    "GIT_CONFIG_VALUE_0": "explicit",
+    "HOMEDRIVE": "C:",
+    "HOMEPATH": "\\Users\\Axioo",
+    "JAVA_HOME": "C:\\Program Files\\Eclipse Adoptium\\jdk-17.0.19.10-hotspot",
+    "LANG": "en_US.UTF-8",
+    "LOCALAPPDATA": "C:\\Users\\Axioo\\AppData\\Local",
+    "LOGONSERVER": "\\\\DESKTOP-1UL3UB2",
+    "NODE_ENV": "production",
+    "NUMBER_OF_PROCESSORS": "2",
+    "OneDrive": "C:\\Users\\Axioo\\OneDrive",
+    "OneDriveConsumer": "C:\\Users\\Axioo\\OneDrive",
+    "OS": "Windows_NT",
+    "Path": "C:\\Program Files\\WindowsApps\\Microsoft.PowerShell_7.6.4.0_x64__8wekyb3d8bbwe;c:\\Users\\Axioo\\AppData\\Roaming\\Code\\User\\globalStorage\\github.copilot-chat\\debugCommand;c:\\Users\\Axioo\\AppData\\Roaming\\Code\\User\\globalStorage\\github.copilot-chat\\copilotCli;C:\\Program Files\\Eclipse Adoptium\\jdk-17.0.19.10-hotspot\\bin;C:\\Python313\\Scripts\\;C:\\Python313\\;C:\\WINDOWS\\system32;C:\\WINDOWS;C:\\WINDOWS\\System32\\Wbem;C:\\WINDOWS\\System32\\WindowsPowerShell\\v1.0\\;C:\\WINDOWS\\System32\\OpenSSH\\;C:\\Program Files\\dotnet\\;C:\\Program Files\\MySQL\\MySQL Server 8.4\\bin;C:\\xampp\\php;C:\\composer;C:\\Program Files\\nodejs\\;C:\\ProgramData\\chocolatey\\bin;C:\\Program Files\\Git\\cmd;C:\\Windows\\py.exe\\Scripts;:\\Users\\Axioo\\AppData\\Local\\agy\\bin;C:\\Program Files\\GitHub CLI\\;C:\\Program Files\\Eclipse Adoptium\\jdk-17.0.19.10-hotspot\\bin;C:\\Users\\Axioo\\AppData\\Local\\Android\\Sdk\\platform-tools;C:\\Users\\Axioo\\AppData\\Local\\Android\\Sdk\\cmdline-tools\\latest\\bin;C:\\Users\\Axioo\\AppData\\Local\\agy\\bin;C:\\WINDOWS\\system32;C:\\WINDOWS;C:\\WINDOWS\\System32\\Wbem;C:\\WINDOWS\\System32\\WindowsPowerShell\\v1.0\\;C:\\WINDOWS\\System32\\OpenSSH\\;C:\\Program Files\\dotnet\\;C:\\Program Files\\MySQL\\MySQL Server 8.4\\bin;C:\\xampp\\php;C:\\composer;C:\\Program Files\\nodejs\\;C:\\Program Files\\Git\\cmd;C:\\Users\\Axioo\\AppData\\Local\\pnpm;C:\\Users\\Axioo\\AppData\\Local\\Microsoft\\WindowsApps;C:\\Users\\Axioo\\AppData\\Local\\Programs\\Microsoft VS Code\\bin;D:\\flutter\\Fluter\\flutter\\bin;C:\\Users\\Axioo\\AppData\\Roaming\\Composer\\vendor\\bin;C:\\Users\\NamaUser\\AppData\\Roaming\\Composer\\vendor\\bin;D:\\flutter\\bin;C:\\Android\\sdk\\cmdline-tools\\bin;C:\\Android\\sdk\\platform-tools;C:\\Users\\Axioo\\AppData\\Roaming\\npm;C:\\Users\\Axioo\\AppData\\Local\\Microsoft\\WindowsApps;C:\\Users\\Axioo\\AppData\\Local\\Programs\\Ollama;C:\\Users\\Axioo\\AppData\\Local\\Microsoft\\WinGet\\Links;C:\\Users\\Axioo\\AppData\\Local\\Kiro-Cli",
+    "PATHEXT": ".COM;.EXE;.BAT;.CMD;.VBS;.VBE;.JS;.JSE;.WSF;.WSH;.MSC;.PY;.PYW;.CPL",
+    "PNPM_HOME": "C:\\Users\\Axioo\\AppData\\Local\\pnpm",
+    "PROCESSOR_ARCHITECTURE": "AMD64",
+    "PROCESSOR_IDENTIFIER": "Intel64 Family 6 Model 122 Stepping 8, GenuineIntel",
+    "PROCESSOR_LEVEL": "6",
+    "PROCESSOR_REVISION": "7a08",
+    "ProgramData": "C:\\ProgramData",
+    "ProgramFiles": "C:\\Program Files",
+    "ProgramFiles(x86)": "C:\\Program Files (x86)",
+    "ProgramW6432": "C:\\Program Files",
+    "PSModulePath": "C:\\Users\\Axioo\\OneDrive\\Dokumen\\PowerShell\\Modules;C:\\Program Files\\PowerShell\\Modules;c:\\program files\\windowsapps\\microsoft.powershell_7.6.4.0_x64__8wekyb3d8bbwe\\Modules;C:\\Program Files\\WindowsPowerShell\\Modules;C:\\WINDOWS\\system32\\WindowsPowerShell\\v1.0\\Modules",
+    "PUBLIC": "C:\\Users\\Public",
+    "QWEN_CODE_IDE_SERVER_PORT": "55056",
+    "QWEN_CODE_IDE_WORKSPACE_PATH": "d:\\kreatif\\branch-payflow",
+    "SESSIONNAME": "Console",
+    "SystemDrive": "C:",
+    "SystemRoot": "C:\\WINDOWS",
+    "TEMP": "C:\\Users\\Axioo\\AppData\\Local\\Temp",
+    "TERM_PROGRAM": "vscode",
+    "TERM_PROGRAM_VERSION": "1.131.0",
+    "TMP": "C:\\Users\\Axioo\\AppData\\Local\\Temp",
+    "USERDOMAIN": "DESKTOP-1UL3UB2",
+    "USERDOMAIN_ROAMINGPROFILE": "DESKTOP-1UL3UB2",
+    "USERNAME": "Axioo",
+    "USERPROFILE": "C:\\Users\\Axioo",
+    "VSCODE_GIT_ASKPASS_EXTRA_ARGS": "",
+    "VSCODE_GIT_ASKPASS_MAIN": "c:\\Users\\Axioo\\AppData\\Roaming\\Code\\User\\globalStorage\\vscode.git\\askpass\\70789581cae28aa7\\askpass-main.js",
+    "VSCODE_GIT_ASKPASS_NODE": "C:\\Users\\Axioo\\AppData\\Local\\Programs\\Microsoft VS Code\\Code.exe",
+    "VSCODE_GIT_IPC_HANDLE": "\\\\.\\pipe\\vscode-git-359f395de9-sock",
+    "VSCODE_INJECTION": "1",
+    "VSCODE_PYTHON_AUTOACTIVATE_GUARD": "1",
+    "windir": "C:\\WINDOWS",
+    "ZES_ENABLE_SYSMAN": "1"
+  },
+  "sharedObjects": [
+    "C:\\Users\\Axioo\\AppData\\Local\\Microsoft\\WinGet\\Links\\copilot.exe",
+    "C:\\WINDOWS\\SYSTEM32\\ntdll.dll",
+    "C:\\WINDOWS\\System32\\KERNEL32.DLL",
+    "C:\\WINDOWS\\System32\\KERNELBASE.dll",
+    "C:\\WINDOWS\\System32\\CRYPT32.dll",
+    "C:\\WINDOWS\\System32\\ucrtbase.dll",
+    "C:\\WINDOWS\\System32\\WS2_32.dll",
+    "C:\\WINDOWS\\System32\\RPCRT4.dll",
+    "C:\\WINDOWS\\System32\\USER32.dll",
+    "C:\\WINDOWS\\System32\\win32u.dll",
+    "C:\\WINDOWS\\System32\\GDI32.dll",
+    "C:\\WINDOWS\\System32\\gdi32full.dll",
+    "C:\\WINDOWS\\System32\\msvcp_win.dll",
+    "C:\\WINDOWS\\System32\\ADVAPI32.dll",
+    "C:\\WINDOWS\\System32\\msvcrt.dll",
+    "C:\\WINDOWS\\System32\\sechost.dll",
+    "C:\\WINDOWS\\System32\\SHELL32.dll",
+    "C:\\WINDOWS\\System32\\ole32.dll",
+    "C:\\WINDOWS\\System32\\combase.dll",
+    "C:\\WINDOWS\\SYSTEM32\\dbghelp.dll",
+    "C:\\WINDOWS\\System32\\OLEAUT32.dll",
+    "C:\\WINDOWS\\SYSTEM32\\USERENV.dll",
+    "C:\\WINDOWS\\SYSTEM32\\WINMM.dll",
+    "C:\\WINDOWS\\SYSTEM32\\IPHLPAPI.DLL",
+    "C:\\WINDOWS\\SYSTEM32\\dbgcore.DLL",
+    "C:\\WINDOWS\\SYSTEM32\\CRYPTBASE.DLL",
+    "C:\\WINDOWS\\System32\\IMM32.DLL",
+    "C:\\WINDOWS\\SYSTEM32\\powrprof.dll",
+    "C:\\WINDOWS\\SYSTEM32\\UMPDC.dll",
+    "C:\\WINDOWS\\System32\\bcryptprimitives.dll",
+    "C:\\WINDOWS\\system32\\uxtheme.dll",
+    "C:\\WINDOWS\\system32\\mswsock.dll",
+    "C:\\WINDOWS\\SYSTEM32\\CRYPTSP.dll",
+    "C:\\WINDOWS\\system32\\rsaenh.dll",
+    "C:\\WINDOWS\\SYSTEM32\\kernel.appcore.dll",
+    "\\\\?\\C:\\Users\\Axioo\\AppData\\Local\\copilot\\pkg\\win32-x64\\1.0.55\\prebuilds\\win32-x64\\cli-native.node",
+    "C:\\WINDOWS\\System32\\NSI.dll",
+    "C:\\WINDOWS\\SYSTEM32\\dhcpcsvc6.DLL",
+    "C:\\WINDOWS\\SYSTEM32\\dhcpcsvc.DLL",
+    "C:\\WINDOWS\\SYSTEM32\\DNSAPI.dll",
+    "C:\\WINDOWS\\SYSTEM32\\DSPARSE.dll",
+    "C:\\WINDOWS\\system32\\napinsp.dll",
+    "C:\\WINDOWS\\System32\\winrnr.dll",
+    "C:\\WINDOWS\\system32\\nlansp_c.dll",
+    "C:\\WINDOWS\\system32\\wshbth.dll",
+    "\\\\?\\C:\\Users\\Axioo\\AppData\\Local\\copilot\\pkg\\win32-x64\\1.0.55\\prebuilds\\win32-x64\\runtime.node",
+    "C:\\WINDOWS\\SYSTEM32\\MSASN1.dll",
+    "\\\\?\\C:\\Users\\Axioo\\AppData\\Local\\copilot\\pkg\\win32-x64\\1.0.55\\prebuilds\\win32-x64\\keytar.node",
+    "C:\\Windows\\System32\\rasadhlp.dll",
+    "C:\\WINDOWS\\System32\\fwpuclnt.dll",
+    "C:\\WINDOWS\\SYSTEM32\\ntmarta.dll",
+    "C:\\WINDOWS\\SYSTEM32\\windows.staterepositorycore.dll",
+    "C:\\WINDOWS\\SYSTEM32\\daxexec.dll",
+    "C:\\WINDOWS\\SYSTEM32\\bcrypt.dll",
+    "C:\\WINDOWS\\SYSTEM32\\ncrypt.dll",
+    "C:\\WINDOWS\\SYSTEM32\\container.dll",
+    "C:\\WINDOWS\\SYSTEM32\\MPR.dll",
+    "C:\\WINDOWS\\SYSTEM32\\NTASN1.dll",
+    "C:\\WINDOWS\\System32\\clbcatq.dll",
+    "C:\\Windows\\System32\\Windows.StateRepositoryPS.dll",
+    "C:\\WINDOWS\\SYSTEM32\\AppXAllUserStore.dll",
+    "C:\\WINDOWS\\SYSTEM32\\windows.staterepositoryclient.dll",
+    "C:\\WINDOWS\\SYSTEM32\\capauthz.dll",
+    "C:\\WINDOWS\\SYSTEM32\\apisethost.appexecutionalias.dll",
+    "C:\\WINDOWS\\SYSTEM32\\profapi.dll",
+    "\\\\?\\C:\\Users\\Axioo\\AppData\\Local\\copilot\\pkg\\win32-x64\\1.0.55\\prebuilds\\win32-x64\\conpty.node",
+    "C:\\WINDOWS\\System32\\SHLWAPI.dll",
+    "C:\\WINDOWS\\system32\\apphelp.dll"
+  ]
+}

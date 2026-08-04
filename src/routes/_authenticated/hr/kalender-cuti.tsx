@@ -706,28 +706,6 @@ function KalenderCutiPage() {
   };
 
   // ---- Share kalender ke grup WhatsApp / personal ----
-  const shareMessage = useMemo(() => {
-    const scope = shareBranchId || selectedBranch;
-    const cabangName =
-      scope === "all" ? "Semua Cabang" : branches.find((b) => b.id === scope)?.nama || scope;
-    return buildKalenderCutiMessage({
-      bulan: BULAN_PANJANG[viewMonth],
-      tahun: viewYear,
-      cabang: cabangName,
-      items: buildShareItems(),
-    });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [
-    shareBranchId,
-    selectedBranch,
-    cutiList,
-    branches,
-    viewMonth,
-    viewYear,
-    monthStart,
-    monthEnd,
-  ]);
-
   const buildShareItems = () => {
     const scope = shareBranchId || selectedBranch;
     const items: KalenderCutiItem[] = [];
@@ -750,6 +728,28 @@ function KalenderCutiPage() {
     });
     return items;
   };
+
+  const shareMessage = useMemo(() => {
+    const scope = shareBranchId || selectedBranch;
+    const cabangName =
+      scope === "all" ? "Semua Cabang" : branches.find((b) => b.id === scope)?.nama || scope;
+    return buildKalenderCutiMessage({
+      bulan: BULAN_PANJANG[viewMonth],
+      tahun: viewYear,
+      cabang: cabangName,
+      items: buildShareItems(),
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [
+    shareBranchId,
+    selectedBranch,
+    cutiList,
+    branches,
+    viewMonth,
+    viewYear,
+    monthStart,
+    monthEnd,
+  ]);
 
   // Bangun gambar poster kalender untuk scope saat ini
   const buildPoster = useCallback(async () => {

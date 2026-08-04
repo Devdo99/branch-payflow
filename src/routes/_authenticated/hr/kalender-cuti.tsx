@@ -567,7 +567,7 @@ function KalenderCutiPage() {
         tanggal_selesai: tglSelesai,
         alasan,
         status,
-        branch_id: selectedEmp?.branch_id || null,
+        branch_id: selectedEmp?.branch_id as string | undefined,
       };
       if (tanggal_list) {
         payload.tanggal_list = tanggal_list;
@@ -834,7 +834,7 @@ function KalenderCutiPage() {
         const groupName = waGroups.find((g) => g.id === target)?.subject || null;
         const { error } = await supabase
           .from("branches")
-          .update({ wa_group_jid: target, wa_group_nama: groupName })
+          .update({ wa_group_jid: target, wa_group_nama: groupName as string | undefined })
           .eq("id", scope);
         if (error) throw error;
         queryClient.invalidateQueries({ queryKey: ["branches_hr"] });

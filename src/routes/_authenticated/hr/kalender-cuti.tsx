@@ -767,6 +767,16 @@ function KalenderCutiPage() {
         pixelRatio: 2,
         backgroundColor: "#ffffff",
         cacheBust: true,
+        // Penting: timpa posisi off-screen pada klon (position:fixed;left:-9999px)
+        // agar konten tidak ikut bergeser keluar kanvas — jika tidak, gambar hasil
+        // capture blank putih. Opsi `style` diterapkan html-to-image ke node klon.
+        style: {
+          position: "static",
+          left: "auto",
+          top: "auto",
+          transform: "none",
+          opacity: "1",
+        },
       });
       if (!canvas.width || !canvas.height) throw new Error("Canvas kosong");
       setPosterData(canvas.toDataURL("image/png"));

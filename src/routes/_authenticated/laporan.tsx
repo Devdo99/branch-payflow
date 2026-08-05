@@ -559,6 +559,16 @@ function LaporanPage() {
         pixelRatio: 1.5,
         backgroundColor: "#ffffff",
         cacheBust: true,
+        // Penting: timpa posisi off-screen (absolute; left:-9999px) pada klon agar
+        // konten tidak ikut bergeser keluar kanvas — tanpa ini hasil capture blank putih.
+        // Opsi `style` diterapkan html-to-image hanya ke node klon, elemen asli tetap utuh.
+        style: {
+          position: "static",
+          left: "auto",
+          top: "auto",
+          transform: "none",
+          opacity: "1",
+        },
       });
 
       if (!canvas.width || !canvas.height) {

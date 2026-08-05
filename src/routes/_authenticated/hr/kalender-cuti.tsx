@@ -54,7 +54,7 @@ import {
   UsersRound,
   RefreshCw,
 } from "lucide-react";
-import html2canvas from "html2canvas";
+import { toCanvas } from "html-to-image";
 import {
   JENIS_CUTI,
   STATUS_CUTI,
@@ -113,8 +113,8 @@ type BranchOption = {
 
 /**
  * Poster kalender yang dirender di luar layar (posisi fixed -9999px)
- * lalu ditangkap menjadi gambar PNG via html2canvas untuk dibagikan ke WhatsApp.
- * Semua gaya memakai inline style agar html2canvas merendernya konsisten.
+ * lalu ditangkap menjadi gambar PNG via html-to-image untuk dibagikan ke WhatsApp.
+ * Semua gaya memakai inline style agar hasil capture konsisten.
  */
 function KalenderPoster({
   bulan,
@@ -392,7 +392,7 @@ function KalenderCutiPage() {
   // Export loading state
   const [exporting, setExporting] = useState(false);
 
-  // Poster gambar kalender (html2canvas)
+  // Poster gambar kalender (html-to-image)
   const posterRef = useRef<HTMLDivElement>(null);
   const [posterData, setPosterData] = useState<string | null>(null);
   const [posterBuilding, setPosterBuilding] = useState(false);
@@ -757,33 +757,14 @@ function KalenderCutiPage() {
     setPosterBuilding(true);
     try {
       const el = posterRef.current;
-      const canvas = await html2canvas(el, {
-        scale: 2,
-        useCORS: false,
+      // Pastikan font (mis. Arial) siap sebelum dirender ke canvas
+      if (document.fonts?.ready) await document.fonts.ready;
+      const canvas = await toCanvas(el, {
+        pixelRatio: 2,
         backgroundColor: "#ffffff",
-        logging: false,
-        width: el.scrollWidth,
-        height: el.scrollHeight,
-        x: 0,
-        y: 0,
-        scrollX: 0,
-        scrollY: 0,
-        windowWidth: el.scrollWidth,
-        windowHeight: el.scrollHeight,
-        onclone: (doc) => {
-          // Pastikan elemen clone terlihat oleh html2canvas
-          const cloned = doc.querySelector('[aria-hidden="true"]');
-          if (cloned instanceof HTMLElement) {
-            cloned.style.position = "absolute";
-            cloned.style.clip = "";
-            cloned.style.clipPath = "";
-            cloned.style.overflow = "";
-            cloned.style.whiteSpace = "";
-            cloned.style.width = "";
-            cloned.style.height = "";
-          }
-        },
+        cacheBust: true,
       });
+      if (!canvas.width || !canvas.height) throw new Error("Canvas kosong");
       setPosterData(canvas.toDataURL("image/png"));
     } catch (err) {
       console.error("Gagal membuat gambar kalender:", err);
@@ -799,8 +780,8 @@ function KalenderCutiPage() {
     if (!shareOpen) return;
     setPosterData(null);
     // Tunggu 2 frame untuk memastikan React commit & browser paint selesai
-    let rafId: number;
-    let rafId2: number;
+    let rafId = 0;
+    let rafId2 = 0;
     rafId = requestAnimationFrame(() => {
       rafId2 = requestAnimationFrame(() => {
         buildPoster();
@@ -898,8 +879,8 @@ function KalenderCutiPage() {
   return (
     <div className="flex flex-col gap-6 p-4 sm:p-6">
       {/* Poster tersembunyi untuk di-capture jadi gambar (kirim via WA)
-          Menggunakan position:absolute + clip:rect(0,0,0,0) agar DOM tetap
-          fully rendered di layout browser — html2canvas bisa menangkapnya. */}
+          Dirender off-screen berukuran asli (position:fixed; left:-9999px)
+          agar tetap fully rendered oleh browser dan bisa di-capture ke canvas. */}
       {(() => {
         const scope = shareBranchId || selectedBranch;
         const cabangNama =
@@ -910,15 +891,10 @@ function KalenderCutiPage() {
             aria-hidden
             className=""
             style={{
-              position: "absolute",
+              position: "fixed",
               top: 0,
-              left: 0,
-              clip: "rect(0,0,0,0)",
-              clipPath: "inset(0)",
-              overflow: "hidden",
-              whiteSpace: "nowrap",
-              width: "1px",
-              height: "1px",
+              left: "-9999px",
+              width: 1080,
             }}
           >
             <KalenderPoster

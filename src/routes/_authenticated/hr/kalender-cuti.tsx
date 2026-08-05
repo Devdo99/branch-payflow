@@ -33,6 +33,7 @@ import {
 } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
+import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
 import {
   Plus,
@@ -388,6 +389,9 @@ function KalenderCutiPage() {
   const [shareGroupJid, setShareGroupJid] = useState("");
   const [sharePhone, setSharePhone] = useState("");
   const [shareSending, setShareSending] = useState(false);
+  // Caption/keterangan opsional saat share: aktif/nonaktif + teks yang bisa diedit
+  const [includeCaption, setIncludeCaption] = useState(true);
+  const [customCaption, setCustomCaption] = useState("");
 
   // Export loading state
   const [exporting, setExporting] = useState(false);
@@ -806,6 +810,8 @@ function KalenderCutiPage() {
     setShareGroupJid(initial);
     setSharePhone("");
     setShareMode("group");
+    setIncludeCaption(true);
+    setCustomCaption("");
     setShareOpen(true);
   };
 
@@ -852,12 +858,16 @@ function KalenderCutiPage() {
         if (error) throw error;
         queryClient.invalidateQueries({ queryKey: ["branches_hr"] });
       }
-      const message = buildKalenderCutiMessage({
+      const autoMessage = buildKalenderCutiMessage({
         bulan: BULAN_PANJANG[viewMonth],
         tahun: viewYear,
         cabang: cabangNama,
         items,
       });
+      // Caption opsional: bisa dinonaktifkan (gambar tanpa keterangan) atau diedit manual
+      const trimmedCaption = customCaption.trim();
+      const message =
+        !posterData || includeCaption ? (trimmedCaption ? trimmedCaption : autoMessage) : "";
       // Kirim gambar kalender (fallback ke teks bila gambar gagal dibuat)
       const res = posterData
         ? await sendWaImageToJid(target, message, posterData)
@@ -1437,14 +1447,58 @@ function KalenderCutiPage() {
               </div>
             </div>
 
-            {/* Pratinjau caption pesan */}
+            {/* Keterangan / caption opsional (bisa dinonaktifkan atau diedit) */}
             <div className="space-y-1.5">
-              <Label className="text-xs font-semibold uppercase tracking-wider text-slate-500">
-                Caption Pesan
-              </Label>
-              <pre className="max-h-40 overflow-y-auto whitespace-pre-wrap rounded-xl border border-slate-200 bg-slate-50 p-3 font-mono text-[11px] leading-relaxed text-slate-700">
-                {shareMessage}
-              </pre>
+              <div className="flex items-center justify-between gap-2">
+                <Label className="text-xs font-semibold uppercase tracking-wider text-slate-500">
+                  Keterangan / Caption
+                </Label>
+                <div className="flex items-center gap-2">
+                  <span
+                    className={`text-[11px] font-semibold ${
+                      includeCaption ? "text-emerald-600" : "text-slate-400"
+                    }`}
+                  >
+                    {includeCaption ? "Aktif" : "Nonaktif"}
+                  </span>
+                  <Switch
+                    checked={includeCaption}
+                    onCheckedChange={setIncludeCaption}
+                    aria-label="Aktifkan keterangan / caption"
+                  />
+                </div>
+              </div>
+              {includeCaption ? (
+                <>
+                  <Textarea
+                    value={customCaption}
+                    onChange={(e) => setCustomCaption(e.target.value)}
+                    placeholder={shareMessage}
+                    className="max-h-44 min-h-24 font-mono text-[11px] leading-relaxed"
+                  />
+                  <div className="flex items-center justify-between gap-2">
+                    <p className="text-[11px] text-slate-400">
+                      {customCaption.trim()
+                        ? "Keterangan kustom akan dikirim."
+                        : "Kosong = memakai keterangan otomatis."}
+                    </p>
+                    {customCaption.trim() && (
+                      <button
+                        type="button"
+                        onClick={() => setCustomCaption("")}
+                        className="text-[11px] font-semibold text-emerald-600 transition-colors hover:text-emerald-700"
+                      >
+                        Reset ke otomatis
+                      </button>
+                    )}
+                  </div>
+                </>
+              ) : (
+                <p className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-xs text-slate-400">
+                  Gambar kalender akan dikirim{" "}
+                  <span className="font-semibold">tanpa keterangan</span>.
+                </p>
+              )}
             </div>
           </div>
           <DialogFooter className="sm:justify-between">

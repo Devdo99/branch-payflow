@@ -104,8 +104,13 @@ app.get('/api/status', (req, res) => {
 app.post('/api/send-message', async (req, res) => {
   const { phone, message, image } = req.body;
   
-  if (!phone || !message) {
-    return res.status(400).json({ error: 'Missing phone or message parameter.' });
+  // Minimal harus ada phone + (message ATAU image) — kirim gambar tanpa caption diperbolehkan
+  if (!phone) {
+    return res.status(400).json({ error: 'Missing phone parameter.' });
+  }
+  const hasImage = typeof image === 'string' && image.trim().length > 0;
+  if (!message && !hasImage) {
+    return res.status(400).json({ error: 'Missing message or image parameter.' });
   }
   
   if (connectionStatus !== 'connected') {
@@ -128,16 +133,20 @@ app.post('/api/send-message', async (req, res) => {
       jid = `${cleanPhone}@s.whatsapp.net`;
     }
     
-    if (image) {
-      // Decode image base64 data url
+    if (hasImage) {
+      // Decode image base64 data url & ambil MIME asli dari prefix (mis. data:image/png;base64,...)
+      // Penting: tanpa mimetype, Baileys memakai default image/jpeg walau datanya PNG,
+      // sehingga WhatsApp bisa tidak menampilkan gambarnya.
+      const mimeMatch = String(image).match(/^data:([a-zA-Z0-9.+-]+\/[a-zA-Z0-9.+-]+);base64,/);
+      const mimetype = mimeMatch ? mimeMatch[1] : null;
       const base64Data = image.includes(',') ? image.split(',')[1] : image;
       const buffer = Buffer.from(base64Data, 'base64');
       
       console.log(`Sending image message to ${jid}...`);
-      await sock.sendMessage(jid, { 
-        image: buffer, 
-        caption: message 
-      });
+      const content = { image: buffer };
+      if (mimetype) content.mimetype = mimetype;
+      if (message) content.caption = message;
+      await sock.sendMessage(jid, content);
     } else {
       console.log(`Sending text message to ${jid}...`);
       await sock.sendMessage(jid, { 

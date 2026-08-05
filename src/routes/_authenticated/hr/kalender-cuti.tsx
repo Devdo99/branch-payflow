@@ -956,7 +956,7 @@ function KalenderCutiPage() {
                   <Plus className="w-4 h-4 mr-2" /> Tambah Cuti
                 </Button>
               </DialogTrigger>
-              <DialogContent className="rounded-2xl">
+              <DialogContent className="max-h-[90vh] overflow-y-auto rounded-2xl">
                 <DialogHeader>
                   <DialogTitle className="text-lg font-bold text-slate-900 dark:text-slate-100">
                     {isEditing ? "Edit Cuti" : "Tambah Cuti"}
@@ -1242,7 +1242,7 @@ function KalenderCutiPage() {
 
       {/* Dialog share kalender ke WhatsApp (grup / personal) */}
       <Dialog open={shareOpen} onOpenChange={setShareOpen}>
-        <DialogContent className="rounded-2xl sm:max-w-xl">
+        <DialogContent className="max-h-[90vh] overflow-y-auto rounded-2xl sm:max-w-xl">
           <DialogHeader>
             <DialogTitle className="text-lg font-bold text-slate-900 dark:text-slate-100">
               Share Kalender Cuti via WhatsApp

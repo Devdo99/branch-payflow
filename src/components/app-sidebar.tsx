@@ -24,6 +24,7 @@ import {
   UserX,
   HeartHandshake,
   ChevronRight,
+  CalendarClock,
 } from "lucide-react";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import {
@@ -87,6 +88,7 @@ const groups: SidebarGroup[] = [
       { title: "Kalender Cuti", url: "/hr/kalender-cuti", icon: CalendarDays },
       { title: "Rekap Cuti", url: "/hr/rekap-cuti", icon: FileBarChart2 },
       { title: "Rekap Absen", url: "/hr/rekap-absen", icon: ClipboardCheck },
+      { title: "Jadwal Kerja", url: "/hr/jadwal-kerja", icon: CalendarClock },
       { title: "Request Cuti", url: "/hr/request-cuti", icon: ClipboardList },
       { title: "Resign Karyawan", url: "/hr/resign", icon: UserX },
     ],

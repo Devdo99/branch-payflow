@@ -376,6 +376,99 @@ export type Database = {
           },
         ];
       };
+      jadwal_kerja: {
+        Row: {
+          created_at: string;
+          employee_id: string;
+          hari: number;
+          id: string;
+          jam_mulai: string;
+          jam_selesai: string;
+          jenis: string;
+          nama: string | null;
+          template_id: string | null;
+          updated_at: string;
+          warna: string | null;
+        };
+        Insert: {
+          created_at?: string;
+          employee_id: string;
+          hari: number;
+          id?: string;
+          jam_mulai: string;
+          jam_selesai: string;
+          jenis?: string;
+          nama?: string | null;
+          template_id?: string | null;
+          updated_at?: string;
+          warna?: string | null;
+        };
+        Update: {
+          created_at?: string;
+          employee_id?: string;
+          hari?: number;
+          id?: string;
+          jam_mulai?: string;
+          jam_selesai?: string;
+          jenis?: string;
+          nama?: string | null;
+          template_id?: string | null;
+          updated_at?: string;
+          warna?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "jadwal_kerja_employee_id_fkey";
+            columns: ["employee_id"];
+            isOneToOne: false;
+            referencedRelation: "employees";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "jadwal_kerja_template_id_fkey";
+            columns: ["template_id"];
+            isOneToOne: false;
+            referencedRelation: "jadwal_templates";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      jadwal_templates: {
+        Row: {
+          aktif: boolean;
+          created_at: string;
+          id: string;
+          jam_mulai: string;
+          jam_selesai: string;
+          jenis: string;
+          nama: string;
+          updated_at: string;
+          warna: string | null;
+        };
+        Insert: {
+          aktif?: boolean;
+          created_at?: string;
+          id?: string;
+          jam_mulai: string;
+          jam_selesai: string;
+          jenis?: string;
+          nama: string;
+          updated_at?: string;
+          warna?: string | null;
+        };
+        Update: {
+          aktif?: boolean;
+          created_at?: string;
+          id?: string;
+          jam_mulai?: string;
+          jam_selesai?: string;
+          jenis?: string;
+          nama?: string;
+          updated_at?: string;
+          warna?: string | null;
+        };
+        Relationships: [];
+      };
       payroll_item_allowances: {
         Row: {
           allowance_type_id: string | null;
@@ -765,6 +858,26 @@ export type Database = {
           p_branch?: string | null;
         };
         Returns: { tanggal: string; kuota: number; terpakai: number }[];
+      };
+      copy_jadwal_kerja: {
+        Args: {
+          p_dari: string;
+          p_branch?: string | null;
+        };
+        Returns: number;
+      };
+      generate_jadwal_kerja: {
+        Args: {
+          p_branch?: string | null;
+          p_hari_kerja?: number[];
+          p_istirahat_mulai?: string | null;
+          p_istirahat_selesai?: string | null;
+          p_jam_mulai?: string;
+          p_jam_selesai?: string;
+          p_nama_istirahat?: string;
+          p_nama_kerja?: string;
+        };
+        Returns: number;
       };
       sinkron_absen_cuti: {
         Args: {

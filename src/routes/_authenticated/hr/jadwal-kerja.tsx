@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { PageHeader } from "@/components/page-header";
@@ -20,7 +20,6 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from "@/components/ui/dialog";
 import { Switch } from "@/components/ui/switch";
 import { Card, CardContent } from "@/components/ui/card";
@@ -36,6 +35,10 @@ import {
   X,
   LayoutTemplate,
   Users,
+  RefreshCw,
+  ClipboardCheck,
+  Calculator,
+  ArrowRight,
 } from "lucide-react";
 import {
   HARI_JADWAL,
@@ -46,6 +49,7 @@ import {
   getNamaHari,
   toTime,
 } from "@/lib/jadwal-kerja";
+import { getDaysInMonth } from "@/lib/hr";
 
 export const Route = createFileRoute("/_authenticated/hr/jadwal-kerja")({
   component: JadwalKerjaPage,
@@ -90,7 +94,6 @@ function JadwalKerjaPage() {
   const [dragBlock, setDragBlock] = useState<JadwalBlock | null>(null);
   const [dragTemplate, setDragTemplate] = useState<JadwalTemplate | null>(null);
   const [dropTarget, setDropTarget] = useState<string | null>(null);
-  // Mencegah click tak sengaja membuka dialog edit setelah selesai drag
   const dragEndedRef = useRef(false);
 
   // Dialog blok (tambah/edit)
@@ -105,22 +108,36 @@ function JadwalKerjaPage() {
   const [formJamSelesai, setFormJamSelesai] = useState("16:00");
   const [formWarna, setFormWarna] = useState("#10b981");
 
-  // Dialog auto generate
+  // Dialog auto generate (multi-shift)
   const [autoOpen, setAutoOpen] = useState(false);
   const [autoBranch, setAutoBranch] = useState("all");
   const [workDays, setWorkDays] = useState<number[]>([0, 1, 2, 3, 4]);
-  const [jamMasuk, setJamMasuk] = useState("08:00");
-  const [jamPulang, setJamPulang] = useState("16:00");
+  const [autoShiftIds, setAutoShiftIds] = useState<string[]>([]);
   const [istirahatOn, setIstirahatOn] = useState(true);
   const [istirahatMulai, setIstirahatMulai] = useState("12:00");
   const [istirahatSelesai, setIstirahatSelesai] = useState("13:00");
-  const [namaKerja, setNamaKerja] = useState("Shift Utama");
   const [namaIstirahat, setNamaIstirahat] = useState("Istirahat");
+
+  // Dialog putar rotasi
+  const [rotateOpen, setRotateOpen] = useState(false);
 
   // Dialog salin jadwal
   const [copyOpen, setCopyOpen] = useState(false);
   const [copySource, setCopySource] = useState("");
   const [copyBranch, setCopyBranch] = useState("all");
+
+  // Dialog integrasi absensi
+  const [absenOpen, setAbsenOpen] = useState(false);
+  const [absenBranch, setAbsenBranch] = useState("all");
+  const [absenMulai, setAbsenMulai] = useState("");
+  const [absenSelesai, setAbsenSelesai] = useState("");
+
+  // Dialog man power planning
+  const [mpOpen, setMpOpen] = useState(false);
+  const [mpBranch, setMpBranch] = useState("");
+  const [mpShiftNames, setMpShiftNames] = useState<string[]>([]);
+  const [mpKebutuhan, setMpKebutuhan] = useState<Record<string, number>>({});
+  const [mpCustomShift, setMpCustomShift] = useState("");
 
   // Dialog template
   const [tplOpen, setTplOpen] = useState(false);
@@ -177,6 +194,11 @@ function JadwalKerjaPage() {
     },
   });
 
+  const kerjaTemplates = useMemo(
+    () => templates.filter((t) => t.jenis === "kerja").sort((a, b) => (a.jam_mulai < b.jam_mulai ? -1 : 1)),
+    [templates],
+  );
+
   const filteredEmployees = useMemo(() => {
     const term = searchTerm.toLowerCase().trim();
     return employees.filter(
@@ -213,6 +235,64 @@ function JadwalKerjaPage() {
     filteredJadwal.forEach((b) => (b.jenis === "istirahat" ? istirahat++ : kerja++));
     return { kerja, istirahat };
   }, [filteredJadwal]);
+
+  // ---------- Data untuk Man Power Planning ----------
+  const { data: mpEmployees = [] } = useQuery<{ id: string }[]>({
+    queryKey: ["employees_mp", mpBranch],
+    queryFn: async () => {
+      if (!mpBranch) return [];
+      const { data } = await supabase
+        .from("employees")
+        .select("id")
+        .eq("branch_id", mpBranch)
+        .eq("aktif", true);
+      return (data || []) as { id: string }[];
+    },
+    enabled: mpOpen && !!mpBranch,
+  });
+
+  const { data: mpPlan = [] } = useQuery<
+    { shift_nama: string; hari: number; kebutuhan: number }[]
+  >({
+    queryKey: ["mp_plan", mpBranch],
+    queryFn: async () => {
+      if (!mpBranch) return [];
+      const { data } = await supabase
+        .from("man_power_plan")
+        .select("shift_nama, hari, kebutuhan")
+        .eq("branch_id", mpBranch);
+      return (data || []) as { shift_nama: string; hari: number; kebutuhan: number }[];
+    },
+    enabled: mpOpen && !!mpBranch,
+  });
+
+  // Muat daftar shift + kebutuhan saat dialog MP dibuka / cabang berubah
+  useEffect(() => {
+    if (!mpOpen || !mpBranch) return;
+    const set = new Set<string>();
+    kerjaTemplates.forEach((t) => set.add(t.nama));
+    jadwalList.forEach((b) => {
+      if (b.jenis === "kerja" && b.nama) set.add(b.nama);
+    });
+    mpPlan.forEach((p) => set.add(p.shift_nama));
+    setMpShiftNames(Array.from(set).sort());
+    const map: Record<string, number> = {};
+    mpPlan.forEach((p) => {
+      map[`${p.shift_nama}|${p.hari}`] = p.kebutuhan;
+    });
+    setMpKebutuhan(map);
+  }, [mpOpen, mpBranch, kerjaTemplates, jadwalList, mpPlan]);
+
+  const mpTersedia = useMemo(() => {
+    const map: Record<string, number> = {};
+    const ids = new Set(mpEmployees.map((e) => e.id));
+    jadwalList.forEach((b) => {
+      if (b.jenis !== "kerja" || !b.nama || !ids.has(b.employee_id)) return;
+      const key = `${b.nama}|${b.hari}`;
+      map[key] = (map[key] || 0) + 1;
+    });
+    return map;
+  }, [jadwalList, mpEmployees]);
 
   // ---------- Mutasi ----------
   const saveBlockMutation = useMutation({
@@ -254,7 +334,6 @@ function JadwalKerjaPage() {
     onError: (err) => toast.error(`Gagal menghapus: ${(err as Error).message}`),
   });
 
-  // Pindah blok via drag & drop (optimistic)
   const moveBlockMutation = useMutation({
     mutationFn: async ({ id, empId, hari }: { id: string; empId: string; hari: number }) => {
       const { error } = await supabase
@@ -278,7 +357,6 @@ function JadwalKerjaPage() {
     onSettled: () => queryClient.invalidateQueries({ queryKey: ["jadwal_kerja"] }),
   });
 
-  // Tambah dari template via drag & drop
   const addFromTemplateMutation = useMutation({
     mutationFn: async ({
       template,
@@ -310,16 +388,15 @@ function JadwalKerjaPage() {
     onError: (err) => toast.error(`Gagal menambah jadwal: ${(err as Error).message}`),
   });
 
+  // Auto generate dengan distribusi shift (rotasi)
   const autoGenerateMutation = useMutation({
     mutationFn: async () => {
-      const { data, error } = await supabase.rpc("generate_jadwal_kerja", {
+      const { data, error } = await supabase.rpc("generate_jadwal_shift", {
         p_branch: autoBranch === "all" ? null : autoBranch,
         p_hari_kerja: workDays,
-        p_jam_mulai: toTime(jamMasuk),
-        p_jam_selesai: toTime(jamPulang),
+        p_shift_ids: autoShiftIds,
         p_istirahat_mulai: istirahatOn ? toTime(istirahatMulai) : null,
         p_istirahat_selesai: istirahatOn ? toTime(istirahatSelesai) : null,
-        p_nama_kerja: namaKerja.trim() || "Shift Utama",
         p_nama_istirahat: namaIstirahat.trim() || "Istirahat",
       });
       if (error) throw error;
@@ -327,13 +404,33 @@ function JadwalKerjaPage() {
     },
     onSuccess: (n) => {
       queryClient.invalidateQueries({ queryKey: ["jadwal_kerja"] });
-      toast.success(`Jadwal dibuat otomatis — ${n} blok jadwal tersimpan.`);
+      toast.success(
+        `Jadwal dibuat otomatis — ${n} blok tersimpan. Karyawan dibagi merata ke ${autoShiftIds.length} shift.`,
+      );
       setAutoOpen(false);
     },
     onError: (err) =>
       toast.error(
         `Gagal generate: ${(err as Error).message}. Pastikan migrasi jadwal_kerja sudah dijalankan di database.`,
       ),
+  });
+
+  // Putar rotasi shift
+  const rotateMutation = useMutation({
+    mutationFn: async () => {
+      const { data, error } = await supabase.rpc("rotate_jadwal_kerja", {
+        p_branch: selectedBranch === "all" ? null : selectedBranch,
+      });
+      if (error) throw error;
+      return (data as number) || 0;
+    },
+    onSuccess: (n) => {
+      queryClient.invalidateQueries({ queryKey: ["jadwal_kerja"] });
+      toast.success(`Rotasi selesai — ${n} blok shift diputar ke shift berikutnya.`);
+      setRotateOpen(false);
+    },
+    onError: (err) =>
+      toast.error(`Gagal rotasi: ${(err as Error).message}. Pastikan ada template shift kerja.`),
   });
 
   const copyMutation = useMutation({
@@ -351,6 +448,53 @@ function JadwalKerjaPage() {
       setCopyOpen(false);
     },
     onError: (err) => toast.error(`Gagal menyalin: ${(err as Error).message}`),
+  });
+
+  // Integrasi jadwal -> absensi
+  const absenSyncMutation = useMutation({
+    mutationFn: async () => {
+      const { data, error } = await supabase.rpc("sinkron_absen_dari_jadwal", {
+        p_mulai: absenMulai,
+        p_selesai: absenSelesai,
+        p_branch: absenBranch === "all" ? null : absenBranch,
+      });
+      if (error) throw error;
+      return (data as number) || 0;
+    },
+    onSuccess: (n) => {
+      queryClient.invalidateQueries({ queryKey: ["absen_list"] });
+      toast.success(`Absensi disinkronkan dari jadwal — ${n} catatan 'Hadir' dibuat.`);
+      setAbsenOpen(false);
+    },
+    onError: (err) =>
+      toast.error(`Gagal sinkron absensi: ${(err as Error).message}. Pastikan migrasi sudah dijalankan.`),
+  });
+
+  // Simpan man power planning
+  const saveMpMutation = useMutation({
+    mutationFn: async () => {
+      const rows: { hari: number; shift_nama: string; kebutuhan: number }[] = [];
+      mpShiftNames.forEach((shift) => {
+        HARI_JADWAL.forEach((h) => {
+          rows.push({
+            hari: h.hari,
+            shift_nama: shift,
+            kebutuhan: mpKebutuhan[`${shift}|${h.hari}`] || 0,
+          });
+        });
+      });
+      const { data, error } = await supabase.rpc("save_man_power_plan", {
+        p_branch: mpBranch,
+        p_rows: rows,
+      });
+      if (error) throw error;
+      return (data as number) || 0;
+    },
+    onSuccess: (n) => {
+      queryClient.invalidateQueries({ queryKey: ["mp_plan"] });
+      toast.success(`Rencana kebutuhan tersimpan (${n} sel).`);
+    },
+    onError: (err) => toast.error(`Gagal menyimpan rencana: ${(err as Error).message}`),
   });
 
   const saveTemplateMutation = useMutation({
@@ -390,7 +534,7 @@ function JadwalKerjaPage() {
     onError: (err) => toast.error(`Gagal menghapus template: ${(err as Error).message}`),
   });
 
-  // ---------- Handler dialog blok ----------
+  // ---------- Handler ----------
   const handleClose = () => {
     setIsOpen(false);
     setIsEditing(false);
@@ -455,6 +599,40 @@ function JadwalKerjaPage() {
     setWorkDays(workDays.length === 7 ? [] : [0, 1, 2, 3, 4, 5, 6]);
   };
 
+  const toggleShift = (id: string) => {
+    setAutoShiftIds((prev) =>
+      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id],
+    );
+  };
+
+  const openAuto = () => {
+    setAutoBranch(selectedBranch);
+    setWorkDays([0, 1, 2, 3, 4]);
+    setAutoShiftIds(kerjaTemplates.map((t) => t.id));
+    setIstirahatOn(true);
+    setIstirahatMulai("12:00");
+    setIstirahatSelesai("13:00");
+    setNamaIstirahat("Istirahat");
+    setAutoOpen(true);
+  };
+
+  const openAbsen = () => {
+    const now = new Date();
+    const m = String(now.getMonth() + 1).padStart(2, "0");
+    const days = getDaysInMonth(now.getFullYear(), now.getMonth());
+    setAbsenBranch(selectedBranch);
+    setAbsenMulai(`${now.getFullYear()}-${m}-01`);
+    setAbsenSelesai(`${now.getFullYear()}-${m}-${String(days).padStart(2, "0")}`);
+    setAbsenOpen(true);
+  };
+
+  const openMp = () => {
+    const b = selectedBranch === "all" ? branches[0]?.id || "" : selectedBranch;
+    setMpBranch(b);
+    setMpCustomShift("");
+    setMpOpen(true);
+  };
+
   const submitBlock = (e: React.FormEvent) => {
     e.preventDefault();
     if (!formEmpId) return toast.error("Pilih karyawan terlebih dahulu.");
@@ -465,10 +643,26 @@ function JadwalKerjaPage() {
   const submitAuto = (e: React.FormEvent) => {
     e.preventDefault();
     if (workDays.length === 0) return toast.error("Pilih minimal satu hari kerja.");
+    if (autoShiftIds.length === 0) return toast.error("Pilih minimal satu shift kerja.");
     if (istirahatOn && (!istirahatMulai || !istirahatSelesai))
       return toast.error("Lengkapi jam istirahat.");
-    if (window.confirm("Generate akan MENIMPA seluruh jadwal karyawan aktif pada cabang terpilih. Lanjutkan?")) {
+    if (
+      window.confirm(
+        "Generate akan MENIMPA seluruh jadwal karyawan aktif pada cabang terpilih, lalu membagi mereka merata ke shift yang dipilih. Lanjutkan?",
+      )
+    ) {
       autoGenerateMutation.mutate();
+    }
+  };
+
+  const submitRotate = () => {
+    const scope = selectedBranch === "all" ? "semua cabang" : branches.find((b) => b.id === selectedBranch)?.nama;
+    if (
+      window.confirm(
+        `Putar rotasi untuk ${scope}? Setiap karyawan berpindah ke shift berikutnya (urutan: ${kerjaTemplates.map((t) => t.nama).join(" → ")} → kembali ke awal).`,
+      )
+    ) {
+      rotateMutation.mutate();
     }
   };
 
@@ -484,17 +678,64 @@ function JadwalKerjaPage() {
     }
   };
 
+  const submitAbsen = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!absenMulai || !absenSelesai) return toast.error("Lengkapi rentang tanggal.");
+    if (absenSelesai < absenMulai) return toast.error("Tanggal selesai tidak boleh sebelum mulai.");
+    if (
+      window.confirm(
+        "Buat catatan 'Hadir' untuk semua hari kerja sesuai jadwal pada rentang terpilih. Catatan absen yang sudah ada tidak akan ditimpa. Lanjutkan?",
+      )
+    ) {
+      absenSyncMutation.mutate();
+    }
+  };
+
+  const submitMp = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!mpBranch) return toast.error("Pilih cabang terlebih dahulu.");
+    saveMpMutation.mutate();
+  };
+
   const submitTemplate = (e: React.FormEvent) => {
     e.preventDefault();
     if (!tplNama.trim()) return toast.error("Isi nama template.");
     saveTemplateMutation.mutate();
   };
 
+  const addMpShift = () => {
+    const name = mpCustomShift.trim();
+    if (!name) return;
+    if (mpShiftNames.includes(name)) {
+      toast.error("Nama shift sudah ada.");
+      return;
+    }
+    setMpShiftNames((prev) => [...prev, name].sort());
+    setMpCustomShift("");
+  };
+
+  // Total kebutuhan vs tersedia per hari (semua shift)
+  const mpTotals = useMemo(() => {
+    const k: Record<number, number> = {};
+    const t: Record<number, number> = {};
+    HARI_JADWAL.forEach((h) => {
+      k[h.hari] = 0;
+      t[h.hari] = 0;
+    });
+    mpShiftNames.forEach((shift) => {
+      HARI_JADWAL.forEach((h) => {
+        k[h.hari] += mpKebutuhan[`${shift}|${h.hari}`] || 0;
+        t[h.hari] += mpTersedia[`${shift}|${h.hari}`] || 0;
+      });
+    });
+    return { k, t };
+  }, [mpShiftNames, mpKebutuhan, mpTersedia]);
+
   return (
     <div className="flex flex-col gap-6 p-4 sm:p-6">
       <PageHeader
         title="Jadwal Kerja & Istirahat"
-        description="Atur jadwal kerja dan istirahat karyawan per hari. Seret blok untuk memindah antar hari/karyawan, atau gunakan Auto Generate."
+        description="Atur jadwal kerja & istirahat per hari, rotasi shift otomatis, sinkron ke absensi, dan kalkulator man power planning."
         actions={
           <div className="flex flex-wrap items-center gap-2">
             <Button
@@ -514,9 +755,29 @@ function JadwalKerjaPage() {
             <Button
               variant="outline"
               className="border-emerald-200 hover:bg-emerald-50 hover:text-emerald-700"
-              onClick={() => setAutoOpen(true)}
+              onClick={openAbsen}
             >
-              <Wand2 className="mr-2 h-4 w-4 text-emerald-600" /> Auto Generate
+              <ClipboardCheck className="mr-2 h-4 w-4 text-emerald-600" /> Integrasi Absen
+            </Button>
+            <Button
+              variant="outline"
+              className="border-amber-200 hover:bg-amber-50 hover:text-amber-700"
+              onClick={openMp}
+            >
+              <Calculator className="mr-2 h-4 w-4 text-amber-600" /> Man Power
+            </Button>
+            <Button
+              variant="outline"
+              className="border-teal-200 hover:bg-teal-50 hover:text-teal-700"
+              onClick={() => setRotateOpen(true)}
+            >
+              <RefreshCw className="mr-2 h-4 w-4 text-teal-600" /> Putar Rotasi
+            </Button>
+            <Button
+              className="bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-white border-none rounded-xl shadow-md shadow-emerald-500/10 hover:shadow-emerald-500/20 active:scale-[0.98] transition-all"
+              onClick={openAuto}
+            >
+              <Wand2 className="mr-2 h-4 w-4" /> Auto Generate
             </Button>
           </div>
         }
@@ -844,10 +1105,7 @@ function JadwalKerjaPage() {
                 <Label className="text-xs font-semibold uppercase tracking-wider text-slate-500">
                   Hari
                 </Label>
-                <Select
-                  value={String(formHari)}
-                  onValueChange={(v) => setFormHari(Number(v))}
-                >
+                <Select value={String(formHari)} onValueChange={(v) => setFormHari(Number(v))}>
                   <SelectTrigger className="w-full">
                     <SelectValue />
                   </SelectTrigger>
@@ -947,44 +1205,36 @@ function JadwalKerjaPage() {
         </DialogContent>
       </Dialog>
 
-      {/* Dialog auto generate */}
+      {/* Dialog auto generate (distribusi shift / rotasi) */}
       <Dialog open={autoOpen} onOpenChange={setAutoOpen}>
         <DialogContent className="max-h-[90vh] overflow-y-auto rounded-2xl">
           <DialogHeader>
             <DialogTitle className="text-lg font-bold text-slate-900 dark:text-slate-100">
-              Auto Generate Jadwal
+              Auto Generate Jadwal (Rotasi Shift)
             </DialogTitle>
             <DialogDescription>
-              Buat jadwal standar otomatis untuk seluruh karyawan aktif pada cabang terpilih.
-              Jadwal lama akan ditimpa.
+              Buat jadwal otomatis untuk seluruh karyawan aktif pada cabang terpilih dan bagikan
+              mereka merata ke beberapa shift (rotasi). Jadwal lama akan ditimpa.
             </DialogDescription>
           </DialogHeader>
           <form onSubmit={submitAuto} className="space-y-4 pt-2">
-            <div className="grid gap-4 sm:grid-cols-2">
-              <div className="space-y-1.5">
-                <Label className="text-xs font-semibold uppercase tracking-wider text-slate-500">
-                  Cabang
-                </Label>
-                <Select value={autoBranch} onValueChange={setAutoBranch}>
-                  <SelectTrigger className="w-full">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">Semua Cabang</SelectItem>
-                    {branches.map((b) => (
-                      <SelectItem key={b.id} value={b.id}>
-                        {b.nama}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-1.5">
-                <Label className="text-xs font-semibold uppercase tracking-wider text-slate-500">
-                  Nama Shift Kerja
-                </Label>
-                <Input value={namaKerja} onChange={(e) => setNamaKerja(e.target.value)} />
-              </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs font-semibold uppercase tracking-wider text-slate-500">
+                Cabang
+              </Label>
+              <Select value={autoBranch} onValueChange={setAutoBranch}>
+                <SelectTrigger className="w-full">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Semua Cabang</SelectItem>
+                  {branches.map((b) => (
+                    <SelectItem key={b.id} value={b.id}>
+                      {b.nama}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
 
             <div className="space-y-1.5">
@@ -1023,23 +1273,65 @@ function JadwalKerjaPage() {
               </div>
             </div>
 
-            <div className="grid gap-4 sm:grid-cols-2">
-              <div className="space-y-1.5">
+            <div className="space-y-1.5">
+              <div className="flex items-center justify-between">
                 <Label className="text-xs font-semibold uppercase tracking-wider text-slate-500">
-                  Jam Masuk
+                  Shift untuk Rotasi
                 </Label>
-                <Input type="time" value={jamMasuk} onChange={(e) => setJamMasuk(e.target.value)} />
+                <button
+                  type="button"
+                  onClick={() =>
+                    setAutoShiftIds(autoShiftIds.length === kerjaTemplates.length ? [] : kerjaTemplates.map((t) => t.id))
+                  }
+                  className="text-xs font-semibold text-emerald-600 hover:text-emerald-700"
+                >
+                  {autoShiftIds.length === kerjaTemplates.length && kerjaTemplates.length > 0
+                    ? "Kosongkan"
+                    : "Pilih Semua"}
+                </button>
               </div>
-              <div className="space-y-1.5">
-                <Label className="text-xs font-semibold uppercase tracking-wider text-slate-500">
-                  Jam Pulang
-                </Label>
-                <Input
-                  type="time"
-                  value={jamPulang}
-                  onChange={(e) => setJamPulang(e.target.value)}
-                />
-              </div>
+              {kerjaTemplates.length === 0 ? (
+                <p className="rounded-xl bg-amber-50 px-3.5 py-2.5 text-xs text-amber-700">
+                  Belum ada template shift kerja. Buat template kerja dulu (tombol Template) agar
+                  bisa generate rotasi.
+                </p>
+              ) : (
+                <div className="flex flex-wrap gap-1.5">
+                  {kerjaTemplates.map((t) => {
+                    const on = autoShiftIds.includes(t.id);
+                    return (
+                      <button
+                        key={t.id}
+                        type="button"
+                        onClick={() => toggleShift(t.id)}
+                        className={`flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-semibold transition-all active:scale-95 ${
+                          on
+                            ? "border-emerald-300 bg-emerald-50 text-emerald-800 shadow-sm"
+                            : "border-slate-200 bg-white text-slate-500 hover:border-slate-300"
+                        }`}
+                      >
+                        <span
+                          className={`flex h-3.5 w-3.5 items-center justify-center rounded border ${
+                            on ? "border-emerald-500 bg-emerald-500 text-white" : "border-slate-300"
+                          }`}
+                        >
+                          {on && "✓"}
+                        </span>
+                        {t.nama}
+                        <span className="font-normal text-slate-400">
+                          {formatJam(t.jam_mulai)}–{formatJam(t.jam_selesai)}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+              {kerjaTemplates.length > 1 && (
+                <p className="text-[11px] text-slate-400">
+                  Urutan rotasi mengikuti jam mulai:{" "}
+                  {kerjaTemplates.map((t) => t.nama).join(" → ")} → kembali ke awal.
+                </p>
+              )}
             </div>
 
             <div className="flex items-center justify-between rounded-xl border border-amber-200 bg-amber-50/60 px-3.5 py-3">
@@ -1078,15 +1370,15 @@ function JadwalKerjaPage() {
             )}
 
             <div className="rounded-xl bg-slate-50 px-3.5 py-2.5 text-xs text-slate-500">
-              Blok kerja: <b>{jamMasuk}–{jamPulang}</b>
-              {istirahatOn && (
-                <>
-                  {" "}
-                  • Istirahat: <b>{istirahatMulai}–{istirahatSelesai}</b> ({namaIstirahat.trim() || "Istirahat"})
-                </>
-              )}
-              {" "}
-              • Hari: <b>{workDays.length === 0 ? "-" : workDays.map((h) => getNamaHari(h)).join(", ")}</b>
+              Hari: <b>{workDays.length === 0 ? "-" : workDays.map((h) => getNamaHari(h)).join(", ")}</b>
+              {" "}• Shift: <b>{autoShiftIds.length === 0 ? "-" : `${autoShiftIds.length} shift`}</b>
+              {" "}• Istirahat:{" "}
+              <b>
+                {istirahatOn ? `${istirahatMulai}–${istirahatSelesai} (${namaIstirahat.trim() || "Istirahat"})` : "tidak ada"}
+              </b>
+              <br />
+              Karyawan aktif pada cabang akan dibagi merata ke {Math.max(autoShiftIds.length, 1)} shift
+              (putar rotasi kapan saja untuk memindahkan semua orang ke shift berikutnya).
             </div>
 
             <DialogFooter>
@@ -1103,6 +1395,74 @@ function JadwalKerjaPage() {
               </Button>
             </DialogFooter>
           </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Dialog putar rotasi */}
+      <Dialog open={rotateOpen} onOpenChange={setRotateOpen}>
+        <DialogContent className="rounded-2xl">
+          <DialogHeader>
+            <DialogTitle className="text-lg font-bold text-slate-900 dark:text-slate-100">
+              Putar Rotasi Shift
+            </DialogTitle>
+            <DialogDescription>
+              Setiap karyawan yang terjadwal akan berpindah ke shift berikutnya sesuai urutan jam
+              mulai, lalu kembali ke shift pertama (siklus).
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 pt-2">
+            <div className="rounded-xl border border-teal-200 bg-teal-50/60 px-3.5 py-3">
+              <p className="text-xs font-bold uppercase tracking-wider text-teal-700">
+                Urutan Rotasi
+              </p>
+              <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                {kerjaTemplates.length === 0 ? (
+                  <span className="text-xs text-teal-800">
+                    Tidak ada template shift kerja. Buat template dulu.
+                  </span>
+                ) : (
+                  kerjaTemplates.map((t, i) => (
+                    <span key={t.id} className="flex items-center gap-1.5 text-xs font-semibold text-teal-900">
+                      <span className="rounded-lg bg-white px-2 py-1 shadow-sm">{t.nama}</span>
+                      {i < kerjaTemplates.length - 1 && <ArrowRight className="h-3.5 w-3.5 text-teal-400" />}
+                    </span>
+                  ))
+                )}
+              </div>
+              {kerjaTemplates.length > 1 && (
+                <p className="mt-2 text-[11px] text-teal-800/80">
+                  Contoh: karyawan ber-Shift Pagi menjadi Shift{" "}
+                  {kerjaTemplates[1]?.nama}, dan karyawan shift terakhir kembali ke{" "}
+                  {kerjaTemplates[0]?.nama}. Blok istirahat tidak diubah.
+                </p>
+              )}
+            </div>
+            <div className="rounded-xl bg-slate-50 px-3.5 py-2.5 text-xs text-slate-500">
+              Lingkup:{" "}
+              <b>
+                {selectedBranch === "all"
+                  ? "Semua Cabang"
+                  : branches.find((b) => b.id === selectedBranch)?.nama || selectedBranch}
+              </b>
+            </div>
+            <DialogFooter>
+              <Button variant="ghost" type="button" onClick={() => setRotateOpen(false)}>
+                Batal
+              </Button>
+              <Button
+                className="bg-gradient-to-r from-teal-500 to-emerald-500 hover:from-teal-400 hover:to-emerald-400 text-white"
+                onClick={submitRotate}
+                disabled={rotateMutation.isPending || kerjaTemplates.length === 0}
+              >
+                {rotateMutation.isPending ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <RefreshCw className="h-4 w-4" />
+                )}
+                {rotateMutation.isPending ? "Memutar..." : "Putar Rotasi"}
+              </Button>
+            </DialogFooter>
+          </div>
         </DialogContent>
       </Dialog>
 
@@ -1178,6 +1538,259 @@ function JadwalKerjaPage() {
         </DialogContent>
       </Dialog>
 
+      {/* Dialog integrasi absensi */}
+      <Dialog open={absenOpen} onOpenChange={setAbsenOpen}>
+        <DialogContent className="rounded-2xl">
+          <DialogHeader>
+            <DialogTitle className="text-lg font-bold text-slate-900 dark:text-slate-100">
+              Integrasi Jadwal → Absensi
+            </DialogTitle>
+            <DialogDescription>
+              Buat catatan kehadiran 'Hadir' otomatis untuk hari kerja sesuai jadwal pada rentang
+              tanggal terpilih. Cek juga di menu Rekap Absen.
+            </DialogDescription>
+          </DialogHeader>
+          <form onSubmit={submitAbsen} className="space-y-4 pt-2">
+            <div className="space-y-1.5">
+              <Label className="text-xs font-semibold uppercase tracking-wider text-slate-500">
+                Cabang
+              </Label>
+              <Select value={absenBranch} onValueChange={setAbsenBranch}>
+                <SelectTrigger className="w-full">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Semua Cabang</SelectItem>
+                  {branches.map((b) => (
+                    <SelectItem key={b.id} value={b.id}>
+                      {b.nama}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="space-y-1.5">
+                <Label className="text-xs font-semibold uppercase tracking-wider text-slate-500">
+                  Tanggal Mulai
+                </Label>
+                <Input type="date" value={absenMulai} onChange={(e) => setAbsenMulai(e.target.value)} />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs font-semibold uppercase tracking-wider text-slate-500">
+                  Tanggal Selesai
+                </Label>
+                <Input
+                  type="date"
+                  value={absenSelesai}
+                  min={absenMulai || undefined}
+                  onChange={(e) => setAbsenSelesai(e.target.value)}
+                />
+              </div>
+            </div>
+            <div className="rounded-xl border border-emerald-200 bg-emerald-50/60 px-3.5 py-2.5 text-xs leading-relaxed text-emerald-800">
+              <p className="font-semibold">Cara kerja:</p>
+              <ul className="mt-1 list-inside list-disc space-y-0.5">
+                <li>Karyawan dengan blok <b>kerja</b> pada hari itu → catatan <b>'Hadir'</b> dibuat (sumber: jadwal).</li>
+                <li>Catatan absen yang <b>sudah ada</b> (manual / cuti) tidak ditimpa.</li>
+                <li>Hari tanpa jadwal kerja (mis. Minggu) tidak dibuatkan catatan.</li>
+              </ul>
+            </div>
+            <DialogFooter>
+              <Button variant="ghost" type="button" onClick={() => setAbsenOpen(false)}>
+                Batal
+              </Button>
+              <Button type="submit" disabled={absenSyncMutation.isPending}>
+                {absenSyncMutation.isPending ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <ClipboardCheck className="h-4 w-4" />
+                )}
+                {absenSyncMutation.isPending ? "Menyinkronkan..." : "Sinkron Jadwal → Absen"}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Dialog man power planning */}
+      <Dialog open={mpOpen} onOpenChange={setMpOpen}>
+        <DialogContent className="max-h-[90vh] overflow-y-auto rounded-2xl sm:max-w-3xl">
+          <DialogHeader>
+            <DialogTitle className="text-lg font-bold text-slate-900 dark:text-slate-100">
+              Kalkulator Man Power Planning
+            </DialogTitle>
+            <DialogDescription>
+              Isi kebutuhan jumlah karyawan per shift per hari. Kolom "Tersedia" dihitung otomatis
+              dari jadwal, dan selisih kekurangan ditandai merah.
+            </DialogDescription>
+          </DialogHeader>
+          <form onSubmit={submitMp} className="space-y-4 pt-2">
+            <div className="space-y-1.5">
+              <Label className="text-xs font-semibold uppercase tracking-wider text-slate-500">
+                Cabang <span className="text-rose-500">*</span>
+              </Label>
+              <Select value={mpBranch} onValueChange={setMpBranch}>
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="Pilih cabang..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {branches.map((b) => (
+                    <SelectItem key={b.id} value={b.id}>
+                      {b.nama}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {mpBranch ? (
+              <>
+                {/* Tambah shift custom */}
+                <div className="flex items-end gap-2">
+                  <div className="flex-1 space-y-1.5">
+                    <Label className="text-xs font-semibold uppercase tracking-wider text-slate-500">
+                      Tambah Shift / Posisi
+                    </Label>
+                    <Input
+                      placeholder="Contoh: Kasir, Barista, Keamanan..."
+                      value={mpCustomShift}
+                      onChange={(e) => setMpCustomShift(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") {
+                          e.preventDefault();
+                          addMpShift();
+                        }
+                      }}
+                    />
+                  </div>
+                  <Button type="button" variant="outline" onClick={addMpShift}>
+                    <Plus className="mr-1 h-4 w-4" /> Tambah
+                  </Button>
+                </div>
+
+                <div className="overflow-x-auto rounded-xl border border-slate-200">
+                  <table className="min-w-max w-full border-collapse text-xs">
+                    <thead>
+                      <tr className="bg-slate-50/80">
+                        <th className="sticky left-0 min-w-40 border-b border-r border-slate-100 bg-slate-50 p-2 text-left font-bold uppercase tracking-wider text-slate-500">
+                          Shift / Posisi
+                        </th>
+                        {HARI_JADWAL.map((h) => (
+                          <th
+                            key={h.hari}
+                            className={`border-b border-r border-slate-100 p-2 text-center font-bold uppercase tracking-wider ${
+                              h.hari === 6 ? "text-rose-500" : "text-slate-500"
+                            }`}
+                          >
+                            {h.pendek}
+                          </th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {mpShiftNames.map((shift) => (
+                        <tr key={shift} className="align-top">
+                          <td className="sticky left-0 border-b border-r border-slate-100 bg-white p-2 font-semibold text-slate-800">
+                            {shift}
+                          </td>
+                          {HARI_JADWAL.map((h) => {
+                            const key = `${shift}|${h.hari}`;
+                            const need = mpKebutuhan[key] || 0;
+                            const avail = mpTersedia[key] || 0;
+                            const gap = avail - need;
+                            return (
+                              <td key={h.hari} className="border-b border-r border-slate-100 p-1.5">
+                                <Input
+                                  type="number"
+                                  min={0}
+                                  value={need === 0 ? "" : need}
+                                  placeholder="0"
+                                  onChange={(e) =>
+                                    setMpKebutuhan((prev) => ({
+                                      ...prev,
+                                      [key]: Math.max(0, Number(e.target.value) || 0),
+                                    }))
+                                  }
+                                  className="h-8 px-2 text-center text-xs"
+                                />
+                                <p
+                                  className={`mt-0.5 text-center text-[10px] font-semibold ${
+                                    gap < 0
+                                      ? "text-rose-600"
+                                      : need > 0
+                                        ? "text-emerald-600"
+                                        : "text-slate-300"
+                                  }`}
+                                >
+                                  {need > 0
+                                    ? `Tersedia ${avail} • ${gap < 0 ? `kurang ${-gap}` : gap === 0 ? "cukup" : `lebih ${gap}`}`
+                                    : avail > 0
+                                      ? `Tersedia ${avail}`
+                                      : ""}
+                                </p>
+                              </td>
+                            );
+                          })}
+                        </tr>
+                      ))}
+                      <tr className="bg-slate-50/60">
+                        <td className="sticky left-0 border-b border-r border-slate-100 bg-slate-50 p-2 font-bold text-slate-700">
+                          Total Kebutuhan
+                        </td>
+                        {HARI_JADWAL.map((h) => {
+                          const need = mpTotals.k[h.hari];
+                          const avail = mpTotals.t[h.hari];
+                          const gap = avail - need;
+                          return (
+                            <td
+                              key={h.hari}
+                              className={`border-b border-r border-slate-100 p-2 text-center font-bold ${
+                                need > 0 && gap < 0 ? "text-rose-600" : "text-slate-700"
+                              }`}
+                            >
+                              {need}
+                              {need > 0 && (
+                                <span className="block text-[10px] font-semibold text-slate-400">
+                                  tersedia {avail}
+                                  {gap < 0 ? ` • kurang ${-gap}` : ""}
+                                </span>
+                              )}
+                            </td>
+                          );
+                        })}
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+                <p className="text-[11px] text-slate-400">
+                  "Tersedia" = jumlah karyawan dengan blok kerja shift tersebut pada hari itu
+                  (berdasarkan jadwal saat ini, cabang terpilih).
+                </p>
+              </>
+            ) : (
+              <p className="rounded-xl bg-slate-50 px-3.5 py-3 text-xs text-slate-500">
+                Pilih cabang untuk mulai menghitung kebutuhan tenaga kerja.
+              </p>
+            )}
+
+            <DialogFooter>
+              <Button variant="ghost" type="button" onClick={() => setMpOpen(false)}>
+                Tutup
+              </Button>
+              <Button type="submit" disabled={saveMpMutation.isPending || !mpBranch}>
+                {saveMpMutation.isPending ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Calculator className="h-4 w-4" />
+                )}
+                {saveMpMutation.isPending ? "Menyimpan..." : "Simpan Rencana"}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+
       {/* Dialog kelola template */}
       <Dialog open={tplOpen} onOpenChange={setTplOpen}>
         <DialogContent className="max-h-[90vh] overflow-y-auto rounded-2xl">
@@ -1186,11 +1799,11 @@ function JadwalKerjaPage() {
               Kelola Template Jadwal
             </DialogTitle>
             <DialogDescription>
-              Template bisa di-drag langsung ke grid jadwal untuk menambah blok dengan cepat.
+              Template bisa di-drag langsung ke grid jadwal untuk menambah blok dengan cepat, dan
+              dipakai untuk Auto Generate rotasi shift.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 pt-2">
-            {/* Daftar template */}
             <div className="space-y-2">
               {templates.length === 0 && (
                 <p className="rounded-xl bg-slate-50 px-3.5 py-3 text-xs text-slate-500">

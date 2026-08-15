@@ -45,6 +45,7 @@ import {
   ClipboardCheck,
   RefreshCw,
   CalendarSync,
+  ClipboardList,
 } from "lucide-react";
 import {
   STATUS_ABSEN,
@@ -255,6 +256,28 @@ function RekapAbsenPage() {
     onError: (err) => toast.error(`Gagal menghapus: ${(err as Error).message}`),
   });
 
+  // Sinkronkan status 'Hadir' otomatis dari jadwal kerja (blok kerja pada hari tsb)
+  const syncJadwalMutation = useMutation({
+    mutationFn: async () => {
+      const { data, error } = await supabase.rpc("sinkron_absen_dari_jadwal", {
+        p_mulai: monthStart,
+        p_selesai: monthEnd,
+        p_branch: selectedBranch === "all" ? null : selectedBranch,
+      });
+      if (error) throw error;
+      return (data as number) || 0;
+    },
+    onSuccess: (n) => {
+      queryClient.invalidateQueries({ queryKey: ["absen_list"] });
+      toast.success(`Sinkronisasi jadwal selesai — ${n} catatan 'Hadir' dibuat dari jadwal kerja.`);
+    },
+    onError: (err) => {
+      toast.error(
+        `Gagal sinkronisasi jadwal: ${(err as Error).message}. Pastikan migrasi jadwal_kerja sudah dijalankan di database.`,
+      );
+    },
+  });
+
   // Sinkronkan status 'Cuti' otomatis dari jadwal cuti yang disetujui
   const syncCutiMutation = useMutation({
     mutationFn: async () => {
@@ -375,6 +398,20 @@ function RekapAbsenPage() {
         description="Rekap kehadiran, izin masuk, sakit, telat, absen, dan status resign karyawan."
         actions={
           <div className="flex flex-wrap items-center gap-2">
+            <Button
+              variant="outline"
+              className="border-emerald-200 hover:bg-emerald-50 hover:text-emerald-700"
+              onClick={() => syncJadwalMutation.mutate()}
+              disabled={syncJadwalMutation.isPending}
+              title="Isi status Hadir dari jadwal kerja (blok kerja pada hari tersebut)"
+            >
+              {syncJadwalMutation.isPending ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : (
+                <ClipboardList className="mr-2 h-4 w-4 text-emerald-600" />
+              )}
+              {syncJadwalMutation.isPending ? "Menyinkronkan..." : "Sinkron Jadwal → Absen"}
+            </Button>
             <Button
               variant="outline"
               className="border-sky-200 hover:bg-sky-50 hover:text-sky-700"

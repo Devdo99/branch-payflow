@@ -469,6 +469,41 @@ export type Database = {
         };
         Relationships: [];
       };
+      man_power_plan: {
+        Row: {
+          branch_id: string;
+          hari: number;
+          id: string;
+          kebutuhan: number;
+          shift_nama: string;
+          updated_at: string;
+        };
+        Insert: {
+          branch_id: string;
+          hari: number;
+          id?: string;
+          kebutuhan?: number;
+          shift_nama: string;
+          updated_at?: string;
+        };
+        Update: {
+          branch_id?: string;
+          hari?: number;
+          id?: string;
+          kebutuhan?: number;
+          shift_nama?: string;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "man_power_plan_branch_id_fkey";
+            columns: ["branch_id"];
+            isOneToOne: false;
+            referencedRelation: "branches";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       payroll_item_allowances: {
         Row: {
           allowance_type_id: string | null;
@@ -879,8 +914,40 @@ export type Database = {
         };
         Returns: number;
       };
+      generate_jadwal_shift: {
+        Args: {
+          p_branch?: string | null;
+          p_hari_kerja?: number[];
+          p_istirahat_mulai?: string | null;
+          p_istirahat_selesai?: string | null;
+          p_nama_istirahat?: string;
+          p_shift_ids?: string[] | null;
+        };
+        Returns: number;
+      };
+      rotate_jadwal_kerja: {
+        Args: {
+          p_branch?: string | null;
+        };
+        Returns: number;
+      };
+      save_man_power_plan: {
+        Args: {
+          p_branch: string;
+          p_rows: unknown;
+        };
+        Returns: number;
+      };
       sinkron_absen_cuti: {
         Args: {
+          p_mulai?: string | null;
+          p_selesai?: string | null;
+        };
+        Returns: number;
+      };
+      sinkron_absen_dari_jadwal: {
+        Args: {
+          p_branch?: string | null;
           p_mulai?: string | null;
           p_selesai?: string | null;
         };

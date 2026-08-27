@@ -92,7 +92,7 @@ function RequestCutiPage() {
   const [calMonth, setCalMonth] = useState(() => new Date().getMonth());
   const [calYear, setCalYear] = useState(() => new Date().getFullYear());
 
-  // Employee leave preview data
+  // Employee leave preview data (all staff)
   type CutiPreview = {
     id: string;
     employee_id: string;
@@ -101,6 +101,7 @@ function RequestCutiPage() {
     tanggal_selesai: string;
     status: string;
     tanggal_list?: string[] | null;
+    employees?: { nama?: string | null; branch_id?: string | null } | null;
   };
   const [cutiPreview, setCutiPreview] = useState<CutiPreview[]>([]);
   const [cutiLoading, setCutiLoading] = useState(false);
@@ -157,13 +158,14 @@ function RequestCutiPage() {
       setCalMonth(new Date().getMonth());
       setCalYear(new Date().getFullYear());
       setStep("form");
-      // Fetch employee's existing leave for preview
+      // Fetch ALL staff leave for calendar preview
       setCutiLoading(true);
       try {
         const { data: leaveData } = await supabase
           .from("cuti")
-          .select("id, employee_id, jenis, tanggal_mulai, tanggal_selesai, status, tanggal_list")
-          .eq("employee_id", data[0].id)
+          .select(
+            "id, employee_id, jenis, tanggal_mulai, tanggal_selesai, status, tanggal_list, employees ( nama, branch_id )",
+          )
           .in("status", ["diajukan", "disetujui"])
           .order("tanggal_mulai", { ascending: false });
         setCutiPreview((leaveData as CutiPreview[]) || []);
@@ -537,7 +539,7 @@ function RequestCutiPage() {
                     </button>
                   </div>
 
-                  {/* Preview cuti staf */}
+                  {/* Preview cuti semua staf */}
                   {cutiLoading ? (
                     <div className="flex items-center gap-2 rounded-lg border border-slate-100 bg-slate-50 px-3 py-2 text-[11px] text-slate-400">
                       <Loader2 className="h-3 w-3 animate-spin" /> Memuat data cuti...
@@ -545,7 +547,6 @@ function RequestCutiPage() {
                   ) : cutiPreview.length > 0 ? (
                     <div className="space-y-1.5">
                       {(() => {
-                        // Filter cuti yang menabrak bulan tampilan
                         const mStart = `${calYear}-${String(calMonth + 1).padStart(2, "0")}-01`;
                         const mEnd = `${calYear}-${String(calMonth + 1).padStart(2, "0")}-${String(
                           new Date(calYear, calMonth + 1, 0).getDate(),
@@ -554,42 +555,59 @@ function RequestCutiPage() {
                           (c) => c.tanggal_mulai <= mEnd && c.tanggal_selesai >= mStart,
                         );
                         if (relevant.length === 0) return null;
+                        // Group by employee
+                        const byEmp = new Map<string, { nama: string; items: CutiPreview[] }>();
+                        relevant.forEach((c) => {
+                          const empKey = c.employee_id;
+                          const empName = c.employees?.nama || "-";
+                          if (!byEmp.has(empKey)) byEmp.set(empKey, { nama: empName, items: [] });
+                          byEmp.get(empKey)!.items.push(c);
+                        });
                         return (
                           <div className="rounded-lg border border-slate-100 bg-slate-50 p-2.5">
                             <p className="mb-1.5 text-[10px] font-bold uppercase tracking-wider text-slate-400">
-                              📋 Cuti Anda di bulan ini
+                              📋 Jadwal Cuti Staf — {BULAN_PANJANG[calMonth]} {calYear}
                             </p>
                             <div className="space-y-1">
-                              {relevant.map((c) => {
-                                const jc = getJenisCuti(c.jenis);
-                                const sc = getStatusCuti(c.status);
-                                return (
-                                  <div
-                                    key={c.id}
-                                    className={`flex items-center gap-2 rounded-md border px-2 py-1.5 text-[11px] font-medium ${
-                                      c.status === "disetujui"
-                                        ? "border-emerald-200 bg-emerald-50 text-emerald-800"
-                                        : c.status === "ditolak"
-                                          ? "border-rose-200 bg-rose-50 text-rose-800"
-                                          : "border-amber-200 bg-amber-50 text-amber-800"
-                                    }`}
-                                  >
-                                    <span className={`h-2 w-2 shrink-0 rounded-full ${jc.dot}`} />
-                                    <span className="flex-1 truncate">
-                                      {jc.label} — {formatTanggalHR(c.tanggal_mulai)} s/d {formatTanggalHR(c.tanggal_selesai)}
+                              {Array.from(byEmp.entries()).slice(0, 10).map(([empId, emp]) => (
+                                <div
+                                  key={empId}
+                                  className={`rounded-md border px-2 py-1.5 text-[11px] ${
+                                    empId === employee?.id
+                                      ? "border-emerald-300 bg-emerald-50 font-semibold text-emerald-800"
+                                      : "border-slate-200 bg-white text-slate-700"
+                                  }`}
+                                >
+                                  <div className="flex items-center gap-1.5">
+                                    <span className="font-semibold">
+                                      {empId === employee?.id ? "👤 Anda" : emp.nama}
                                     </span>
-                                    <span className={`shrink-0 rounded-full px-1.5 py-0.5 text-[9px] font-bold ${
-                                      c.status === "disetujui"
-                                        ? "bg-emerald-100 text-emerald-700"
-                                        : c.status === "ditolak"
-                                          ? "bg-rose-100 text-rose-700"
-                                          : "bg-amber-100 text-amber-700"
-                                    }`}>
-                                      {sc.label}
-                                    </span>
+                                    <span className="text-[9px] text-slate-400">•</span>
+                                    {emp.items.map((c) => {
+                                      const jc = getJenisCuti(c.jenis);
+                                      return (
+                                        <span
+                                          key={c.id}
+                                          className={`inline-flex items-center gap-0.5 rounded-full px-1.5 py-0.5 text-[9px] font-bold ${
+                                            jc.bg
+                                          }`}
+                                        >
+                                          <span className={`h-1 w-1 rounded-full ${jc.dot}`} />
+                                          {jc.label}
+                                        </span>
+                                      );
+                                    })}
                                   </div>
-                                );
-                              })}
+                                  <p className="mt-0.5 text-[10px] text-slate-400">
+                                    {emp.items.map((c) => `${formatTanggalHR(c.tanggal_mulai)} s/d ${formatTanggalHR(c.tanggal_selesai)}`).join(' • ')}
+                                  </p>
+                                </div>
+                              ))}
+                              {byEmp.size > 10 && (
+                                <p className="px-1 text-[10px] font-semibold text-slate-400">
+                                  +{byEmp.size - 10} staf lainnya
+                                </p>
+                              )}
                             </div>
                           </div>
                         );
@@ -620,8 +638,8 @@ function RequestCutiPage() {
                       for (let d = 1; d <= daysInMonth; d++) cells.push(d);
                       while (cells.length % 7 !== 0) cells.push(null);
 
-                      // Build map of cuti dates for preview
-                      const cutiDateMap: Record<string, { jenis: string; status: string }[]> = {};
+                      // Build map of cuti dates for preview with employee names
+                      const cutiDateMap: Record<string, { nama: string; jenis: string; status: string; empId: string }[]> = {};
                       cutiPreview.forEach((c) => {
                         const s = new Date(`${c.tanggal_mulai}T00:00:00`);
                         const e = new Date(`${c.tanggal_selesai}T00:00:00`);
@@ -629,81 +647,99 @@ function RequestCutiPage() {
                         const mEnd = `${calYear}-${String(calMonth + 1).padStart(2, "0")}-${String(
                           new Date(calYear, calMonth + 1, 0).getDate(),
                         ).padStart(2, "0")}`;
+                        const nama = c.employees?.nama || "-";
                         for (let d2 = new Date(s); d2 <= e; d2.setDate(d2.getDate() + 1)) {
                           const key = `${d2.getFullYear()}-${String(d2.getMonth() + 1).padStart(2, "0")}-${String(d2.getDate()).padStart(2, "0")}`;
                           if (key >= mStart && key <= mEnd) {
                             if (!cutiDateMap[key]) cutiDateMap[key] = [];
-                            cutiDateMap[key].push({ jenis: c.jenis, status: c.status });
+                            // Dedup: skip if same employee already listed for this date
+                            const alreadyListed = cutiDateMap[key].some((x) => x.nama === nama && x.jenis === c.jenis);
+                            if (!alreadyListed) {
+                              cutiDateMap[key].push({ nama, jenis: c.jenis, status: c.status, empId: c.employee_id });
+                            }
                           }
                         }
                       });
 
                       return cells.map((day, i) => {
-                        if (day === null) return <div key={i} className="h-8" />;
+                        if (day === null) return <div key={i} className="min-h-[52px] rounded-lg border border-slate-50 bg-slate-50/30" />;
                         const dateStr = `${calYear}-${String(calMonth + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
                         const isPast = dateStr < todayLocalISO();
                         const isSelected = tglTerpilih.includes(dateStr);
                         const isSunday = i % 7 === 6;
                         const dayCuti = cutiDateMap[dateStr];
                         const hasCuti = dayCuti && dayCuti.length > 0;
-                        const hasApproved = hasCuti && dayCuti.some((c) => c.status === "disetujui");
+                        const seenNames = new Set<string>();
+                        const uniqueCuti = hasCuti ? dayCuti.filter((c) => {
+                          const k = c.nama + "|" + c.jenis;
+                          if (seenNames.has(k)) return false;
+                          seenNames.add(k);
+                          return true;
+                        }) : [];
                         return (
-                          <div key={i} className="relative">
-                            <button
-                              type="button"
-                              disabled={isPast}
-                              onClick={() => toggleTanggal(dateStr)}
-                              className={`flex h-8 w-full items-center justify-center rounded-lg text-xs font-medium transition-all active:scale-95 ${
-                                isPast
-                                  ? "cursor-not-allowed text-slate-300"
-                                  : isSelected
-                                    ? "bg-gradient-to-br from-emerald-500 to-teal-400 text-white shadow-sm shadow-emerald-500/20"
-                                    : hasApproved
-                                      ? "bg-sky-50 text-sky-700 hover:bg-sky-100 border border-sky-200"
-                                      : hasCuti
-                                        ? "bg-amber-50 text-amber-700 hover:bg-amber-100 border border-amber-200"
-                                        : "text-slate-700 hover:bg-emerald-50 hover:text-emerald-700"
-                              } ${isSunday && !isSelected && !hasApproved ? "text-rose-500" : ""}`}
-                              title={
-                                hasCuti
-                                  ? dayCuti.map((c) => `${getJenisCuti(c.jenis).label} (${c.status === "disetujui" ? "Disetujui" : c.status === "ditolak" ? "Ditolak" : "Diajukan"})`).join(', ')
-                                  : undefined
-                              }
-                            >
-                              {day}
-                            </button>
-                            {hasCuti && !isPast && (
-                              <div className="absolute -bottom-0.5 left-1/2 flex -translate-x-1/2 gap-0.5">
-                                {dayCuti.slice(0, 3).map((c, ci) => (
-                                  <span
+                          <div key={i} className="relative min-h-[52px] rounded-lg border border-slate-100 bg-white p-1 transition-colors hover:bg-emerald-50/40">
+                            <div className="flex items-center justify-between">
+                              <button
+                                type="button"
+                                disabled={isPast}
+                                onClick={() => toggleTanggal(dateStr)}
+                                className={`flex h-6 w-6 items-center justify-center rounded-full text-xs font-semibold transition-all active:scale-95 ${
+                                  isPast
+                                    ? "cursor-not-allowed text-slate-300"
+                                    : isSelected
+                                      ? "bg-gradient-to-br from-emerald-500 to-teal-400 text-white shadow-sm shadow-emerald-500/20"
+                                      : "text-slate-600 hover:bg-emerald-100"
+                                } ${isSunday && !isSelected ? "text-rose-500" : ""}`}
+                              >
+                                {day}
+                              </button>
+                              {uniqueCuti.length > 0 && (
+                                <span className="text-[9px] font-bold text-slate-400">
+                                  {uniqueCuti.length}
+                                </span>
+                              )}
+                            </div>
+                            <div className="mt-0.5 space-y-0.5">
+                              {uniqueCuti.slice(0, 3).map((c, ci) => {
+                                const jc = getJenisCuti(c.jenis);
+                                const isOwn = c.empId === employee?.id;
+                                return (
+                                  <div
                                     key={ci}
-                                    className={`inline-block h-1 w-1 rounded-full ${
-                                      c.status === "disetujui"
-                                        ? "bg-sky-500"
-                                        : c.status === "ditolak"
-                                          ? "bg-rose-400"
-                                          : "bg-amber-400"
+                                    className={`flex items-center gap-0.5 truncate rounded px-1 py-px text-[9px] font-medium ${
+                                      isOwn
+                                        ? "bg-emerald-100 text-emerald-800 ring-1 ring-emerald-300"
+                                        : jc.bg
                                     }`}
-                                  />
-                                ))}
-                              </div>
-                            )}
+                                    title={`${c.nama} — ${jc.label} (${c.status === "disetujui" ? "Disetujui" : "Diajukan"})`}
+                                  >
+                                    <span className={`h-1 w-1 shrink-0 rounded-full ${isOwn ? "bg-emerald-500" : jc.dot}`} />
+                                    <span className="truncate">{isOwn ? "👤 Anda" : c.nama}</span>
+                                  </div>
+                                );
+                              })}
+                              {uniqueCuti.length > 3 && (
+                                <p className="px-1 text-[8px] font-bold text-slate-400">
+                                  +{uniqueCuti.length - 3} lainnya
+                                </p>
+                              )}
+                            </div>
                           </div>
                         );
                       });
                     })()}
                   </div>
 
-                  {/* Legenda preview cuti */}
+                  {/* Legenda */}
                   <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[10px] text-slate-400">
+                    {JENIS_CUTI.slice(0, 4).map((j) => (
+                      <span key={j.value} className="flex items-center gap-1">
+                        <span className={`h-1.5 w-1.5 rounded-full ${j.dot}`} /> {j.label}
+                      </span>
+                    ))}
                     <span className="flex items-center gap-1">
-                      <span className="h-1.5 w-1.5 rounded-full bg-sky-500" /> Cuti disetujui
-                    </span>
-                    <span className="flex items-center gap-1">
-                      <span className="h-1.5 w-1.5 rounded-full bg-amber-400" /> Menunggu
-                    </span>
-                    <span className="flex items-center gap-1">
-                      <span className="h-1.5 w-1.5 rounded-full bg-rose-400" /> Ditolak
+                      <span className="h-4 w-4 rounded border border-emerald-300 bg-emerald-100 text-[7px] font-bold text-emerald-800 flex items-center justify-center">👤</span>
+                      Anda
                     </span>
                   </div>
                   {tglTerpilih.length > 0 && (

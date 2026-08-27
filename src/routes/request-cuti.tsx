@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { JENIS_CUTI, getJenisCuti, getStatusCuti, BULAN_PANJANG, formatTanggalHR, toISODate } from "@/lib/hr";
-import { enumerateDates, getKuotaLabel, maskPhone } from "@/lib/cuti-request";
+import { getKuotaLabel, maskPhone } from "@/lib/cuti-request";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -15,6 +15,12 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { toast } from "sonner";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import {
   CalendarDays,
   CheckCircle2,
@@ -75,10 +81,9 @@ function RequestCutiPage() {
 
   // Langkah 2: form — multi-tanggal
   const [jenis, setJenis] = useState("tahunan");
-  const [tglMulai, setTglMulai] = useState("");
-  const [tglSelesai, setTglSelesai] = useState("");
+
   const [tglTerpilih, setTglTerpilih] = useState<string[]>([]);
-  const [modeTanggal, setModeTanggal] = useState<"range" | "multi">("range");
+
   const [alasan, setAlasan] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -91,6 +96,9 @@ function RequestCutiPage() {
   // Calendar navigation
   const [calMonth, setCalMonth] = useState(() => new Date().getMonth());
   const [calYear, setCalYear] = useState(() => new Date().getFullYear());
+
+  // Day detail popup
+  const [detailDate, setDetailDate] = useState<string | null>(null);
 
   // Employee leave preview data (all staff)
   type CutiPreview = {
@@ -107,10 +115,8 @@ function RequestCutiPage() {
   const [cutiLoading, setCutiLoading] = useState(false);
 
   const tanggalTerpakai = useMemo(() => {
-    if (modeTanggal === "multi") return tglTerpilih.sort();
-    if (!tglMulai || !tglSelesai) return [];
-    return enumerateDates(tglMulai, tglSelesai);
-  }, [modeTanggal, tglTerpilih, tglMulai, tglSelesai]);
+    return [...tglTerpilih].sort();
+  }, [tglTerpilih]);
 
   const jumlahHari = tanggalTerpakai.length;
 
@@ -151,10 +157,7 @@ function RequestCutiPage() {
       } else {
         setBranchInfo(null);
       }
-      setTglMulai(todayLocalISO());
-      setTglSelesai("");
       setTglTerpilih([]);
-      setModeTanggal("range");
       setCalMonth(new Date().getMonth());
       setCalYear(new Date().getFullYear());
       setStep("form");
@@ -188,10 +191,7 @@ function RequestCutiPage() {
       toast.error("Pilih minimal satu tanggal cuti.");
       return;
     }
-    if (modeTanggal === "range" && (!tglMulai || !tglSelesai)) {
-      toast.error("Lengkapi tanggal mulai dan selesai.");
-      return;
-    }
+
     if (jenis === "izin" && alasan.trim().length < 5) {
       toast.error("Untuk cuti izin, wajib mencantumkan alasan (min. 5 karakter).");
       return;
@@ -294,10 +294,7 @@ function RequestCutiPage() {
     setEmployee(null);
     setBranchInfo(null);
     setJenis("tahunan");
-    setTglMulai("");
-    setTglSelesai("");
     setTglTerpilih([]);
-    setModeTanggal("range");
     setAlasan("");
     setHasil(null);
     setCutiPreview([]);
@@ -432,64 +429,10 @@ function RequestCutiPage() {
                 </Select>
               </div>
 
-              {/* Mode pemilihan tanggal */}
-              <div className="flex items-center gap-2 rounded-xl border border-slate-200 bg-slate-50/50 p-1">
-                <button
-                  type="button"
-                  onClick={() => setModeTanggal("range")}
-                  className={`flex-1 rounded-lg px-3 py-2 text-xs font-semibold transition-all ${
-                    modeTanggal === "range"
-                      ? "bg-white text-emerald-700 shadow-sm"
-                      : "text-slate-500 hover:text-slate-700"
-                  }`}
-                >
-                  Rentang Tanggal
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setModeTanggal("multi")}
-                  className={`flex-1 rounded-lg px-3 py-2 text-xs font-semibold transition-all ${
-                    modeTanggal === "multi"
-                      ? "bg-white text-emerald-700 shadow-sm"
-                      : "text-slate-500 hover:text-slate-700"
-                  }`}
-                >
-                  Pilih Beberapa Tanggal
-                </button>
-              </div>
-
-              {modeTanggal === "range" ? (
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="space-y-1.5">
-                    <Label className="text-xs font-semibold uppercase tracking-wider text-slate-500">
-                      Tanggal Mulai
-                    </Label>
-                    <Input
-                      type="date"
-                      value={tglMulai}
-                      min={todayLocalISO()}
-                      onChange={(e) => {
-                        setTglMulai(e.target.value);
-                        if (e.target.value > tglSelesai) setTglSelesai(e.target.value);
-                      }}
-                      className="h-12 rounded-xl"
-                    />
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label className="text-xs font-semibold uppercase tracking-wider text-slate-500">
-                      Tanggal Selesai
-                    </Label>
-                    <Input
-                      type="date"
-                      value={tglSelesai}
-                      min={tglMulai || todayLocalISO()}
-                      onChange={(e) => setTglSelesai(e.target.value)}
-                      className="h-12 rounded-xl"
-                    />
-                  </div>
-                </div>
-              ) : (
-                <div className="space-y-2">
+              <Label className="text-xs font-semibold uppercase tracking-wider text-slate-500">
+                Klik tanggal untuk memilih cuti Anda
+              </Label>
+              <div className="space-y-2">
                   {/* Navigasi bulan */}
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-1">
@@ -615,9 +558,6 @@ function RequestCutiPage() {
                     </div>
                   ) : null}
 
-                  <Label className="text-xs font-semibold uppercase tracking-wider text-slate-500">
-                    Klik tanggal untuk memilih
-                  </Label>
                   <div className="grid grid-cols-7 gap-1.5">
                     {["Sen", "Sel", "Rab", "Kam", "Jum", "Sab", "Min"].map((h, i) => (
                       <div
@@ -677,12 +617,19 @@ function RequestCutiPage() {
                           return true;
                         }) : [];
                         return (
-                          <div key={i} className="relative min-h-[52px] rounded-lg border border-slate-100 bg-white p-1 transition-colors hover:bg-emerald-50/40">
+                          <div
+                            key={i}
+                            className={`relative min-h-[52px] rounded-lg border p-1 transition-colors ${
+                              isSelected
+                                ? "border-emerald-300 bg-emerald-50/60 ring-1 ring-emerald-200"
+                                : "border-slate-100 bg-white hover:bg-emerald-50/40"
+                            }`}
+                          >
                             <div className="flex items-center justify-between">
                               <button
                                 type="button"
                                 disabled={isPast}
-                                onClick={() => toggleTanggal(dateStr)}
+                                onClick={() => setDetailDate(dateStr)}
                                 className={`flex h-6 w-6 items-center justify-center rounded-full text-xs font-semibold transition-all active:scale-95 ${
                                   isPast
                                     ? "cursor-not-allowed text-slate-300"
@@ -944,6 +891,111 @@ function RequestCutiPage() {
         <p className="mt-6 text-center text-xs text-slate-400">
           Dibuat otomatis oleh sistem penggajian — hubungi admin untuk pertanyaan.
         </p>
+
+        {/* Day Detail Popup */}
+        <Dialog open={!!detailDate} onOpenChange={(open) => !open && setDetailDate(null)}>
+          <DialogContent className="max-w-sm rounded-2xl">
+            <DialogHeader>
+              <DialogTitle className="text-base font-bold text-slate-900">
+                {detailDate ? (
+                  <span className="flex items-center gap-2">
+                    <CalendarDays className="h-4 w-4 text-emerald-600" />
+                    {new Date(`${detailDate}T00:00:00").toLocaleDateString("id-ID", {
+                      weekday: "long",
+                      day: "numeric",
+                      month: "long",
+                      year: "numeric",
+                    })}
+                  </span>
+                ) : null}
+              </DialogTitle>
+            </DialogHeader>
+            {detailDate && (() => {
+              const dayCuti = (() => {
+                const seen = new Set<string>();
+                return (cutiPreview.filter((c) => {
+                  if (detailDate < c.tanggal_mulai || detailDate > c.tanggal_selesai) return false;
+                  const k = c.employee_id + "|" + c.jenis;
+                  if (seen.has(k)) return false;
+                  seen.add(k);
+                  return true;
+                }));
+              })();
+              const isSelected = tglTerpilih.includes(detailDate);
+              const isPast = detailDate < todayLocalISO();
+              return (
+                <div className="space-y-3">
+                  {dayCuti.length > 0 ? (
+                    <div className="space-y-1.5">
+                      <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">
+                        Staf yang cuti hari ini ({dayCuti.length} orang)
+                      </p>
+                      {dayCuti.map((c) => {
+                        const jc = getJenisCuti(c.jenis);
+                        const sc = getStatusCuti(c.status);
+                        const isOwn = c.employee_id === employee?.id;
+                        return (
+                          <div
+                            key={c.id + "|" + c.jenis}
+                            className={`flex items-center gap-2 rounded-lg border px-3 py-2 ${
+                              isOwn
+                                ? "border-emerald-300 bg-emerald-50"
+                                : "border-slate-200 bg-white"
+                            }`}
+                          >
+                            <span className={`h-3 w-3 shrink-0 rounded-full ${jc.dot}`} />
+                            <div className="flex-1 min-w-0">
+                              <p className={`text-sm font-semibold truncate ${
+                                isOwn ? "text-emerald-800" : "text-slate-800"
+                              }`}>
+                                {isOwn ? "👤 Anda" : (c.employees?.nama || "-")}
+                              </p>
+                              <p className="text-[11px] text-slate-400">
+                                {jc.label}
+                                <span className="mx-1">•</span>
+                                {c.tanggal_mulai === c.tanggal_selesai
+                                  ? "Sehari"
+                                  : `${formatTanggalHR(c.tanggal_mulai)} s/d ${formatTanggalHR(c.tanggal_selesai)}`}
+                              </p>
+                            </div>
+                            <span className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold ${
+                              c.status === "disetujui"
+                                ? "bg-emerald-100 text-emerald-700"
+                                : "bg-amber-100 text-amber-700"
+                            }`}>
+                              {sc.label}
+                            </span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    <div className="rounded-lg border border-dashed border-slate-200 bg-slate-50 p-4 text-center">
+                      <p className="text-sm text-slate-400">Tidak ada cuti pada tanggal ini</p>
+                    </div>
+                  )}
+
+                  {!isPast && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        toggleTanggal(detailDate);
+                      }}
+                      className={`w-full rounded-xl border px-4 py-2.5 text-sm font-semibold transition-all active:scale-[0.98] ${
+                        isSelected
+                          ? "border-rose-200 bg-rose-50 text-rose-700 hover:bg-rose-100"
+                          : "border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100"
+                      }`}
+                    >
+                      {isSelected ? "✕ Hapus dari Pilihan" : "+ Pilih Tanggal Ini untuk Cuti"}
+                    </button>
+                  )}
+                </div>
+              );
+            })()}
+          </DialogContent>
+        </Dialog>
+
         <AlertDialog open={showConfirmation} onOpenChange={setShowConfirmation}>
           <AlertDialogContent className="rounded-2xl">
             <AlertDialogHeader>

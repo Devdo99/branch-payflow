@@ -69,6 +69,104 @@ type HasilKirim =
 
 const todayLocalISO = () => toISODate(new Date());
 
+type CutiPreviewItem = {
+  id: string;
+  employee_id: string;
+  jenis: string;
+  tanggal_mulai: string;
+  tanggal_selesai: string;
+  status: string;
+  employees?: { nama?: string | null } | null;
+};
+
+function DayDetailBody({
+  detailDate,
+  cutiPreview,
+  employeeId,
+  isSelected,
+  onToggle,
+}: {
+  detailDate: string;
+  cutiPreview: CutiPreviewItem[];
+  employeeId?: string | null;
+  isSelected: boolean;
+  onToggle: (tgl: string) => void;
+}) {
+  const seen = new Set<string>();
+  const dayCuti = cutiPreview.filter((c) => {
+    if (detailDate < c.tanggal_mulai || detailDate > c.tanggal_selesai) return false;
+    const k = c.employee_id + "|" + c.jenis;
+    if (seen.has(k)) return false;
+    seen.add(k);
+    return true;
+  });
+  const isPast = detailDate < todayLocalISO();
+  return (
+    <div className="space-y-3">
+      {dayCuti.length > 0 ? (
+        <div className="space-y-1.5">
+          <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">
+            Staf yang cuti hari ini ({dayCuti.length} orang)
+          </p>
+          {dayCuti.map((c) => {
+            const jc = getJenisCuti(c.jenis);
+            const sc = getStatusCuti(c.status);
+            const isOwn = c.employee_id === employeeId;
+            const cardClass = isOwn
+              ? "border-emerald-300 bg-emerald-50"
+              : "border-slate-200 bg-white";
+            const nameClass = isOwn ? "text-emerald-800" : "text-slate-800";
+            const badgeClass = c.status === "disetujui"
+              ? "bg-emerald-100 text-emerald-700"
+              : "bg-amber-100 text-amber-700";
+            const periode = c.tanggal_mulai === c.tanggal_selesai
+              ? "Sehari"
+              : formatTanggalHR(c.tanggal_mulai) + " s/d " + formatTanggalHR(c.tanggal_selesai);
+            return (
+              <div
+                key={c.id + "|" + c.jenis}
+                className={"flex items-center gap-2 rounded-lg border px-3 py-2 " + cardClass}
+              >
+                <span className={"h-3 w-3 shrink-0 rounded-full " + jc.dot} />
+                <div className="flex-1 min-w-0">
+                  <p className={"text-sm font-semibold truncate " + nameClass}>
+                    {isOwn ? "\uD83D\uDC64 Anda" : (c.employees?.nama || "-")}
+                  </p>
+                  <p className="text-[11px] text-slate-400">
+                    {jc.label}
+                    <span className="mx-1">\u2022</span>
+                    {periode}
+                  </p>
+                </div>
+                <span className={"shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold " + badgeClass}>
+                  {sc.label}
+                </span>
+              </div>
+            );
+          })}
+        </div>
+      ) : (
+        <div className="rounded-lg border border-dashed border-slate-200 bg-slate-50 p-4 text-center">
+          <p className="text-sm text-slate-400">Tidak ada cuti pada tanggal ini</p>
+        </div>
+      )}
+      {!isPast && (
+        <button
+          type="button"
+          onClick={() => onToggle(detailDate)}
+          className={"w-full rounded-xl border px-4 py-2.5 text-sm font-semibold transition-all active:scale-[0.98] " +
+            (isSelected
+              ? "border-rose-200 bg-rose-50 text-rose-700 hover:bg-rose-100"
+              : "border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100")
+          }
+        >
+          {isSelected ? "\u2715 Hapus dari Pilihan" : "+ Pilih Tanggal Ini untuk Cuti"}
+        </button>
+      )}
+    </div>
+  );
+}
+
 function RequestCutiPage() {
   const [step, setStep] = useState<"phone" | "form" | "done">("phone");
 
@@ -820,99 +918,20 @@ function RequestCutiPage() {
                 {detailDate ? (
                   <span className="flex items-center gap-2">
                     <CalendarDays className="h-4 w-4 text-emerald-600" />
-                    {new Date(`${detailDate}T00:00:00").toLocaleDateString("id-ID", {
-                      weekday: "long",
-                      day: "numeric",
-                      month: "long",
-                      year: "numeric",
-                    })}
+                    {formatTanggalHR(detailDate)}
                   </span>
                 ) : null}
               </DialogTitle>
             </DialogHeader>
-            {detailDate && (() => {
-              const dayCuti = (() => {
-                const seen = new Set<string>();
-                return (cutiPreview.filter((c) => {
-                  if (detailDate < c.tanggal_mulai || detailDate > c.tanggal_selesai) return false;
-                  const k = c.employee_id + "|" + c.jenis;
-                  if (seen.has(k)) return false;
-                  seen.add(k);
-                  return true;
-                }));
-              })();
-              const isSelected = tglTerpilih.includes(detailDate);
-              const isPast = detailDate < todayLocalISO();
-              return (
-                <div className="space-y-3">
-                  {dayCuti.length > 0 ? (
-                    <div className="space-y-1.5">
-                      <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">
-                        Staf yang cuti hari ini ({dayCuti.length} orang)
-                      </p>
-                      {dayCuti.map((c) => {
-                        const jc = getJenisCuti(c.jenis);
-                        const sc = getStatusCuti(c.status);
-                        const isOwn = c.employee_id === employee?.id;
-                        return (
-                          <div
-                            key={c.id + "|" + c.jenis}
-                            className={`flex items-center gap-2 rounded-lg border px-3 py-2 ${
-                              isOwn
-                                ? "border-emerald-300 bg-emerald-50"
-                                : "border-slate-200 bg-white"
-                            }`}
-                          >
-                            <span className={`h-3 w-3 shrink-0 rounded-full ${jc.dot}`} />
-                            <div className="flex-1 min-w-0">
-                              <p className={`text-sm font-semibold truncate ${
-                                isOwn ? "text-emerald-800" : "text-slate-800"
-                              }`}>
-                                {isOwn ? "👤 Anda" : (c.employees?.nama || "-")}
-                              </p>
-                              <p className="text-[11px] text-slate-400">
-                                {jc.label}
-                                <span className="mx-1">•</span>
-                                {c.tanggal_mulai === c.tanggal_selesai
-                                  ? "Sehari"
-                                  : `${formatTanggalHR(c.tanggal_mulai)} s/d ${formatTanggalHR(c.tanggal_selesai)}`}
-                              </p>
-                            </div>
-                            <span className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold ${
-                              c.status === "disetujui"
-                                ? "bg-emerald-100 text-emerald-700"
-                                : "bg-amber-100 text-amber-700"
-                            }`}>
-                              {sc.label}
-                            </span>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  ) : (
-                    <div className="rounded-lg border border-dashed border-slate-200 bg-slate-50 p-4 text-center">
-                      <p className="text-sm text-slate-400">Tidak ada cuti pada tanggal ini</p>
-                    </div>
-                  )}
-
-                  {!isPast && (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        toggleTanggal(detailDate);
-                      }}
-                      className={`w-full rounded-xl border px-4 py-2.5 text-sm font-semibold transition-all active:scale-[0.98] ${
-                        isSelected
-                          ? "border-rose-200 bg-rose-50 text-rose-700 hover:bg-rose-100"
-                          : "border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100"
-                      }`}
-                    >
-                      {isSelected ? "✕ Hapus dari Pilihan" : "+ Pilih Tanggal Ini untuk Cuti"}
-                    </button>
-                  )}
-                </div>
-              );
-            })()}
+            {detailDate && (
+              <DayDetailBody
+                detailDate={detailDate}
+                cutiPreview={cutiPreview}
+                employeeId={employee?.id}
+                isSelected={tglTerpilih.includes(detailDate)}
+                onToggle={toggleTanggal}
+              />
+            )}
           </DialogContent>
         </Dialog>
 

@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { JENIS_CUTI, getJenisCuti, formatTanggalHR, toISODate } from "@/lib/hr";
+import { JENIS_CUTI, getJenisCuti, getStatusCuti, BULAN_PANJANG, formatTanggalHR, toISODate } from "@/lib/hr";
 import { enumerateDates, getKuotaLabel, maskPhone } from "@/lib/cuti-request";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -18,6 +18,8 @@ import { toast } from "sonner";
 import {
   CalendarDays,
   CheckCircle2,
+  ChevronLeft,
+  ChevronRight,
   Loader2,
   Phone,
   Send,
@@ -86,6 +88,23 @@ function RequestCutiPage() {
   // Confirmation dialog
   const [showConfirmation, setShowConfirmation] = useState(false);
 
+  // Calendar navigation
+  const [calMonth, setCalMonth] = useState(() => new Date().getMonth());
+  const [calYear, setCalYear] = useState(() => new Date().getFullYear());
+
+  // Employee leave preview data
+  type CutiPreview = {
+    id: string;
+    employee_id: string;
+    jenis: string;
+    tanggal_mulai: string;
+    tanggal_selesai: string;
+    status: string;
+    tanggal_list?: string[] | null;
+  };
+  const [cutiPreview, setCutiPreview] = useState<CutiPreview[]>([]);
+  const [cutiLoading, setCutiLoading] = useState(false);
+
   const tanggalTerpakai = useMemo(() => {
     if (modeTanggal === "multi") return tglTerpilih.sort();
     if (!tglMulai || !tglSelesai) return [];
@@ -135,7 +154,24 @@ function RequestCutiPage() {
       setTglSelesai("");
       setTglTerpilih([]);
       setModeTanggal("range");
+      setCalMonth(new Date().getMonth());
+      setCalYear(new Date().getFullYear());
       setStep("form");
+      // Fetch employee's existing leave for preview
+      setCutiLoading(true);
+      try {
+        const { data: leaveData } = await supabase
+          .from("cuti")
+          .select("id, employee_id, jenis, tanggal_mulai, tanggal_selesai, status, tanggal_list")
+          .eq("employee_id", data[0].id)
+          .in("status", ["diajukan", "disetujui"])
+          .order("tanggal_mulai", { ascending: false });
+        setCutiPreview((leaveData as CutiPreview[]) || []);
+      } catch {
+        setCutiPreview([]);
+      } finally {
+        setCutiLoading(false);
+      }
     } catch (err) {
       console.error(err);
       setPhoneError("Gagal memeriksa nomor. Coba lagi beberapa saat.");
@@ -262,6 +298,7 @@ function RequestCutiPage() {
     setModeTanggal("range");
     setAlasan("");
     setHasil(null);
+    setCutiPreview([]);
   };
 
   return (
@@ -451,6 +488,115 @@ function RequestCutiPage() {
                 </div>
               ) : (
                 <div className="space-y-2">
+                  {/* Navigasi bulan */}
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-1">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (calMonth === 0) {
+                            setCalMonth(11);
+                            setCalYear(calYear - 1);
+                          } else {
+                            setCalMonth(calMonth - 1);
+                          }
+                        }}
+                        className="flex h-7 w-7 items-center justify-center rounded-lg border border-slate-200 text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-700"
+                      >
+                        <ChevronLeft className="h-3.5 w-3.5" />
+                      </button>
+                      <div className="min-w-[120px] text-center">
+                        <p className="text-sm font-bold text-slate-800">
+                          {BULAN_PANJANG[calMonth]} {calYear}
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (calMonth === 11) {
+                            setCalMonth(0);
+                            setCalYear(calYear + 1);
+                          } else {
+                            setCalMonth(calMonth + 1);
+                          }
+                        }}
+                        className="flex h-7 w-7 items-center justify-center rounded-lg border border-slate-200 text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-700"
+                      >
+                        <ChevronRight className="h-3.5 w-3.5" />
+                      </button>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setCalMonth(new Date().getMonth());
+                        setCalYear(new Date().getFullYear());
+                      }}
+                      className="rounded-lg border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-[11px] font-semibold text-emerald-700 transition-colors hover:bg-emerald-100"
+                    >
+                      Bulan Ini
+                    </button>
+                  </div>
+
+                  {/* Preview cuti staf */}
+                  {cutiLoading ? (
+                    <div className="flex items-center gap-2 rounded-lg border border-slate-100 bg-slate-50 px-3 py-2 text-[11px] text-slate-400">
+                      <Loader2 className="h-3 w-3 animate-spin" /> Memuat data cuti...
+                    </div>
+                  ) : cutiPreview.length > 0 ? (
+                    <div className="space-y-1.5">
+                      {(() => {
+                        // Filter cuti yang menabrak bulan tampilan
+                        const mStart = `${calYear}-${String(calMonth + 1).padStart(2, "0")}-01`;
+                        const mEnd = `${calYear}-${String(calMonth + 1).padStart(2, "0")}-${String(
+                          new Date(calYear, calMonth + 1, 0).getDate(),
+                        ).padStart(2, "0")}`;
+                        const relevant = cutiPreview.filter(
+                          (c) => c.tanggal_mulai <= mEnd && c.tanggal_selesai >= mStart,
+                        );
+                        if (relevant.length === 0) return null;
+                        return (
+                          <div className="rounded-lg border border-slate-100 bg-slate-50 p-2.5">
+                            <p className="mb-1.5 text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                              📋 Cuti Anda di bulan ini
+                            </p>
+                            <div className="space-y-1">
+                              {relevant.map((c) => {
+                                const jc = getJenisCuti(c.jenis);
+                                const sc = getStatusCuti(c.status);
+                                return (
+                                  <div
+                                    key={c.id}
+                                    className={`flex items-center gap-2 rounded-md border px-2 py-1.5 text-[11px] font-medium ${
+                                      c.status === "disetujui"
+                                        ? "border-emerald-200 bg-emerald-50 text-emerald-800"
+                                        : c.status === "ditolak"
+                                          ? "border-rose-200 bg-rose-50 text-rose-800"
+                                          : "border-amber-200 bg-amber-50 text-amber-800"
+                                    }`}
+                                  >
+                                    <span className={`h-2 w-2 shrink-0 rounded-full ${jc.dot}`} />
+                                    <span className="flex-1 truncate">
+                                      {jc.label} — {formatTanggalHR(c.tanggal_mulai)} s/d {formatTanggalHR(c.tanggal_selesai)}
+                                    </span>
+                                    <span className={`shrink-0 rounded-full px-1.5 py-0.5 text-[9px] font-bold ${
+                                      c.status === "disetujui"
+                                        ? "bg-emerald-100 text-emerald-700"
+                                        : c.status === "ditolak"
+                                          ? "bg-rose-100 text-rose-700"
+                                          : "bg-amber-100 text-amber-700"
+                                    }`}>
+                                      {sc.label}
+                                    </span>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        );
+                      })()}
+                    </div>
+                  ) : null}
+
                   <Label className="text-xs font-semibold uppercase tracking-wider text-slate-500">
                     Klik tanggal untuk memilih
                   </Label>
@@ -466,41 +612,99 @@ function RequestCutiPage() {
                       </div>
                     ))}
                     {(() => {
-                      const today = new Date();
-                      const year = today.getFullYear();
-                      const month = today.getMonth();
-                      const firstDay = new Date(year, month, 1);
+                      const firstDay = new Date(calYear, calMonth, 1);
                       const startWeekday = (firstDay.getDay() + 6) % 7;
-                      const daysInMonth = new Date(year, month + 1, 0).getDate();
+                      const daysInMonth = new Date(calYear, calMonth + 1, 0).getDate();
                       const cells: (number | null)[] = [];
                       for (let i = 0; i < startWeekday; i++) cells.push(null);
                       for (let d = 1; d <= daysInMonth; d++) cells.push(d);
                       while (cells.length % 7 !== 0) cells.push(null);
+
+                      // Build map of cuti dates for preview
+                      const cutiDateMap: Record<string, { jenis: string; status: string }[]> = {};
+                      cutiPreview.forEach((c) => {
+                        const s = new Date(`${c.tanggal_mulai}T00:00:00`);
+                        const e = new Date(`${c.tanggal_selesai}T00:00:00`);
+                        const mStart = `${calYear}-${String(calMonth + 1).padStart(2, "0")}-01`;
+                        const mEnd = `${calYear}-${String(calMonth + 1).padStart(2, "0")}-${String(
+                          new Date(calYear, calMonth + 1, 0).getDate(),
+                        ).padStart(2, "0")}`;
+                        for (let d2 = new Date(s); d2 <= e; d2.setDate(d2.getDate() + 1)) {
+                          const key = `${d2.getFullYear()}-${String(d2.getMonth() + 1).padStart(2, "0")}-${String(d2.getDate()).padStart(2, "0")}`;
+                          if (key >= mStart && key <= mEnd) {
+                            if (!cutiDateMap[key]) cutiDateMap[key] = [];
+                            cutiDateMap[key].push({ jenis: c.jenis, status: c.status });
+                          }
+                        }
+                      });
+
                       return cells.map((day, i) => {
                         if (day === null) return <div key={i} className="h-8" />;
-                        const dateStr = `${year}-${String(month + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+                        const dateStr = `${calYear}-${String(calMonth + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
                         const isPast = dateStr < todayLocalISO();
                         const isSelected = tglTerpilih.includes(dateStr);
                         const isSunday = i % 7 === 6;
+                        const dayCuti = cutiDateMap[dateStr];
+                        const hasCuti = dayCuti && dayCuti.length > 0;
+                        const hasApproved = hasCuti && dayCuti.some((c) => c.status === "disetujui");
                         return (
-                          <button
-                            key={i}
-                            type="button"
-                            disabled={isPast}
-                            onClick={() => toggleTanggal(dateStr)}
-                            className={`flex h-8 w-full items-center justify-center rounded-lg text-xs font-medium transition-all active:scale-95 ${
-                              isPast
-                                ? "cursor-not-allowed text-slate-300"
-                                : isSelected
-                                  ? "bg-gradient-to-br from-emerald-500 to-teal-400 text-white shadow-sm shadow-emerald-500/20"
-                                  : "text-slate-700 hover:bg-emerald-50 hover:text-emerald-700"
-                            } ${isSunday && !isSelected ? "text-rose-500" : ""}`}
-                          >
-                            {day}
-                          </button>
+                          <div key={i} className="relative">
+                            <button
+                              type="button"
+                              disabled={isPast}
+                              onClick={() => toggleTanggal(dateStr)}
+                              className={`flex h-8 w-full items-center justify-center rounded-lg text-xs font-medium transition-all active:scale-95 ${
+                                isPast
+                                  ? "cursor-not-allowed text-slate-300"
+                                  : isSelected
+                                    ? "bg-gradient-to-br from-emerald-500 to-teal-400 text-white shadow-sm shadow-emerald-500/20"
+                                    : hasApproved
+                                      ? "bg-sky-50 text-sky-700 hover:bg-sky-100 border border-sky-200"
+                                      : hasCuti
+                                        ? "bg-amber-50 text-amber-700 hover:bg-amber-100 border border-amber-200"
+                                        : "text-slate-700 hover:bg-emerald-50 hover:text-emerald-700"
+                              } ${isSunday && !isSelected && !hasApproved ? "text-rose-500" : ""}`}
+                              title={
+                                hasCuti
+                                  ? dayCuti.map((c) => `${getJenisCuti(c.jenis).label} (${c.status === "disetujui" ? "Disetujui" : c.status === "ditolak" ? "Ditolak" : "Diajukan"})`).join(', ')
+                                  : undefined
+                              }
+                            >
+                              {day}
+                            </button>
+                            {hasCuti && !isPast && (
+                              <div className="absolute -bottom-0.5 left-1/2 flex -translate-x-1/2 gap-0.5">
+                                {dayCuti.slice(0, 3).map((c, ci) => (
+                                  <span
+                                    key={ci}
+                                    className={`inline-block h-1 w-1 rounded-full ${
+                                      c.status === "disetujui"
+                                        ? "bg-sky-500"
+                                        : c.status === "ditolak"
+                                          ? "bg-rose-400"
+                                          : "bg-amber-400"
+                                    }`}
+                                  />
+                                ))}
+                              </div>
+                            )}
+                          </div>
                         );
                       });
                     })()}
+                  </div>
+
+                  {/* Legenda preview cuti */}
+                  <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[10px] text-slate-400">
+                    <span className="flex items-center gap-1">
+                      <span className="h-1.5 w-1.5 rounded-full bg-sky-500" /> Cuti disetujui
+                    </span>
+                    <span className="flex items-center gap-1">
+                      <span className="h-1.5 w-1.5 rounded-full bg-amber-400" /> Menunggu
+                    </span>
+                    <span className="flex items-center gap-1">
+                      <span className="h-1.5 w-1.5 rounded-full bg-rose-400" /> Ditolak
+                    </span>
                   </div>
                   {tglTerpilih.length > 0 && (
                     <div className="flex flex-wrap items-center gap-1.5">

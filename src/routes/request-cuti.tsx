@@ -134,7 +134,7 @@ function DayDetailBody({
                   </p>
                   <p className="text-[11px] text-slate-400">
                     {jc.label}
-                    <span className="mx-1">\u2022</span>
+                    <span className="mx-1">{"\u2022"}</span>
                     {periode}
                   </p>
                 </div>
@@ -167,6 +167,126 @@ function DayDetailBody({
   );
 }
 
+function CalendarGrid({
+  calYear,
+  calMonth,
+  cutiPreview,
+  tglTerpilih,
+  employeeId,
+  onSelectDate,
+}: {
+  calYear: number;
+  calMonth: number;
+  cutiPreview: CutiPreviewItem[];
+  tglTerpilih: string[];
+  employeeId?: string | null;
+  onSelectDate: (dateStr: string) => void;
+}) {
+  const firstDay = new Date(calYear, calMonth, 1);
+  const startWeekday = (firstDay.getDay() + 6) % 7;
+  const daysInMonth = new Date(calYear, calMonth + 1, 0).getDate();
+  const cells: (number | null)[] = [];
+  for (let i = 0; i < startWeekday; i++) cells.push(null);
+  for (let d = 1; d <= daysInMonth; d++) cells.push(d);
+  while (cells.length % 7 !== 0) cells.push(null);
+
+  const mStart = calYear + "-" + String(calMonth + 1).padStart(2, "0") + "-01";
+  const mEnd = calYear + "-" + String(calMonth + 1).padStart(2, "0") + "-" + String(new Date(calYear, calMonth + 1, 0).getDate()).padStart(2, "0");
+
+  const cutiDateMap: Record<string, { nama: string; jenis: string; status: string; empId: string }[]> = {};
+  cutiPreview.forEach((c) => {
+    const s = new Date(c.tanggal_mulai + "T00:00:00");
+    const e = new Date(c.tanggal_selesai + "T00:00:00");
+    const nama = c.employees?.nama || "-";
+    for (let d2 = new Date(s); d2 <= e; d2.setDate(d2.getDate() + 1)) {
+      const key = d2.getFullYear() + "-" + String(d2.getMonth() + 1).padStart(2, "0") + "-" + String(d2.getDate()).padStart(2, "0");
+      if (key >= mStart && key <= mEnd) {
+        if (!cutiDateMap[key]) cutiDateMap[key] = [];
+        const alreadyListed = cutiDateMap[key].some((x) => x.nama === nama && x.jenis === c.jenis);
+        if (!alreadyListed) {
+          cutiDateMap[key].push({ nama, jenis: c.jenis, status: c.status, empId: c.employee_id });
+        }
+      }
+    }
+  });
+
+  return cells.map((day, i) => {
+    if (day === null) return <div key={i} className="min-h-[52px] rounded-lg border border-slate-50 bg-slate-50/30" />;
+    const dateStr = calYear + "-" + String(calMonth + 1).padStart(2, "0") + "-" + String(day).padStart(2, "0");
+    const isPast = dateStr < todayLocalISO();
+    const isSelected = tglTerpilih.includes(dateStr);
+    const isSunday = i % 7 === 6;
+    const dayCuti = cutiDateMap[dateStr];
+    const hasCuti = dayCuti && dayCuti.length > 0;
+    const seenNames = new Set<string>();
+    const uniqueCuti = hasCuti ? dayCuti.filter((c) => {
+      const k = c.nama + "|" + c.jenis;
+      if (seenNames.has(k)) return false;
+      seenNames.add(k);
+      return true;
+    }) : [];
+
+    const cellClass = isSelected
+      ? "relative min-h-[52px] rounded-lg border border-emerald-300 bg-emerald-50/60 p-1 transition-colors ring-1 ring-emerald-200"
+      : "relative min-h-[52px] rounded-lg border border-slate-100 bg-white p-1 transition-colors hover:bg-emerald-50/40";
+
+    const btnClass = isPast
+      ? "flex h-6 w-6 items-center justify-center rounded-full text-xs font-semibold transition-all cursor-not-allowed text-slate-300"
+      : isSelected
+        ? "flex h-6 w-6 items-center justify-center rounded-full text-xs font-semibold transition-all active:scale-95 bg-gradient-to-br from-emerald-500 to-teal-400 text-white shadow-sm shadow-emerald-500/20"
+        : "flex h-6 w-6 items-center justify-center rounded-full text-xs font-semibold transition-all active:scale-95 text-slate-600 hover:bg-emerald-100";
+
+    const sunClass = isSunday && !isSelected ? " text-rose-500" : "";
+
+    return (
+      <div key={i} className={cellClass}>
+        <div className="flex items-center justify-between">
+          <button
+            type="button"
+            disabled={isPast}
+            onClick={() => onSelectDate(dateStr)}
+            className={btnClass + sunClass}
+          >
+            {day}
+          </button>
+          {uniqueCuti.length > 0 && (
+            <span className="text-[9px] font-bold text-slate-400">
+              {uniqueCuti.length}
+            </span>
+          )}
+        </div>
+        <div className="mt-0.5 space-y-0.5">
+          {uniqueCuti.slice(0, 3).map((c, ci) => {
+            const jc = getJenisCuti(c.jenis);
+            const isOwn = c.empId === employeeId;
+            const chipClass = isOwn
+              ? "flex items-center gap-0.5 truncate rounded px-1 py-px text-[9px] font-medium bg-emerald-100 text-emerald-800 ring-1 ring-emerald-300"
+              : "flex items-center gap-0.5 truncate rounded px-1 py-px text-[9px] font-medium " + jc.bg;
+            const dotClass = isOwn ? "h-1 w-1 shrink-0 rounded-full bg-emerald-500" : "h-1 w-1 shrink-0 rounded-full " + jc.dot;
+            const label = isOwn ? "\uD83D\uDC64 Anda" : c.nama;
+            const title = c.nama + " \u2014 " + jc.label + " (" + (c.status === "disetujui" ? "Disetujui" : "Diajukan") + ")";
+            return (
+              <div
+                key={ci}
+                className={chipClass}
+                title={title}
+              >
+                <span className={dotClass} />
+                <span className="truncate">{label}</span>
+              </div>
+            );
+          })}
+          {uniqueCuti.length > 3 && (
+            <p className="px-1 text-[8px] font-bold text-slate-400">
+              +{uniqueCuti.length - 3} lainnya
+            </p>
+          )}
+        </div>
+      </div>
+    );
+  });
+}
+
 function RequestCutiPage() {
   const [step, setStep] = useState<"phone" | "form" | "done">("phone");
 
@@ -179,9 +299,7 @@ function RequestCutiPage() {
 
   // Langkah 2: form — multi-tanggal
   const [jenis, setJenis] = useState("tahunan");
-
   const [tglTerpilih, setTglTerpilih] = useState<string[]>([]);
-
   const [alasan, setAlasan] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -199,17 +317,7 @@ function RequestCutiPage() {
   const [detailDate, setDetailDate] = useState<string | null>(null);
 
   // Employee leave preview data (all staff)
-  type CutiPreview = {
-    id: string;
-    employee_id: string;
-    jenis: string;
-    tanggal_mulai: string;
-    tanggal_selesai: string;
-    status: string;
-    tanggal_list?: string[] | null;
-    employees?: { nama?: string | null; branch_id?: string | null } | null;
-  };
-  const [cutiPreview, setCutiPreview] = useState<CutiPreview[]>([]);
+  const [cutiPreview, setCutiPreview] = useState<CutiPreviewItem[]>([]);
 
   const tanggalTerpakai = useMemo(() => {
     return [...tglTerpilih].sort();
@@ -267,7 +375,7 @@ function RequestCutiPage() {
           )
           .in("status", ["diajukan", "disetujui"])
           .order("tanggal_mulai", { ascending: false });
-        setCutiPreview((leaveData as CutiPreview[]) || []);
+        setCutiPreview((leaveData as CutiPreviewItem[]) || []);
       } catch {
         setCutiPreview([]);
       }
@@ -285,7 +393,6 @@ function RequestCutiPage() {
       toast.error("Pilih minimal satu tanggal cuti.");
       return;
     }
-
     if (jenis === "izin" && alasan.trim().length < 5) {
       toast.error("Untuk cuti izin, wajib mencantumkan alasan (min. 5 karakter).");
       return;
@@ -527,218 +634,120 @@ function RequestCutiPage() {
                 Klik tanggal untuk memilih cuti Anda
               </Label>
               <div className="space-y-2">
-                  {/* Navigasi bulan */}
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-1">
-                      <button
-                        type="button"
-                        onClick={() => {
-                          if (calMonth === 0) {
-                            setCalMonth(11);
-                            setCalYear(calYear - 1);
-                          } else {
-                            setCalMonth(calMonth - 1);
-                          }
-                        }}
-                        className="flex h-7 w-7 items-center justify-center rounded-lg border border-slate-200 text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-700"
-                      >
-                        <ChevronLeft className="h-3.5 w-3.5" />
-                      </button>
-                      <div className="min-w-[120px] text-center">
-                        <p className="text-sm font-bold text-slate-800">
-                          {BULAN_PANJANG[calMonth]} {calYear}
-                        </p>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          if (calMonth === 11) {
-                            setCalMonth(0);
-                            setCalYear(calYear + 1);
-                          } else {
-                            setCalMonth(calMonth + 1);
-                          }
-                        }}
-                        className="flex h-7 w-7 items-center justify-center rounded-lg border border-slate-200 text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-700"
-                      >
-                        <ChevronRight className="h-3.5 w-3.5" />
-                      </button>
+                {/* Navigasi bulan */}
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-1">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (calMonth === 0) {
+                          setCalMonth(11);
+                          setCalYear(calYear - 1);
+                        } else {
+                          setCalMonth(calMonth - 1);
+                        }
+                      }}
+                      className="flex h-7 w-7 items-center justify-center rounded-lg border border-slate-200 text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-700"
+                    >
+                      <ChevronLeft className="h-3.5 w-3.5" />
+                    </button>
+                    <div className="min-w-[120px] text-center">
+                      <p className="text-sm font-bold text-slate-800">
+                        {BULAN_PANJANG[calMonth]} {calYear}
+                      </p>
                     </div>
                     <button
                       type="button"
                       onClick={() => {
-                        setCalMonth(new Date().getMonth());
-                        setCalYear(new Date().getFullYear());
+                        if (calMonth === 11) {
+                          setCalMonth(0);
+                          setCalYear(calYear + 1);
+                        } else {
+                          setCalMonth(calMonth + 1);
+                        }
                       }}
-                      className="rounded-lg border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-[11px] font-semibold text-emerald-700 transition-colors hover:bg-emerald-100"
+                      className="flex h-7 w-7 items-center justify-center rounded-lg border border-slate-200 text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-700"
                     >
-                      Bulan Ini
+                      <ChevronRight className="h-3.5 w-3.5" />
                     </button>
                   </div>
-
-                  <div className="grid grid-cols-7 gap-1.5">
-                    {["Sen", "Sel", "Rab", "Kam", "Jum", "Sab", "Min"].map((h, i) => (
-                      <div
-                        key={h}
-                        className={`text-center text-[10px] font-bold uppercase tracking-wider ${
-                          i >= 5 ? "text-rose-400" : "text-slate-400"
-                        }`}
-                      >
-                        {h}
-                      </div>
-                    ))}
-                    {(() => {
-                      const firstDay = new Date(calYear, calMonth, 1);
-                      const startWeekday = (firstDay.getDay() + 6) % 7;
-                      const daysInMonth = new Date(calYear, calMonth + 1, 0).getDate();
-                      const cells: (number | null)[] = [];
-                      for (let i = 0; i < startWeekday; i++) cells.push(null);
-                      for (let d = 1; d <= daysInMonth; d++) cells.push(d);
-                      while (cells.length % 7 !== 0) cells.push(null);
-
-                      // Build map of cuti dates for preview with employee names
-                      const cutiDateMap: Record<string, { nama: string; jenis: string; status: string; empId: string }[]> = {};
-                      cutiPreview.forEach((c) => {
-                        const s = new Date(`${c.tanggal_mulai}T00:00:00`);
-                        const e = new Date(`${c.tanggal_selesai}T00:00:00`);
-                        const mStart = `${calYear}-${String(calMonth + 1).padStart(2, "0")}-01`;
-                        const mEnd = `${calYear}-${String(calMonth + 1).padStart(2, "0")}-${String(
-                          new Date(calYear, calMonth + 1, 0).getDate(),
-                        ).padStart(2, "0")}`;
-                        const nama = c.employees?.nama || "-";
-                        for (let d2 = new Date(s); d2 <= e; d2.setDate(d2.getDate() + 1)) {
-                          const key = `${d2.getFullYear()}-${String(d2.getMonth() + 1).padStart(2, "0")}-${String(d2.getDate()).padStart(2, "0")}`;
-                          if (key >= mStart && key <= mEnd) {
-                            if (!cutiDateMap[key]) cutiDateMap[key] = [];
-                            // Dedup: skip if same employee already listed for this date
-                            const alreadyListed = cutiDateMap[key].some((x) => x.nama === nama && x.jenis === c.jenis);
-                            if (!alreadyListed) {
-                              cutiDateMap[key].push({ nama, jenis: c.jenis, status: c.status, empId: c.employee_id });
-                            }
-                          }
-                        }
-                      });
-
-                      return cells.map((day, i) => {
-                        if (day === null) return <div key={i} className="min-h-[52px] rounded-lg border border-slate-50 bg-slate-50/30" />;
-                        const dateStr = `${calYear}-${String(calMonth + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
-                        const isPast = dateStr < todayLocalISO();
-                        const isSelected = tglTerpilih.includes(dateStr);
-                        const isSunday = i % 7 === 6;
-                        const dayCuti = cutiDateMap[dateStr];
-                        const hasCuti = dayCuti && dayCuti.length > 0;
-                        const seenNames = new Set<string>();
-                        const uniqueCuti = hasCuti ? dayCuti.filter((c) => {
-                          const k = c.nama + "|" + c.jenis;
-                          if (seenNames.has(k)) return false;
-                          seenNames.add(k);
-                          return true;
-                        }) : [];
-                        return (
-                          <div
-                            key={i}
-                            className={`relative min-h-[52px] rounded-lg border p-1 transition-colors ${
-                              isSelected
-                                ? "border-emerald-300 bg-emerald-50/60 ring-1 ring-emerald-200"
-                                : "border-slate-100 bg-white hover:bg-emerald-50/40"
-                            }`}
-                          >
-                            <div className="flex items-center justify-between">
-                              <button
-                                type="button"
-                                disabled={isPast}
-                                onClick={() => setDetailDate(dateStr)}
-                                className={`flex h-6 w-6 items-center justify-center rounded-full text-xs font-semibold transition-all active:scale-95 ${
-                                  isPast
-                                    ? "cursor-not-allowed text-slate-300"
-                                    : isSelected
-                                      ? "bg-gradient-to-br from-emerald-500 to-teal-400 text-white shadow-sm shadow-emerald-500/20"
-                                      : "text-slate-600 hover:bg-emerald-100"
-                                } ${isSunday && !isSelected ? "text-rose-500" : ""}`}
-                              >
-                                {day}
-                              </button>
-                              {uniqueCuti.length > 0 && (
-                                <span className="text-[9px] font-bold text-slate-400">
-                                  {uniqueCuti.length}
-                                </span>
-                              )}
-                            </div>
-                            <div className="mt-0.5 space-y-0.5">
-                              {uniqueCuti.slice(0, 3).map((c, ci) => {
-                                const jc = getJenisCuti(c.jenis);
-                                const isOwn = c.empId === employee?.id;
-                                return (
-                                  <div
-                                    key={ci}
-                                    className={`flex items-center gap-0.5 truncate rounded px-1 py-px text-[9px] font-medium ${
-                                      isOwn
-                                        ? "bg-emerald-100 text-emerald-800 ring-1 ring-emerald-300"
-                                        : jc.bg
-                                    }`}
-                                    title={`${c.nama} — ${jc.label} (${c.status === "disetujui" ? "Disetujui" : "Diajukan"})`}
-                                  >
-                                    <span className={`h-1 w-1 shrink-0 rounded-full ${isOwn ? "bg-emerald-500" : jc.dot}`} />
-                                    <span className="truncate">{isOwn ? "👤 Anda" : c.nama}</span>
-                                  </div>
-                                );
-                              })}
-                              {uniqueCuti.length > 3 && (
-                                <p className="px-1 text-[8px] font-bold text-slate-400">
-                                  +{uniqueCuti.length - 3} lainnya
-                                </p>
-                              )}
-                            </div>
-                          </div>
-                        );
-                      });
-                    })()}
-                  </div>
-
-                  {/* Legenda */}
-                  <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[10px] text-slate-400">
-                    {JENIS_CUTI.slice(0, 4).map((j) => (
-                      <span key={j.value} className="flex items-center gap-1">
-                        <span className={`h-1.5 w-1.5 rounded-full ${j.dot}`} /> {j.label}
-                      </span>
-                    ))}
-                    <span className="flex items-center gap-1">
-                      <span className="h-4 w-4 rounded border border-emerald-300 bg-emerald-100 text-[7px] font-bold text-emerald-800 flex items-center justify-center">👤</span>
-                      Anda
-                    </span>
-                  </div>
-                  {tglTerpilih.length > 0 && (
-                    <div className="flex flex-wrap items-center gap-1.5">
-                      <span className="text-xs font-semibold text-slate-500">
-                        Terpilih {tglTerpilih.length} hari:
-                      </span>
-                      {tglTerpilih.map((t) => {
-                        const d = new Date(`${t}T00:00:00`);
-                        return (
-                          <span
-                            key={t}
-                            className="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-semibold text-emerald-800"
-                          >
-                            {d.toLocaleDateString("id-ID", { day: "numeric", month: "short" })}
-                            <button
-                              type="button"
-                              onClick={() => toggleTanggal(t)}
-                              className="text-emerald-500 hover:text-emerald-700"
-                            >
-                              ×
-                            </button>
-                          </span>
-                        );
-                      })}
-                    </div>
-                  )}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setCalMonth(new Date().getMonth());
+                      setCalYear(new Date().getFullYear());
+                    }}
+                    className="rounded-lg border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-[11px] font-semibold text-emerald-700 transition-colors hover:bg-emerald-100"
+                  >
+                    Bulan Ini
+                  </button>
                 </div>
-              )}
+
+                <div className="grid grid-cols-7 gap-1.5">
+                  {["Sen", "Sel", "Rab", "Kam", "Jum", "Sab", "Min"].map((h, i) => (
+                    <div
+                      key={h}
+                      className={
+                        "text-center text-[10px] font-bold uppercase tracking-wider " +
+                        (i >= 5 ? "text-rose-400" : "text-slate-400")
+                      }
+                    >
+                      {h}
+                    </div>
+                  ))}
+                  <CalendarGrid
+                    calYear={calYear}
+                    calMonth={calMonth}
+                    cutiPreview={cutiPreview}
+                    tglTerpilih={tglTerpilih}
+                    employeeId={employee?.id}
+                    onSelectDate={(dateStr) => setDetailDate(dateStr)}
+                  />
+                </div>
+
+                {/* Legenda */}
+                <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[10px] text-slate-400">
+                  {JENIS_CUTI.slice(0, 4).map((j) => (
+                    <span key={j.value} className="flex items-center gap-1">
+                      <span className={"h-1.5 w-1.5 rounded-full " + j.dot} /> {j.label}
+                    </span>
+                  ))}
+                  <span className="flex items-center gap-1">
+                    <span className="h-4 w-4 rounded border border-emerald-300 bg-emerald-100 text-[7px] font-bold text-emerald-800 flex items-center justify-center">{"\uD83D\uDC64"}</span>
+                    Anda
+                  </span>
+                </div>
+                {tglTerpilih.length > 0 && (
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    <span className="text-xs font-semibold text-slate-500">
+                      Terpilih {tglTerpilih.length} hari:
+                    </span>
+                    {tglTerpilih.map((t) => {
+                      const d = new Date(t + "T00:00:00");
+                      return (
+                        <span
+                          key={t}
+                          className="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-semibold text-emerald-800"
+                        >
+                          {d.toLocaleDateString("id-ID", { day: "numeric", month: "short" })}
+                          <button
+                            type="button"
+                            onClick={() => toggleTanggal(t)}
+                            className="text-emerald-500 hover:text-emerald-700"
+                          >
+                            {"\u00D7"}
+                          </button>
+                        </span>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
 
               {jumlahHari > 0 && (
                 <div className="flex flex-wrap items-center gap-1.5 text-xs text-slate-500">
                   <span className="font-semibold text-slate-700">{jumlahHari} hari</span>
-                  <span className="text-slate-300">•</span>
+                  <span className="text-slate-300">{"\u2022"}</span>
                   <span>{tanggalTerpakai.map((t) => getKuotaLabel(t)).join(", ")}</span>
                 </div>
               )}
@@ -749,7 +758,7 @@ function RequestCutiPage() {
                   <div className="flex items-center justify-between gap-2">
                     <p className="flex items-center gap-1.5 text-xs font-bold text-emerald-800">
                       <CalendarDays className="h-3.5 w-3.5" />
-                      Periode Permohonan — {jumlahHari} hari
+                      Periode Permohonan {"\u2014"} {jumlahHari} hari
                     </p>
                     <span className="shrink-0 rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-bold text-emerald-700">
                       {formatTanggalHR(tanggalTerpakai[0])} s/d{" "}
@@ -758,16 +767,17 @@ function RequestCutiPage() {
                   </div>
                   <div className="mt-2 flex flex-wrap gap-1.5">
                     {tanggalTerpakai.map((t) => {
-                      const d = new Date(`${t}T00:00:00`);
+                      const d = new Date(t + "T00:00:00");
                       const isWeekend = d.getDay() === 0 || d.getDay() === 6;
                       return (
                         <span
                           key={t}
-                          className={`inline-flex items-center rounded-lg border px-2 py-1 text-[11px] font-semibold ${
-                            isWeekend
+                          className={
+                            "inline-flex items-center rounded-lg border px-2 py-1 text-[11px] font-semibold " +
+                            (isWeekend
                               ? "border-rose-200 bg-rose-50 text-rose-700"
-                              : "border-emerald-200 bg-white text-slate-700"
-                          }`}
+                              : "border-emerald-200 bg-white text-slate-700")
+                          }
                         >
                           {d.toLocaleDateString("id-ID", {
                             weekday: "short",
@@ -845,7 +855,7 @@ function RequestCutiPage() {
                     {tanggalTerpakai.length > 0 && (
                       <div className="mt-2 flex flex-wrap items-center justify-center gap-1.5">
                         {tanggalTerpakai.map((t) => {
-                          const d = new Date(`${t}T00:00:00`);
+                          const d = new Date(t + "T00:00:00");
                           return (
                             <span
                               key={t}

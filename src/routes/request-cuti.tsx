@@ -112,7 +112,6 @@ function RequestCutiPage() {
     employees?: { nama?: string | null; branch_id?: string | null } | null;
   };
   const [cutiPreview, setCutiPreview] = useState<CutiPreview[]>([]);
-  const [cutiLoading, setCutiLoading] = useState(false);
 
   const tanggalTerpakai = useMemo(() => {
     return [...tglTerpilih].sort();
@@ -162,7 +161,6 @@ function RequestCutiPage() {
       setCalYear(new Date().getFullYear());
       setStep("form");
       // Fetch ALL staff leave for calendar preview
-      setCutiLoading(true);
       try {
         const { data: leaveData } = await supabase
           .from("cuti")
@@ -174,8 +172,6 @@ function RequestCutiPage() {
         setCutiPreview((leaveData as CutiPreview[]) || []);
       } catch {
         setCutiPreview([]);
-      } finally {
-        setCutiLoading(false);
       }
     } catch (err) {
       console.error(err);
@@ -481,82 +477,6 @@ function RequestCutiPage() {
                       Bulan Ini
                     </button>
                   </div>
-
-                  {/* Preview cuti semua staf */}
-                  {cutiLoading ? (
-                    <div className="flex items-center gap-2 rounded-lg border border-slate-100 bg-slate-50 px-3 py-2 text-[11px] text-slate-400">
-                      <Loader2 className="h-3 w-3 animate-spin" /> Memuat data cuti...
-                    </div>
-                  ) : cutiPreview.length > 0 ? (
-                    <div className="space-y-1.5">
-                      {(() => {
-                        const mStart = `${calYear}-${String(calMonth + 1).padStart(2, "0")}-01`;
-                        const mEnd = `${calYear}-${String(calMonth + 1).padStart(2, "0")}-${String(
-                          new Date(calYear, calMonth + 1, 0).getDate(),
-                        ).padStart(2, "0")}`;
-                        const relevant = cutiPreview.filter(
-                          (c) => c.tanggal_mulai <= mEnd && c.tanggal_selesai >= mStart,
-                        );
-                        if (relevant.length === 0) return null;
-                        // Group by employee
-                        const byEmp = new Map<string, { nama: string; items: CutiPreview[] }>();
-                        relevant.forEach((c) => {
-                          const empKey = c.employee_id;
-                          const empName = c.employees?.nama || "-";
-                          if (!byEmp.has(empKey)) byEmp.set(empKey, { nama: empName, items: [] });
-                          byEmp.get(empKey)!.items.push(c);
-                        });
-                        return (
-                          <div className="rounded-lg border border-slate-100 bg-slate-50 p-2.5">
-                            <p className="mb-1.5 text-[10px] font-bold uppercase tracking-wider text-slate-400">
-                              📋 Jadwal Cuti Staf — {BULAN_PANJANG[calMonth]} {calYear}
-                            </p>
-                            <div className="space-y-1">
-                              {Array.from(byEmp.entries()).slice(0, 10).map(([empId, emp]) => (
-                                <div
-                                  key={empId}
-                                  className={`rounded-md border px-2 py-1.5 text-[11px] ${
-                                    empId === employee?.id
-                                      ? "border-emerald-300 bg-emerald-50 font-semibold text-emerald-800"
-                                      : "border-slate-200 bg-white text-slate-700"
-                                  }`}
-                                >
-                                  <div className="flex items-center gap-1.5">
-                                    <span className="font-semibold">
-                                      {empId === employee?.id ? "👤 Anda" : emp.nama}
-                                    </span>
-                                    <span className="text-[9px] text-slate-400">•</span>
-                                    {emp.items.map((c) => {
-                                      const jc = getJenisCuti(c.jenis);
-                                      return (
-                                        <span
-                                          key={c.id}
-                                          className={`inline-flex items-center gap-0.5 rounded-full px-1.5 py-0.5 text-[9px] font-bold ${
-                                            jc.bg
-                                          }`}
-                                        >
-                                          <span className={`h-1 w-1 rounded-full ${jc.dot}`} />
-                                          {jc.label}
-                                        </span>
-                                      );
-                                    })}
-                                  </div>
-                                  <p className="mt-0.5 text-[10px] text-slate-400">
-                                    {emp.items.map((c) => `${formatTanggalHR(c.tanggal_mulai)} s/d ${formatTanggalHR(c.tanggal_selesai)}`).join(' • ')}
-                                  </p>
-                                </div>
-                              ))}
-                              {byEmp.size > 10 && (
-                                <p className="px-1 text-[10px] font-semibold text-slate-400">
-                                  +{byEmp.size - 10} staf lainnya
-                                </p>
-                              )}
-                            </div>
-                          </div>
-                        );
-                      })()}
-                    </div>
-                  ) : null}
 
                   <div className="grid grid-cols-7 gap-1.5">
                     {["Sen", "Sel", "Rab", "Kam", "Jum", "Sab", "Min"].map((h, i) => (

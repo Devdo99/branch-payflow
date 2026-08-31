@@ -49,13 +49,13 @@ type SidebarItem = {
   icon: ComponentType<{ className?: string }>;
 };
 
-type SidebarGroup = {
+type SidebarGroupConfig = {
   label: string;
   items: SidebarItem[];
   hrSubmenu?: SidebarItem[];
 };
 
-const groups: SidebarGroup[] = [
+const groups: SidebarGroupConfig[] = [
   {
     label: "Ringkasan",
     items: [{ title: "Dashboard", url: "/dashboard", icon: LayoutDashboard }],
@@ -65,7 +65,7 @@ const groups: SidebarGroup[] = [
     items: [
       { title: "Cabang", url: "/cabang", icon: Building2 },
       { title: "Karyawan", url: "/karyawan", icon: Users },
-      { title: "Master Jabatan", url: "/jabatan", icon: Briefcase },
+      { title: "Jabatan", url: "/jabatan", icon: Briefcase },
       { title: "Gaji Pokok", url: "/gaji-pokok", icon: Wallet },
       { title: "Tunjangan", url: "/tunjangan", icon: Plus },
       { title: "Potongan", url: "/potongan", icon: Minus },
@@ -77,8 +77,8 @@ const groups: SidebarGroup[] = [
     items: [
       { title: "Proses Gaji", url: "/proses-gaji", icon: Calculator },
       { title: "Slip Gaji", url: "/slip-gaji", icon: FileText },
-      { title: "Ringkasan WhatsApp", url: "/ringkasan-whatsapp", icon: MessageSquare },
-      { title: "Format WhatsApp", url: "/format-whatsapp", icon: Settings2 },
+      { title: "Ringkasan WA", url: "/ringkasan-whatsapp", icon: MessageSquare },
+      { title: "Format WA", url: "/format-whatsapp", icon: Settings2 },
     ],
   },
   {
@@ -90,7 +90,7 @@ const groups: SidebarGroup[] = [
       { title: "Rekap Absen", url: "/hr/rekap-absen", icon: ClipboardCheck },
       { title: "Jadwal Kerja", url: "/hr/jadwal-kerja", icon: CalendarClock },
       { title: "Request Cuti", url: "/hr/request-cuti", icon: ClipboardList },
-      { title: "Resign Karyawan", url: "/hr/resign", icon: UserX },
+      { title: "Resign", url: "/hr/resign", icon: UserX },
     ],
   },
   {
@@ -115,38 +115,41 @@ export function AppSidebar() {
   return (
     <Sidebar
       collapsible="icon"
-      className="border-r border-sidebar-border/30 bg-slate-950 text-slate-100 font-sans"
+      className="border-r border-white/[0.06] bg-[#0a0f1a] text-slate-200 font-sans"
     >
-      <SidebarHeader className="border-b border-sidebar-border/30 py-4 px-3 bg-slate-950">
-        <div className="flex items-center gap-3">
-          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-tr from-emerald-500 to-teal-400 p-0.5 shadow-md shadow-emerald-500/10">
-            <div className="flex h-full w-full items-center justify-center rounded-[10px] bg-slate-900">
-              <ShieldCheck className="h-5 w-5 text-emerald-400" />
+      {/* ── Header / Logo ── */}
+      <SidebarHeader className="border-b border-white/[0.06] py-3 px-3 bg-[#0a0f1a]">
+        <div className="flex items-center gap-2.5">
+          <div className="relative flex h-9 w-9 shrink-0 items-center justify-center">
+            <div className="absolute inset-0 rounded-lg bg-gradient-to-br from-emerald-500 to-teal-400 opacity-90" />
+            <div className="relative flex h-full w-full items-center justify-center rounded-[7px] bg-[#0a0f1a]/80">
+              <ShieldCheck className="h-4.5 w-4.5 text-emerald-400" />
             </div>
           </div>
           {!collapsed && (
-            <div className="flex flex-col leading-tight">
-              <span className="text-sm font-bold tracking-tight text-white">
+            <div className="flex flex-col leading-none">
+              <span className="text-[13px] font-extrabold tracking-tight text-white">
                 Pay<span className="text-emerald-400">Flow</span>
               </span>
-              <span className="text-[10px] uppercase tracking-wider text-slate-400 font-semibold">
-                Premium Admin
+              <span className="text-[9px] uppercase tracking-[0.15em] text-slate-500 font-medium mt-0.5">
+                Payroll System
               </span>
             </div>
           )}
         </div>
       </SidebarHeader>
 
-      <SidebarContent className="bg-slate-950 py-3 scrollbar-thin scrollbar-thumb-slate-800 scrollbar-track-transparent">
+      {/* ── Navigation Content ── */}
+      <SidebarContent className="bg-[#0a0f1a] py-2 scrollbar-thin scrollbar-thumb-slate-800 scrollbar-track-transparent">
         {groups.map((g) => (
-          <SidebarGroup key={g.label} className="py-2">
+          <SidebarGroup key={g.label} className="py-1">
             {!collapsed && (
-              <SidebarGroupLabel className="px-3 text-[10px] font-bold uppercase tracking-wider text-slate-500">
+              <SidebarGroupLabel className="px-3 py-1 text-[9px] font-bold uppercase tracking-[0.2em] text-slate-600">
                 {g.label}
               </SidebarGroupLabel>
             )}
             <SidebarGroupContent>
-              <SidebarMenu className="px-1.5 space-y-0.5">
+              <SidebarMenu className="px-2 space-y-px">
                 {g.items.map((item) => {
                   const active = path === item.url || path.startsWith(item.url + "/");
                   return (
@@ -155,21 +158,26 @@ export function AppSidebar() {
                         asChild
                         isActive={active}
                         tooltip={item.title}
-                        className={`w-full flex items-center gap-3 px-3 py-2 rounded-xl transition-all duration-200 group ${
+                        className={`relative w-full flex items-center gap-2.5 px-2.5 py-[7px] rounded-lg text-[12px] transition-all duration-150 group ${
                           active
-                            ? "bg-emerald-500/10 text-emerald-300 font-medium border-l-2 border-emerald-400"
-                            : "text-slate-400 hover:text-slate-200 hover:bg-slate-900"
+                            ? "bg-emerald-500/[0.08] text-emerald-300 font-medium"
+                            : "text-slate-500 hover:text-slate-300 hover:bg-white/[0.03]"
                         }`}
                       >
-                        <Link to={item.url} className="flex items-center w-full">
-                          <item.icon
-                            className={`h-4.5 w-4.5 shrink-0 transition-transform duration-200 group-hover:scale-110 ${
-                              active
-                                ? "text-emerald-400"
-                                : "text-slate-400 group-hover:text-slate-300"
-                            }`}
-                          />
-                          {!collapsed && <span className="text-sm">{item.title}</span>}
+                        <Link to={item.url} className="flex items-center w-full gap-2.5">
+                          <div className={`relative flex items-center justify-center ${active ? "" : ""}`}>
+                            {active && (
+                              <div className="absolute -left-2.5 top-1/2 -translate-y-1/2 w-[3px] h-4 rounded-full bg-emerald-400" />
+                            )}
+                            <item.icon
+                              className={`h-4 w-4 shrink-0 transition-colors duration-150 ${
+                                active
+                                  ? "text-emerald-400"
+                                  : "text-slate-600 group-hover:text-slate-400"
+                              }`}
+                            />
+                          </div>
+                          {!collapsed && <span>{item.title}</span>}
                         </Link>
                       </SidebarMenuButton>
                     </SidebarMenuItem>
@@ -186,29 +194,34 @@ export function AppSidebar() {
                         <SidebarMenuButton
                           tooltip="HR / Kepegawaian"
                           isActive={path.startsWith("/hr")}
-                          className={`w-full flex items-center gap-3 px-3 py-2 rounded-xl transition-all duration-200 group ${
+                          className={`relative w-full flex items-center gap-2.5 px-2.5 py-[7px] rounded-lg text-[12px] transition-all duration-150 group ${
                             path.startsWith("/hr")
-                              ? "bg-emerald-500/10 text-emerald-300 font-medium border-l-2 border-emerald-400"
-                              : "text-slate-400 hover:text-slate-200 hover:bg-slate-900"
+                              ? "bg-emerald-500/[0.08] text-emerald-300 font-medium"
+                              : "text-slate-500 hover:text-slate-300 hover:bg-white/[0.03]"
                           }`}
                         >
-                          <HeartHandshake
-                            className={`h-4.5 w-4.5 shrink-0 transition-transform duration-200 group-hover:scale-110 ${
-                              path.startsWith("/hr")
-                                ? "text-emerald-400"
-                                : "text-slate-400 group-hover:text-slate-300"
-                            }`}
-                          />
+                          <div className="relative flex items-center justify-center">
+                            {path.startsWith("/hr") && (
+                              <div className="absolute -left-2.5 top-1/2 -translate-y-1/2 w-[3px] h-4 rounded-full bg-emerald-400" />
+                            )}
+                            <HeartHandshake
+                              className={`h-4 w-4 shrink-0 transition-colors duration-150 ${
+                                path.startsWith("/hr")
+                                  ? "text-emerald-400"
+                                  : "text-slate-600 group-hover:text-slate-400"
+                              }`}
+                            />
+                          </div>
                           {!collapsed && (
                             <>
-                              <span className="text-sm">HR / Kepegawaian</span>
-                              <ChevronRight className="ml-auto h-4 w-4 shrink-0 transition-transform duration-200 group-data-[state=open]/collapsible:rotate-90" />
+                              <span className="flex-1 text-left">HR / Kepegawaian</span>
+                              <ChevronRight className="h-3.5 w-3.5 shrink-0 text-slate-600 transition-transform duration-200 group-data-[state=open]/collapsible:rotate-90" />
                             </>
                           )}
                         </SidebarMenuButton>
                       </CollapsibleTrigger>
                       <CollapsibleContent>
-                        <SidebarMenuSub className="px-2">
+                        <SidebarMenuSub className="ml-6 pl-2 border-l border-white/[0.06] mt-0.5">
                           {g.hrSubmenu.map((sub) => {
                             const subActive = path === sub.url;
                             return (
@@ -217,17 +230,19 @@ export function AppSidebar() {
                                   asChild
                                   isActive={subActive}
                                   tooltip={sub.title}
-                                  className={`w-full flex items-center gap-3 px-3 py-1.5 rounded-lg text-sm transition-all duration-200 ${
+                                  className={`w-full flex items-center gap-2 px-2 py-[5px] rounded-md text-[11px] transition-all duration-150 ${
                                     subActive
-                                      ? "bg-emerald-500/10 text-emerald-300 font-medium"
-                                      : "text-slate-400 hover:text-slate-200 hover:bg-slate-900"
+                                      ? "bg-emerald-500/[0.08] text-emerald-300 font-medium"
+                                      : "text-slate-500 hover:text-slate-300 hover:bg-white/[0.03]"
                                   }`}
                                 >
-                                  <Link to={sub.url} className="flex items-center w-full">
+                                  <Link to={sub.url} className="flex items-center w-full gap-2">
                                     <sub.icon
-                                      className={`h-4 w-4 shrink-0 ${subActive ? "text-emerald-400" : "text-slate-500"}`}
+                                      className={`h-3.5 w-3.5 shrink-0 ${
+                                        subActive ? "text-emerald-400" : "text-slate-600"
+                                      }`}
                                     />
-                                    {!collapsed && <span className="text-sm">{sub.title}</span>}
+                                    {!collapsed && <span>{sub.title}</span>}
                                   </Link>
                                 </SidebarMenuButton>
                               </SidebarMenuItem>
@@ -244,15 +259,16 @@ export function AppSidebar() {
         ))}
       </SidebarContent>
 
-      <SidebarFooter className="border-t border-sidebar-border/30 bg-slate-950 p-3 space-y-2">
+      {/* ── Footer / User Info ── */}
+      <SidebarFooter className="border-t border-white/[0.06] bg-[#0a0f1a] p-2 space-y-1.5">
         {!collapsed && user && (
-          <div className="flex items-center gap-3 p-2 rounded-xl bg-slate-900/50 border border-slate-900/30">
-            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-gradient-to-tr from-emerald-500/20 to-teal-400/20 border border-emerald-500/30 text-emerald-400 text-sm font-bold shadow-inner">
+          <div className="flex items-center gap-2 px-2 py-2 rounded-lg bg-white/[0.02] border border-white/[0.04]">
+            <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-emerald-500/10 text-emerald-400 text-[10px] font-bold">
               {getInitials(user.email || "")}
             </div>
-            <div className="flex flex-col min-w-0 leading-tight">
-              <span className="text-xs font-semibold text-slate-200 truncate">Administrator</span>
-              <span className="text-[10px] text-slate-400 truncate">{user.email}</span>
+            <div className="flex flex-col min-w-0 leading-none">
+              <span className="text-[11px] font-semibold text-slate-300 truncate">Admin</span>
+              <span className="text-[9px] text-slate-500 truncate mt-0.5">{user.email}</span>
             </div>
           </div>
         )}
@@ -261,10 +277,10 @@ export function AppSidebar() {
             <SidebarMenuButton
               onClick={() => signOut()}
               tooltip="Keluar"
-              className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-slate-400 hover:text-rose-400 hover:bg-rose-500/5 transition-all duration-200"
+              className="w-full flex items-center gap-2.5 px-2.5 py-[7px] rounded-lg text-[12px] text-slate-500 hover:text-rose-400 hover:bg-rose-500/[0.05] transition-all duration-150"
             >
-              <LogOut className="h-4.5 w-4.5" />
-              {!collapsed && <span className="text-sm font-medium">Keluar</span>}
+              <LogOut className="h-4 w-4 shrink-0" />
+              {!collapsed && <span className="font-medium">Keluar</span>}
             </SidebarMenuButton>
           </SidebarMenuItem>
         </SidebarMenu>

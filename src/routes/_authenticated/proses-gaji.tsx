@@ -1194,32 +1194,33 @@ function AppProsesGajiPage() {
   const detailBreakdown = detailEmp ? getPayrollBreakdown(detailEmp) : null;
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       {/* ── Page Header ── */}
-      <div className="rounded-2xl bg-gradient-to-br from-emerald-600 via-teal-600 to-teal-700 p-6 text-white shadow-lg shadow-emerald-500/15">
-        <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
-          <div className="space-y-1.5">
-            <div className="flex flex-wrap items-center gap-3">
-              <h1 className="text-2xl font-extrabold tracking-tight">Kalkulasi Payroll</h1>
+      <div className="rounded-xl bg-gradient-to-br from-emerald-600 via-teal-600 to-teal-700 p-4 text-white shadow-md shadow-emerald-500/10">
+        <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+          <div className="space-y-1">
+            <div className="flex flex-wrap items-center gap-2">
+              <h1 className="text-lg font-extrabold tracking-tight">Kalkulasi Payroll</h1>
               {hasLocalDraft && (
-                <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-semibold bg-white/20 text-white border border-white/30 backdrop-blur-sm animate-pulse">
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-semibold bg-white/20 text-white border border-white/30 backdrop-blur-sm animate-pulse">
                   <span className="w-1.5 h-1.5 rounded-full bg-white"></span>
-                  Ada Draf Inputan
+                  Draf
                 </span>
               )}
             </div>
-            <p className="text-sm text-emerald-100/80 max-w-xl">
+            <p className="text-[11px] text-emerald-100/80 max-w-xl">
               Tinjau dan sesuaikan komponen gaji bersih karyawan untuk periode berjalan.
             </p>
           </div>
-          <div className="flex flex-wrap items-center gap-2">
+          <div className="flex flex-wrap items-center gap-1.5">
             <Button
               variant="outline"
               onClick={handleExportCSV}
+              size="sm"
               disabled={isLoading || filteredEmployees.length === 0}
-              className="h-9 border-white/25 text-white hover:bg-white/15 hover:text-white shadow-sm backdrop-blur-sm"
+              className="h-8 border-white/25 text-white hover:bg-white/15 hover:text-white text-xs shadow-sm backdrop-blur-sm"
             >
-              <Download className="w-4 h-4 mr-2" /> Ekspor CSV
+              <Download className="w-3.5 h-3.5 mr-1" /> Ekspor CSV
             </Button>
             <div className="relative">
               <input
@@ -1232,10 +1233,11 @@ function AppProsesGajiPage() {
               <Button
                 variant="outline"
                 asChild
-                className="h-9 border-white/25 text-white hover:bg-white/15 hover:text-white shadow-sm cursor-pointer backdrop-blur-sm"
+                size="sm"
+                className="h-8 border-white/25 text-white hover:bg-white/15 hover:text-white text-xs shadow-sm cursor-pointer backdrop-blur-sm"
               >
                 <label htmlFor="csv-import-input" className="flex items-center">
-                  <Upload className="w-4 h-4 mr-2" /> Impor CSV
+                  <Upload className="w-3.5 h-3.5 mr-1" /> Impor CSV
                 </label>
               </Button>
             </div>
@@ -1243,41 +1245,43 @@ function AppProsesGajiPage() {
               <Button
                 variant="outline"
                 onClick={handleResetDraft}
-                className="h-9 border-white/25 text-white hover:bg-white/15 hover:text-white shadow-sm backdrop-blur-sm"
+                size="sm"
+                className="h-8 border-white/25 text-white hover:bg-white/15 hover:text-white text-xs shadow-sm backdrop-blur-sm"
               >
-                <RefreshCw className="w-4 h-4 mr-2" /> Reset Draf
+                <RefreshCw className="w-3.5 h-3.5 mr-1" /> Reset
               </Button>
             )}
             <Button
               onClick={() => setIsConfirmOpen(true)}
+              size="sm"
               disabled={isLoading || filteredEmployees.length === 0}
-              className="h-9 bg-white text-emerald-700 font-semibold hover:bg-emerald-50 shadow-md transition-all duration-200"
+              className="h-8 bg-white text-emerald-700 font-semibold text-xs hover:bg-emerald-50 shadow-md transition-all duration-200"
             >
-              <Calculator className="w-4 h-4 mr-2" /> Eksekusi Payroll
+              <Calculator className="w-3.5 h-3.5 mr-1" /> Eksekusi Payroll
             </Button>
           </div>
         </div>
       </div>
 
       {/* ── Filter Bar ── */}
-      <div className="flex flex-col gap-3 rounded-2xl border border-slate-200/80 bg-white p-4 shadow-sm sm:flex-row sm:items-end">
-        <div className="flex flex-1 flex-col gap-3 sm:flex-row sm:items-end sm:gap-3">
-          <div className="space-y-1 min-w-[170px]">
-            <Label className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">Periode</Label>
+      <div className="flex flex-col gap-2 rounded-xl border border-slate-200/80 bg-white p-3 shadow-sm sm:flex-row sm:items-end">
+        <div className="flex flex-1 flex-col gap-2 sm:flex-row sm:items-end sm:gap-2">
+          <div className="space-y-0.5 min-w-[150px]">
+            <Label className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Periode</Label>
             <Input
               type="month"
               value={periodeGaji}
               onChange={(e) => setPeriodeGaji(e.target.value)}
               disabled={isSaving}
-              className="h-9 w-full"
+              className="h-8 w-full text-xs"
             />
           </div>
-          <div className="space-y-1 min-w-[170px]">
-            <Label className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">Cabang</Label>
-            <div className="flex items-center gap-2 bg-slate-50 border border-slate-200 rounded-lg px-2 py-1">
-              <Store className="w-4 h-4 text-emerald-500" />
+          <div className="space-y-0.5 min-w-[150px]">
+            <Label className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Cabang</Label>
+            <div className="flex items-center gap-1.5 bg-slate-50 border border-slate-200 rounded-lg px-2 py-0.5">
+              <Store className="w-3.5 h-3.5 text-emerald-500" />
               <Select value={selectedBranchId} onValueChange={setSelectedBranchId}>
-                <SelectTrigger className="w-full h-8 border-0 bg-transparent shadow-none focus:ring-0 text-sm font-medium">
+                <SelectTrigger className="w-full h-7 border-0 bg-transparent shadow-none focus:ring-0 text-xs font-medium">
                   <SelectValue placeholder="Pilih Cabang" />
                 </SelectTrigger>
                 <SelectContent>
@@ -1289,152 +1293,139 @@ function AppProsesGajiPage() {
               </Select>
             </div>
           </div>
-          <div className="space-y-1 min-w-[220px]">
-            <Label className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">Cari Karyawan</Label>
+          <div className="space-y-0.5 min-w-[200px]">
+            <Label className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Cari Karyawan</Label>
             <div className="relative">
-              <SearchIcon className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+              <SearchIcon className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" />
               <Input
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder="Nama, jabatan, atau cabang"
-                className="h-9 pl-10"
+                className="h-8 pl-8 text-xs"
               />
             </div>
           </div>
         </div>
         {periodeGajiLabel && (
-          <p className="hidden sm:block text-xs text-slate-400 whitespace-nowrap">
-            Menampilkan periode <span className="font-semibold text-emerald-600">{periodeGajiLabel}</span>
+          <p className="hidden sm:block text-[10px] text-slate-400 whitespace-nowrap">
+            Menampilkan <span className="font-semibold text-emerald-600">{periodeGajiLabel}</span>
           </p>
         )}
       </div>
 
       {/* ── Summary Stats ── */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-2">
         {/* Karyawan */}
-        <div className="relative overflow-hidden bg-white border border-slate-200/60 rounded-2xl p-5 shadow-sm hover:shadow-md transition-all duration-300">
+        <div className="relative overflow-hidden bg-white border border-slate-200/60 rounded-xl p-3 shadow-sm">
           <div className="flex items-center justify-between">
-            <div className="space-y-1">
-              <span className="text-[11px] font-bold text-slate-400 uppercase tracking-widest">Karyawan Diproses</span>
-              <h3 className="text-2xl font-extrabold text-slate-800">{stats.totalKaryawan}<span className="text-sm font-semibold text-slate-400 ml-1">Orang</span></h3>
-              <p className="text-[11px] text-slate-400">Aktif & siap menerima gaji</p>
+            <div className="space-y-0.5">
+              <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Karyawan</span>
+              <h3 className="text-lg font-extrabold text-slate-800">{stats.totalKaryawan}<span className="text-[10px] font-semibold text-slate-400 ml-0.5">org</span></h3>
             </div>
-            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-sky-50 to-blue-50 border border-sky-100">
-              <Users className="h-5 w-5 text-sky-500" />
+            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-sky-50 to-blue-50 border border-sky-100">
+              <Users className="h-3.5 w-3.5 text-sky-500" />
             </div>
-          </div>
-          <div className="mt-3 h-1 w-full rounded-full bg-slate-100 overflow-hidden">
-            <div className="h-full bg-gradient-to-r from-sky-400 to-blue-400 rounded-full" style={{ width: '100%' }}></div>
           </div>
         </div>
 
         {/* Pendapatan */}
-        <div className="relative overflow-hidden bg-white border border-slate-200/60 rounded-2xl p-5 shadow-sm hover:shadow-md transition-all duration-300">
+        <div className="relative overflow-hidden bg-white border border-slate-200/60 rounded-xl p-3 shadow-sm">
           <div className="flex items-center justify-between">
-            <div className="space-y-1">
-              <span className="text-[11px] font-bold text-slate-400 uppercase tracking-widest">Total Pendapatan</span>
-              <h3 className="text-xl font-extrabold text-slate-800 truncate">{formatIDR(stats.totalGajiPokok + stats.totalTunjangan)}</h3>
-              <p className="text-[11px] text-emerald-600 font-semibold">Gaji pokok + tunjangan</p>
+            <div className="space-y-0.5 min-w-0">
+              <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Pendapatan</span>
+              <h3 className="text-sm font-extrabold text-slate-800 truncate">{formatIDR(stats.totalGajiPokok + stats.totalTunjangan)}</h3>
             </div>
-            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-emerald-50 to-teal-50 border border-emerald-100">
-              <Coins className="h-5 w-5 text-emerald-500" />
+            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-emerald-50 to-teal-50 border border-emerald-100">
+              <Coins className="h-3.5 w-3.5 text-emerald-500" />
             </div>
-          </div>
-          <div className="mt-3 h-1 w-full rounded-full bg-slate-100 overflow-hidden">
-            <div className="h-full bg-gradient-to-r from-emerald-400 to-teal-400 rounded-full" style={{ width: '85%' }}></div>
           </div>
         </div>
 
         {/* Potongan */}
-        <div className="relative overflow-hidden bg-white border border-slate-200/60 rounded-2xl p-5 shadow-sm hover:shadow-md transition-all duration-300">
+        <div className="relative overflow-hidden bg-white border border-slate-200/60 rounded-xl p-3 shadow-sm">
           <div className="flex items-center justify-between">
-            <div className="space-y-1">
-              <span className="text-[11px] font-bold text-slate-400 uppercase tracking-widest">Total Potongan</span>
-              <h3 className="text-xl font-extrabold text-slate-800 truncate">{formatIDR(stats.totalPotongan)}</h3>
-              <p className="text-[11px] text-rose-500 font-semibold">Sanksi absen, telat & cuti</p>
+            <div className="space-y-0.5 min-w-0">
+              <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Potongan</span>
+              <h3 className="text-sm font-extrabold text-slate-800 truncate">{formatIDR(stats.totalPotongan)}</h3>
             </div>
-            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-rose-50 to-pink-50 border border-rose-100">
-              <Percent className="h-5 w-5 text-rose-500" />
+            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-rose-50 to-pink-50 border border-rose-100">
+              <Percent className="h-3.5 w-3.5 text-rose-500" />
             </div>
-          </div>
-          <div className="mt-3 h-1 w-full rounded-full bg-slate-100 overflow-hidden">
-            <div className="h-full bg-gradient-to-r from-rose-400 to-pink-400 rounded-full" style={{ width: `${stats.totalGajiPokok > 0 ? Math.min((stats.totalPotongan / (stats.totalGajiPokok + stats.totalTunjangan)) * 100, 100) : 0}%` }}></div>
           </div>
         </div>
 
         {/* THP Bersih */}
-        <div className="relative overflow-hidden bg-gradient-to-br from-emerald-600 via-teal-600 to-cyan-600 rounded-2xl p-5 shadow-md hover:shadow-lg transition-all duration-300 text-white">
-          <div className="absolute top-0 right-0 -mt-6 -mr-6 w-24 h-24 bg-white/10 rounded-full"></div>
+        <div className="relative overflow-hidden bg-gradient-to-br from-emerald-600 via-teal-600 to-cyan-600 rounded-xl p-3 shadow-md text-white">
           <div className="relative z-10 flex items-center justify-between">
-            <div className="space-y-1">
-              <span className="text-[11px] font-bold text-emerald-100/80 uppercase tracking-widest">Total Net Transfer</span>
-              <h3 className="text-xl font-black text-white drop-shadow-sm truncate">{formatIDR(stats.totalTHP)}</h3>
-              <p className="text-[11px] text-emerald-100/80 font-semibold">Take Home Pay bersih</p>
+            <div className="space-y-0.5 min-w-0">
+              <span className="text-[9px] font-bold text-emerald-100/80 uppercase tracking-widest">Net Transfer</span>
+              <h3 className="text-sm font-black text-white drop-shadow-sm truncate">{formatIDR(stats.totalTHP)}</h3>
             </div>
-            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-white/20 backdrop-blur-sm">
-              <Wallet className="h-5 w-5 text-white" />
+            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-white/20 backdrop-blur-sm">
+              <Wallet className="h-3.5 w-3.5 text-white" />
             </div>
           </div>
         </div>
       </div>
 
       <Dialog open={isConfirmOpen} onOpenChange={setIsConfirmOpen}>
-        <DialogContent className="sm:max-w-[440px] rounded-2xl">
+        <DialogContent className="sm:max-w-[400px] rounded-xl">
           <DialogHeader>
-            <div className="flex items-center gap-3">
-              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-emerald-500 to-teal-500 text-white shadow-md shadow-emerald-500/20">
-                <Calculator className="h-5 w-5" />
+            <div className="flex items-center gap-2.5">
+              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-emerald-500 to-teal-500 text-white shadow-md shadow-emerald-500/20">
+                <Calculator className="h-4 w-4" />
               </div>
               <div>
-                <DialogTitle className="text-lg font-bold text-slate-900">Konfirmasi Eksekusi Payroll</DialogTitle>
-                <DialogDescription className="text-xs">
+                <DialogTitle className="text-sm font-bold text-slate-900">Konfirmasi Eksekusi Payroll</DialogTitle>
+                <DialogDescription className="text-[10px]">
                   Menerbitkan slip gaji untuk <strong className="text-slate-700">{filteredEmployees.length} karyawan</strong>
-                  {selectedBranchId === "all" ? " di semua cabang" : ` di ${selectedBranchName}`}
+                  {selectedBranchId === "all" ? " semua cabang" : ` cabang ${selectedBranchName}`}
                 </DialogDescription>
               </div>
             </div>
           </DialogHeader>
-          <div className="space-y-4 py-3">
-            <div className="rounded-xl border border-slate-200 bg-slate-50/50 p-4 space-y-3">
-              <div className="space-y-1.5">
-                <Label className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">Bulan Penggajian</Label>
+          <div className="space-y-3 py-2">
+            <div className="rounded-lg border border-slate-200 bg-slate-50/50 p-3 space-y-2">
+              <div className="space-y-0.5">
+                <Label className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Bulan Penggajian</Label>
                 <Input
                   type="month"
                   value={periodeGaji}
                   onChange={(e) => setPeriodeGaji(e.target.value)}
                   disabled={isSaving}
-                  className="shadow-none focus-visible:ring-emerald-400"
+                  className="h-8 text-xs shadow-none focus-visible:ring-emerald-400"
                 />
                 {periodeGajiLabel && (
-                  <p className="text-xs text-slate-500">
+                  <p className="text-[10px] text-slate-500">
                     Periode: <span className="font-semibold text-emerald-600">{periodeGajiLabel}</span>
                   </p>
                 )}
               </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div className="rounded-lg bg-white border border-slate-100 p-2.5 text-center">
-                  <p className="text-[10px] font-bold text-slate-400 uppercase">Total Gaji Bersih</p>
-                  <p className="text-sm font-extrabold text-emerald-600 mt-0.5">{formatIDR(stats.totalTHP)}</p>
+              <div className="grid grid-cols-2 gap-2">
+                <div className="rounded bg-white border border-slate-100 p-2 text-center">
+                  <p className="text-[9px] font-bold text-slate-400 uppercase">Total Gaji Bersih</p>
+                  <p className="text-xs font-extrabold text-emerald-600 mt-0.5">{formatIDR(stats.totalTHP)}</p>
                 </div>
-                <div className="rounded-lg bg-white border border-slate-100 p-2.5 text-center">
-                  <p className="text-[10px] font-bold text-slate-400 uppercase">Karyawan</p>
-                  <p className="text-sm font-extrabold text-slate-800 mt-0.5">{filteredEmployees.length} Orang</p>
+                <div className="rounded bg-white border border-slate-100 p-2 text-center">
+                  <p className="text-[9px] font-bold text-slate-400 uppercase">Karyawan</p>
+                  <p className="text-xs font-extrabold text-slate-800 mt-0.5">{filteredEmployees.length} Orang</p>
                 </div>
               </div>
             </div>
           </div>
-          <div className="flex justify-end gap-2 pt-3 border-t border-slate-100">
-            <Button variant="ghost" onClick={() => setIsConfirmOpen(false)} disabled={isSaving} className="text-slate-500">
-              Batalkan
+          <div className="flex justify-end gap-1.5 pt-2 border-t border-slate-100">
+            <Button variant="ghost" size="sm" onClick={() => setIsConfirmOpen(false)} disabled={isSaving} className="text-xs text-slate-500 h-8">
+              Batal
             </Button>
             <Button
               onClick={executeSavePayroll}
+              size="sm"
               disabled={isSaving || !periodeGaji}
-              className="bg-gradient-to-r from-emerald-500 to-teal-500 text-white hover:from-emerald-400 hover:to-teal-400 shadow-md shadow-emerald-500/20"
+              className="h-8 text-xs bg-gradient-to-r from-emerald-500 to-teal-500 text-white hover:from-emerald-400 hover:to-teal-400 shadow-md shadow-emerald-500/20"
             >
               {isSaving ? (
                 <>
-                  <Loader2 className="w-4 h-4 mr-2 animate-spin" /> Memproses...
+                  <Loader2 className="w-3.5 h-3.5 mr-1 animate-spin" /> Memproses...
                 </>
               ) : (
                 "Lanjutkan Proses"
@@ -1453,32 +1444,32 @@ function AppProsesGajiPage() {
           }
         }}
       >
-        <DialogContent className="sm:max-w-[420px] rounded-2xl">
+        <DialogContent className="sm:max-w-[380px] rounded-xl">
           <DialogHeader>
-            <div className="flex items-center gap-3">
-              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-teal-500 to-cyan-500 text-white shadow-md shadow-teal-500/20">
-                <Plus className="h-5 w-5" />
+            <div className="flex items-center gap-2.5">
+              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-teal-500 to-cyan-500 text-white shadow-md shadow-teal-500/20">
+                <Plus className="h-4 w-4" />
               </div>
               <div>
-                <DialogTitle className="text-lg font-bold text-slate-900">Tambah Penyesuaian</DialogTitle>
-                <DialogDescription className="text-xs">
-                  Penyesuaian khusus untuk satu karyawan.
+                <DialogTitle className="text-sm font-bold text-slate-900">Tambah Penyesuaian</DialogTitle>
+                <DialogDescription className="text-[10px]">
+                  Penyesuaian khusus untuk karyawan.
                 </DialogDescription>
               </div>
             </div>
           </DialogHeader>
-          <div className="space-y-4 py-3">
-            <div className="space-y-1.5">
-              <Label className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">Nama Penyesuaian</Label>
+          <div className="space-y-3 py-2">
+            <div className="space-y-0.5">
+              <Label className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Nama Penyesuaian</Label>
               <Input
                 value={customAllowanceName}
                 onChange={(e) => setCustomAllowanceName(e.target.value)}
                 placeholder="Contoh: Lembur Minggu"
-                className="focus-visible:ring-teal-400"
+                className="h-8 text-xs focus-visible:ring-teal-400"
               />
             </div>
-            <div className="space-y-1.5">
-              <Label className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">Nominal (Rp)</Label>
+            <div className="space-y-0.5">
+              <Label className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Nominal (Rp)</Label>
               <Input
                 type="text"
                 value={formatNumberDots(customAllowanceNominal)}
@@ -1487,26 +1478,28 @@ function AppProsesGajiPage() {
                   setCustomAllowanceNominal(parsed === 0 ? "" : parsed);
                 }}
                 placeholder="500.000"
-                className="focus-visible:ring-teal-400"
+                className="h-8 text-xs focus-visible:ring-teal-400"
               />
             </div>
           </div>
-          <div className="flex justify-end gap-2 pt-3 border-t border-slate-100">
+          <div className="flex justify-end gap-1.5 pt-2 border-t border-slate-100">
             <Button
               variant="ghost"
+              size="sm"
               onClick={() => {
                 setCustomAllowanceModalOpen(false);
                 setCustomAllowanceEmployeeId(null);
               }}
-              className="text-slate-500"
+              className="text-xs text-slate-500 h-8"
             >
               Batal
             </Button>
             <Button
+              size="sm"
               onClick={handleConfirmCustomAllowance}
-              className="bg-gradient-to-r from-teal-500 to-cyan-500 text-white hover:from-teal-400 hover:to-cyan-400 shadow-md shadow-teal-500/20"
+              className="h-8 text-xs bg-gradient-to-r from-teal-500 to-cyan-500 text-white hover:from-teal-400 hover:to-cyan-400 shadow-md shadow-teal-500/20"
             >
-              Tambah Penyesuaian
+              Tambah
             </Button>
           </div>
         </DialogContent>
@@ -1516,57 +1509,56 @@ function AppProsesGajiPage() {
         open={isDetailOpen}
         onOpenChange={(open) => (!open ? closeDetail() : setIsDetailOpen(true))}
       >
-        <DialogContent className="sm:max-w-[480px] max-h-[90vh] overflow-y-auto rounded-2xl shadow-2xl p-0">
+        <DialogContent className="sm:max-w-[420px] max-h-[90vh] overflow-y-auto rounded-xl shadow-2xl p-0">
           {detailEmp && (
             <>
               {/* ── Employee Header Card ── */}
-              <div className="bg-gradient-to-br from-emerald-600 via-teal-600 to-teal-700 text-white p-5 rounded-t-2xl relative overflow-hidden">
-                <div className="absolute top-0 right-0 -mt-4 -mr-4 w-24 h-24 bg-white/10 rounded-full z-0"></div>
+              <div className="bg-gradient-to-br from-emerald-600 via-teal-600 to-teal-700 text-white p-4 rounded-t-xl relative overflow-hidden">
+                <div className="absolute top-0 right-0 -mt-4 -mr-4 w-20 h-20 bg-white/10 rounded-full z-0"></div>
                 <div className="relative z-10">
-                  <div className="flex items-center gap-3 mb-3">
-                    <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-white/20 backdrop-blur-sm text-lg font-bold">
+                  <div className="flex items-center gap-2.5 mb-2">
+                    <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-white/20 backdrop-blur-sm text-base font-bold">
                       {detailEmp?.nama?.charAt(0) || '?'}
                     </div>
                     <div className="min-w-0">
-                      <h4 className="text-lg font-bold truncate">{detailEmp?.nama}</h4>
-                      <p className="text-xs text-emerald-100/80 font-medium">
-                        {detailEmp?.jabatan || "Tidak ada posisi"} • {getBranchName(detailEmp?.branch_id)}
+                      <h4 className="text-sm font-bold truncate">{detailEmp?.nama}</h4>
+                      <p className="text-[10px] text-emerald-100/80 font-medium">
+                        {detailEmp?.jabatan || "-"} • {getBranchName(detailEmp?.branch_id)}
                       </p>
                     </div>
                   </div>
-                  <div className="flex items-baseline justify-between border-t border-white/20 pt-3">
-                    <span className="text-xs text-emerald-100/70">Take Home Pay Bersih</span>
-                    <span className="text-xl font-black text-white drop-shadow-sm">
+                  <div className="flex items-baseline justify-between border-t border-white/20 pt-2">
+                    <span className="text-[10px] text-emerald-100/70">Take Home Pay</span>
+                    <span className="text-base font-black text-white drop-shadow-sm">
                       {formatIDR(detailBreakdown?.gajiBersih || 0)}
                     </span>
                   </div>
                 </div>
               </div>
 
-              <div className="p-5 space-y-4">
+              <div className="p-4 space-y-3">
                 {/* Quick breakdown metrics */}
-                <div className="grid grid-cols-3 gap-2">
-                  <div className="bg-slate-50 border border-slate-100 rounded-xl p-3 text-center">
-                    <span className="text-[10px] font-bold text-slate-400 block uppercase tracking-wider">Pokok</span>
-                    <span className="text-xs font-bold text-slate-800 block mt-1">{formatIDR(detailBreakdown?.gajiPokok || 0)}</span>
+                <div className="grid grid-cols-3 gap-1.5">
+                  <div className="bg-slate-50 border border-slate-100 rounded-lg p-2 text-center">
+                    <span className="text-[9px] font-bold text-slate-400 block uppercase tracking-wider">Pokok</span>
+                    <span className="text-[11px] font-bold text-slate-800 block mt-0.5">{formatIDR(detailBreakdown?.gajiPokok || 0)}</span>
                   </div>
-                  <div className="bg-emerald-50/60 border border-emerald-100/50 rounded-xl p-3 text-center">
-                    <span className="text-[10px] font-bold text-emerald-600 block uppercase tracking-wider">Tunjangan</span>
-                    <span className="text-xs font-bold text-emerald-700 block mt-1">+{formatIDR(detailBreakdown?.totalTunjangan || 0)}</span>
+                  <div className="bg-emerald-50/60 border border-emerald-100/50 rounded-lg p-2 text-center">
+                    <span className="text-[9px] font-bold text-emerald-600 block uppercase tracking-wider">Tunjangan</span>
+                    <span className="text-[11px] font-bold text-emerald-700 block mt-0.5">+{formatIDR(detailBreakdown?.totalTunjangan || 0)}</span>
                   </div>
-                  <div className="bg-rose-50/60 border border-rose-100/50 rounded-xl p-3 text-center">
-                    <span className="text-[10px] font-bold text-rose-600 block uppercase tracking-wider">Potongan</span>
-                    <span className="text-xs font-bold text-rose-700 block mt-1">-{formatIDR(detailBreakdown?.totalPotongan || 0)}</span>
+                  <div className="bg-rose-50/60 border border-rose-100/50 rounded-lg p-2 text-center">
+                    <span className="text-[9px] font-bold text-rose-600 block uppercase tracking-wider">Potongan</span>
+                    <span className="text-[11px] font-bold text-rose-700 block mt-0.5">-{formatIDR(detailBreakdown?.totalPotongan || 0)}</span>
                   </div>
                 </div>
 
                 {/* Visual Balance Bar */}
-                <div className="space-y-1.5">
-                  <div className="flex justify-between text-[10px] font-bold text-slate-400 tracking-wider">
+                <div className="space-y-1">
+                  <div className="flex justify-between text-[9px] font-bold text-slate-400 tracking-wider">
                     <span>KOMPOSISI GAJI</span>
-                    <span>TOTAL PENDAPATAN KOTOR</span>
                   </div>
-                  <div className="h-2 w-full bg-slate-100 rounded-full overflow-hidden flex">
+                  <div className="h-1.5 w-full bg-slate-100 rounded-full overflow-hidden flex">
                     {detailBreakdown &&
                     detailBreakdown.gajiPokok + detailBreakdown.totalTunjangan > 0 ? (
                       <>
@@ -1588,21 +1580,18 @@ function AppProsesGajiPage() {
                 </div>
 
                 {/* Inputs & Configurations */}
-                <div className="space-y-3">
+                <div className="space-y-2">
                   {detailEmp?.evaluation_info?.isDue && (
-                    <div className="space-y-2 rounded-xl border border-amber-200 bg-amber-50/80 p-3 shadow-sm">
-                      <div className="text-xs text-amber-800 font-semibold flex items-center gap-1.5">
+                    <div className="space-y-1.5 rounded-lg border border-amber-200 bg-amber-50/80 p-2.5 shadow-sm">
+                      <div className="text-[11px] text-amber-800 font-semibold flex items-center gap-1">
                         <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-ping"></span>
-                        Jadwal Evaluasi Gaji
+                        Evaluasi Gaji Due
                       </div>
-                      <p className="text-[11px] text-amber-700 leading-normal">
-                        Karyawan ini telah masuk jadwal penyesuaian gaji sejak {detailEmp.evaluation_info.nextDate}.
-                      </p>
-                      <div className="flex items-center gap-2 mt-2">
-                        <Label className="text-xs font-semibold text-amber-900 w-24">Nominal Naik</Label>
+                      <div className="flex items-center gap-1.5">
+                        <Label className="text-[10px] font-semibold text-amber-900 w-20">Nominal Naik</Label>
                         <Input
                           type="text"
-                          className="h-8 text-right text-xs bg-white border-amber-300 focus-visible:ring-amber-500"
+                          className="h-7 text-right text-[11px] bg-white border-amber-300 focus-visible:ring-amber-500"
                           placeholder="Rp"
                           value={formatNumberDots(detailEmp?.salary_increase_manual)}
                           onChange={(e) => detailEmp && handleSalaryIncreaseChange(detailEmp.id, e.target.value)}
@@ -1612,14 +1601,14 @@ function AppProsesGajiPage() {
                   )}
 
                   {/* Master reference salary info */}
-                  <div className="border border-slate-100 rounded-xl p-3 bg-slate-50/50 space-y-1.5 text-xs text-slate-600">
+                  <div className="border border-slate-100 rounded-lg p-2.5 bg-slate-50/50 space-y-1 text-[11px] text-slate-600">
                     <div className="flex justify-between">
-                      <span>Gaji Pokok Karyawan:</span>
+                      <span>Gaji Pokok:</span>
                       <span className="font-semibold text-slate-800">{formatIDR(detailEmp?.gaji_pokok || 0)}</span>
                     </div>
                     {Number(detailEmp?.salary_adjustment || 0) > 0 && (
                       <div className="flex justify-between text-emerald-600">
-                        <span>Kenaikan Otomatis Berlaku:</span>
+                        <span>Kenaikan Berlaku:</span>
                         <span className="font-semibold">+{formatIDR(detailEmp?.salary_adjustment || 0)}</span>
                       </div>
                     )}
@@ -1633,31 +1622,31 @@ function AppProsesGajiPage() {
                 </div>
 
                 {/* Tunjangan Dinamis */}
-                <div className="space-y-2">
-                  <div className="flex items-center gap-2">
+                <div className="space-y-1.5">
+                  <div className="flex items-center gap-1.5">
                     <div className="h-1 w-1 rounded-full bg-emerald-500"></div>
-                    <span className="text-xs font-bold text-slate-500 tracking-wider uppercase">Tunjangan Dinamis</span>
+                    <span className="text-[10px] font-bold text-slate-500 tracking-wider uppercase">Tunjangan Dinamis</span>
                   </div>
                   {(allowanceTypes || [])
                     .filter((alw) => checkIsEligible(alw.catatan, detailEmp?.jabatan ?? ""))
                     .map((alw) => (
                       <div
                         key={alw.id}
-                        className="flex items-center justify-between gap-2 rounded-xl border border-slate-100 bg-white px-3 py-2.5 shadow-sm hover:border-emerald-200 transition-colors"
+                        className="flex items-center justify-between gap-1.5 rounded-lg border border-slate-100 bg-white px-2.5 py-2 shadow-sm hover:border-emerald-200 transition-colors"
                       >
-                        <div>
-                          <div className="text-xs font-semibold text-slate-700">{alw.nama}</div>
-                          <div className="text-[10px] text-slate-400 font-medium capitalize">
-                            {alw.metode === "fixed" ? "Tetap" : alw.metode === "per_day" ? "Per Hari" : alw.metode === "per_hour" ? "Per Jam" : "Nominal Bebas"}
+                        <div className="min-w-0">
+                          <div className="text-[11px] font-semibold text-slate-700 truncate">{alw.nama}</div>
+                          <div className="text-[9px] text-slate-400 font-medium capitalize">
+                            {alw.metode === "fixed" ? "Tetap" : alw.metode === "per_day" ? "Per Hari" : alw.metode === "per_hour" ? "Per Jam" : "Bebas"}
                           </div>
                         </div>
                         {alw.metode === "fixed" ? (
-                          <div className="text-xs font-semibold text-slate-700">{formatIDR(alw.nominal_default)}</div>
+                          <div className="text-[11px] font-semibold text-slate-700 shrink-0">{formatIDR(alw.nominal_default)}</div>
                         ) : (
-                          <div className="flex items-center gap-2">
+                          <div className="flex items-center gap-1.5 shrink-0">
                             <Input
                               type={alw.metode === "manual" ? "text" : "number"}
-                              className="h-8 w-24 text-right text-xs focus-visible:ring-emerald-400"
+                              className="h-7 w-20 text-right text-[11px] focus-visible:ring-emerald-400"
                               placeholder={alw.metode === "manual" ? "Rp" : alw.metode === "per_day" ? "Hari" : "Jam"}
                               value={alw.metode === "manual" ? formatNumberDots(detailEmp?.component_inputs?.[alw.id]) : (detailEmp?.component_inputs?.[alw.id] ?? "")}
                               onChange={(e) => {
@@ -1668,7 +1657,7 @@ function AppProsesGajiPage() {
                               }}
                             />
                             {alw.metode !== "manual" && getComponentCalculatedValue(alw, detailEmp) > 0 && (
-                              <div className="text-xs font-bold text-emerald-600 w-24 text-right">{formatIDR(getComponentCalculatedValue(alw, detailEmp))}</div>
+                              <div className="text-[10px] font-bold text-emerald-600 w-20 text-right">{formatIDR(getComponentCalculatedValue(alw, detailEmp))}</div>
                             )}
                           </div>
                         )}
@@ -1677,10 +1666,10 @@ function AppProsesGajiPage() {
                 </div>
 
                 {/* Potongan Dinamis */}
-                <div className="space-y-2">
-                  <div className="flex items-center gap-2">
+                <div className="space-y-1.5">
+                  <div className="flex items-center gap-1.5">
                     <div className="h-1 w-1 rounded-full bg-rose-500"></div>
-                    <span className="text-xs font-bold text-slate-500 tracking-wider uppercase">Potongan Dinamis</span>
+                    <span className="text-[10px] font-bold text-slate-500 tracking-wider uppercase">Potongan Dinamis</span>
                   </div>
                   {(deductionTypes || [])
                     .filter((ded) => checkIsEligible(ded.catatan, detailEmp?.jabatan ?? ""))
@@ -1689,24 +1678,21 @@ function AppProsesGajiPage() {
                       return (
                         <div
                           key={ded.id}
-                          className="flex items-center justify-between gap-2 rounded-xl border border-slate-100 bg-white px-3 py-2.5 shadow-sm hover:border-rose-200 transition-colors"
+                          className="flex items-center justify-between gap-1.5 rounded-lg border border-slate-100 bg-white px-2.5 py-2 shadow-sm hover:border-rose-200 transition-colors"
                         >
-                          <div>
-                            <div className="text-xs font-semibold text-slate-700">{ded.nama}</div>
-                            <div className="text-[10px] text-slate-400 font-medium capitalize">
-                              {ded.metode === "fixed" ? "Tetap" : ded.metode === "per_day" ? "Per Hari" : "Nominal Bebas"}
+                          <div className="min-w-0">
+                            <div className="text-[11px] font-semibold text-slate-700 truncate">{ded.nama}</div>
+                            <div className="text-[9px] text-slate-400 font-medium capitalize">
+                              {ded.metode === "fixed" ? "Tetap" : ded.metode === "per_day" ? "Per Hari" : "Bebas"}
                             </div>
-                            {ded.metode === "per_day" && Number(ded.nominal_default || 0) === 0 && (
-                              <div className="text-[9px] text-slate-400">Gaji pokok / 30 x jumlah</div>
-                            )}
                           </div>
                           {ded.metode === "fixed" ? (
-                            <div className="text-xs font-semibold text-rose-600">{formatIDR(ded.nominal_default)}</div>
+                            <div className="text-[11px] font-semibold text-rose-600 shrink-0">{formatIDR(ded.nominal_default)}</div>
                           ) : (
-                            <div className="flex items-center gap-2">
+                            <div className="flex items-center gap-1.5 shrink-0">
                               <Input
                                 type={ded.metode === "manual" ? "text" : "number"}
-                                className="h-8 w-24 text-right text-xs focus-visible:ring-rose-400"
+                                className="h-7 w-20 text-right text-[11px] focus-visible:ring-rose-400"
                                 placeholder={ded.metode === "manual" ? "Rp" : "Jumlah"}
                                 value={ded.metode === "manual" ? formatNumberDots(detailEmp?.component_inputs?.[ded.id]) : (detailEmp?.component_inputs?.[ded.id] ?? "")}
                                 onChange={(e) => {
@@ -1717,7 +1703,7 @@ function AppProsesGajiPage() {
                                 }}
                               />
                               {finalVal > 0 && (
-                                <div className="w-24 text-right text-xs font-semibold text-rose-600">{formatIDR(finalVal)}</div>
+                                <div className="w-20 text-right text-[10px] font-semibold text-rose-600">{formatIDR(finalVal)}</div>
                               )}
                             </div>
                           )}
@@ -1728,10 +1714,11 @@ function AppProsesGajiPage() {
               </div>
 
               {/* Footer */}
-              <div className="flex justify-end gap-2 p-4 border-t border-slate-100 bg-slate-50/50 rounded-b-2xl">
+              <div className="flex justify-end gap-1.5 p-3 border-t border-slate-100 bg-slate-50/50 rounded-b-xl">
                 <Button
                   onClick={closeDetail}
-                  className="bg-gradient-to-r from-emerald-500 to-teal-500 text-white hover:from-emerald-400 hover:to-teal-400 shadow-md shadow-emerald-500/20 w-full sm:w-auto rounded-xl"
+                  size="sm"
+                  className="h-8 text-xs bg-gradient-to-r from-emerald-500 to-teal-500 text-white hover:from-emerald-400 hover:to-teal-400 shadow-md shadow-emerald-500/20 w-full sm:w-auto rounded-lg"
                 >
                   Selesai & Tutup
                 </Button>
@@ -1741,58 +1728,58 @@ function AppProsesGajiPage() {
         </DialogContent>
       </Dialog>
 
-      <div className="rounded-2xl border border-slate-200/80 bg-white overflow-hidden shadow-sm">
-        <div className="overflow-x-auto pb-4">
+      <div className="rounded-xl border border-slate-200/80 bg-white overflow-hidden shadow-sm">
+        <div className="overflow-x-auto pb-3">
           <Table className="min-w-max">
             <TableHeader>
               <TableRow className="hover:bg-transparent bg-slate-50/70">
-                <TableHead className="sticky left-0 bg-slate-50/95 backdrop-blur z-20 w-64 border-r border-slate-200 shadow-[1px_0_0_0_rgba(0,0,0,0.05)]">
-                  <span className="text-slate-700 font-bold text-xs uppercase tracking-wider">Informasi Karyawan</span>
+                <TableHead className="sticky left-0 bg-slate-50/95 backdrop-blur z-20 w-56 border-r border-slate-200 shadow-[1px_0_0_0_rgba(0,0,0,0.05)]">
+                  <span className="text-slate-700 font-bold text-[10px] uppercase tracking-wider">Informasi Karyawan</span>
                 </TableHead>
-                <TableHead className="font-bold text-xs text-slate-700 uppercase tracking-wider">Gaji Pokok</TableHead>
+                <TableHead className="font-bold text-[10px] text-slate-700 uppercase tracking-wider">Gaji Pokok</TableHead>
 
                 {(allowanceTypes || []).map((alw) => (
                   <TableHead
                     key={alw.id}
-                    className="hidden md:table-cell text-center min-w-[120px] border-t-2 border-t-emerald-400 bg-emerald-50/30"
+                    className="hidden md:table-cell text-center min-w-[110px] border-t-2 border-t-emerald-400 bg-emerald-50/30"
                   >
-                    <div className="font-medium text-slate-800 text-sm">{alw.nama}</div>
-                    <div className="text-[10px] font-medium text-emerald-600/70 uppercase tracking-wider mt-0.5">
+                    <div className="font-medium text-slate-800 text-[10px]">{alw.nama}</div>
+                    <div className="text-[9px] font-medium text-emerald-600/70 uppercase tracking-wider mt-0">
                       {alw.metode === "fixed"
                         ? "Tetap"
                         : alw.metode === "per_day"
-                          ? "Faktor Hari"
+                          ? "Hari"
                           : alw.metode === "per_hour"
-                            ? "Faktor Jam"
+                            ? "Jam"
                             : "Nominal"}
                     </div>
                   </TableHead>
                 ))}
 
-                <TableHead className="hidden md:table-cell text-center w-56 border-t-2 border-t-teal-400 bg-teal-50/30">
-                  <div className="font-medium text-slate-800 text-sm">Penyesuaian Tambahan</div>
-                  <div className="text-[10px] font-medium text-teal-600/70 uppercase tracking-wider mt-0.5">
-                    Ad-Hoc / Custom
+                <TableHead className="hidden md:table-cell text-center w-48 border-t-2 border-t-teal-400 bg-teal-50/30">
+                  <div className="font-medium text-slate-800 text-[10px]">Penyesuaian</div>
+                  <div className="text-[9px] font-medium text-teal-600/70 uppercase tracking-wider mt-0">
+                    Custom
                   </div>
                 </TableHead>
 
                 {(deductionTypes || []).map((ded) => (
                   <TableHead
                     key={ded.id}
-                    className="hidden md:table-cell text-center min-w-[120px] border-t-2 border-t-rose-400 bg-rose-50/30"
+                    className="hidden md:table-cell text-center min-w-[110px] border-t-2 border-t-rose-400 bg-rose-50/30"
                   >
-                    <div className="font-medium text-slate-800 text-sm">{ded.nama}</div>
-                    <div className="text-[10px] font-medium text-rose-600/70 uppercase tracking-wider mt-0.5">
+                    <div className="font-medium text-slate-800 text-[10px]">{ded.nama}</div>
+                    <div className="text-[9px] font-medium text-rose-600/70 uppercase tracking-wider mt-0">
                       {ded.metode === "fixed"
                         ? "Tetap"
                         : ded.metode === "per_day"
-                          ? "Faktor Hari"
+                          ? "Hari"
                           : "Nominal"}
                     </div>
                   </TableHead>
                 ))}
 
-                <TableHead className="font-bold text-xs text-slate-900 uppercase tracking-wider text-right sticky right-0 bg-slate-50/95 backdrop-blur z-20 border-l border-slate-200 shadow-[-1px_0_0_0_rgba(0,0,0,0.05)]">
+                <TableHead className="font-bold text-[10px] text-slate-900 uppercase tracking-wider text-right sticky right-0 bg-slate-50/95 backdrop-blur z-20 border-l border-slate-200 shadow-[-1px_0_0_0_rgba(0,0,0,0.05)]">
                   Total Bersih
                 </TableHead>
               </TableRow>
@@ -1800,20 +1787,18 @@ function AppProsesGajiPage() {
 
             <TableBody>
               {isLoading ? (
-                <TableRow>
-                  <TableCell
-                    colSpan={(allowanceTypes || []).length + (deductionTypes || []).length + 4}
-                    className="h-32 text-center"
-                  >
-                    <Loader2 className="mx-auto h-6 w-6 animate-spin text-slate-400" />
-                  </TableCell>
+                <TableRow>                    <TableCell
+                      colSpan={(allowanceTypes || []).length + (deductionTypes || []).length + 4}
+                      className="h-24 text-center"
+                    >
+                      <Loader2 className="mx-auto h-5 w-5 animate-spin text-slate-400" />
+                    </TableCell>
                 </TableRow>
               ) : filteredEmployees.length === 0 ? (
-                <TableRow>
-                  <TableCell
-                    colSpan={(allowanceTypes || []).length + (deductionTypes || []).length + 4}
-                    className="h-32 text-center text-slate-500"
-                  >
+                <TableRow>                    <TableCell
+                      colSpan={(allowanceTypes || []).length + (deductionTypes || []).length + 4}
+                      className="h-24 text-center text-slate-500 text-xs"
+                    >
                     Tidak ada karyawan di cabang ini.
                   </TableCell>
                 </TableRow>
@@ -1828,46 +1813,43 @@ function AppProsesGajiPage() {
                     Number(emp.salary_increase_manual) > 0;
 
                   return (
-                    <Fragment key={emp.id}>
-                      <TableRow
-                        className={`group ${hasEdits ? "bg-indigo-50/10 hover:bg-indigo-50/20" : "hover:bg-slate-50/50"} border-l-2 ${hasEdits ? "border-l-indigo-500" : "border-l-transparent"} transition-colors`}
+                    <Fragment key={emp.id}>                      <TableRow
+                        className={`group ${hasEdits ? "bg-indigo-50/10 hover:bg-indigo-50/20" : "hover:bg-slate-50/50"} border-l-2 ${hasEdits ? "border-l-indigo-500" : "border-l-transparent"} transition-colors`
+                      }
                       >
                         <TableCell
-                          className={`sticky left-0 ${hasEdits ? "bg-indigo-50/20 group-hover:bg-indigo-50/30" : "bg-white group-hover:bg-slate-50/95"} z-10 space-y-2 border-r border-slate-100 transition-colors`}
+                          className={`sticky left-0 ${hasEdits ? "bg-indigo-50/20 group-hover:bg-indigo-50/30" : "bg-white group-hover:bg-slate-50/95"} z-10 space-y-1 border-r border-slate-100 transition-colors`}
                         >
                           <div>
-                            <div className="flex items-center gap-1.5">
-                              <div className="font-semibold text-slate-900">{emp.nama}</div>
+                            <div className="flex items-center gap-1">
+                              <div className="font-semibold text-slate-900 text-xs">{emp.nama}</div>
                               {hasEdits && (
-                                <span className="inline-flex items-center gap-0.5 px-1.5 py-0.2 rounded-md text-[9px] font-semibold bg-indigo-50 text-indigo-700 border border-indigo-100">
-                                  <span className="w-1.5 h-1.5 rounded-full bg-indigo-500 animate-pulse"></span>
+                                <span className="inline-flex items-center gap-0.5 px-1 py-0 rounded text-[8px] font-semibold bg-indigo-50 text-indigo-700 border border-indigo-100">
+                                  <span className="w-1 h-1 rounded-full bg-indigo-500 animate-pulse"></span>
                                   Draf
                                 </span>
                               )}
                             </div>
-                            <div className="text-[11px] text-slate-500 leading-tight mt-0.5">
-                              {emp.jabatan ? emp.jabatan : "Tidak ada posisi"}
-                              <div className="text-[11px] text-slate-500 mt-1">
-                                Cabang: {getBranchName(emp.branch_id)}
+                            <div className="text-[10px] text-slate-500 leading-tight mt-0">
+                              {emp.jabatan ? emp.jabatan : "-"}
+                              <div className="text-[10px] text-slate-400 mt-0.5">
+                                {getBranchName(emp.branch_id)}
                               </div>
                               {emp.jabatan_tunjangan > 0 && (
-                                <div className="text-[11px] text-teal-700 font-medium mt-1">
-                                  Tunjangan: {formatIDR(emp.jabatan_tunjangan)}
+                                <div className="text-[10px] text-teal-700 font-medium mt-0.5">
+                                  Tunj: {formatIDR(emp.jabatan_tunjangan)}
                                 </div>
                               )}
                               {Number(emp.salary_adjustment || 0) > 0 && (
-                                <div className="text-[11px] text-emerald-700 font-medium mt-1">
-                                  Kenaikan berlaku: +{formatIDR(emp.salary_adjustment)}
+                                <div className="text-[10px] text-emerald-700 font-medium mt-0.5">
+                                  +{formatIDR(emp.salary_adjustment)}
                                 </div>
                               )}
                               {emp.evaluation_info?.isDue && (
-                                <div className="mt-2 space-y-1 rounded-md border border-amber-200 bg-amber-50 p-2">
-                                  <div className="text-[11px] text-amber-700 font-medium">
-                                    Perlu evaluasi gaji
-                                  </div>
+                                <div className="mt-1 space-y-0.5 rounded border border-amber-200 bg-amber-50 p-1.5">
                                   <Input
                                     type="text"
-                                    className="h-7 text-xs text-right bg-white"
+                                    className="h-6 text-[10px] text-right bg-white"
                                     placeholder="Kenaikan Rp"
                                     value={formatNumberDots(emp.salary_increase_manual)}
                                     onChange={(e) =>
@@ -1879,19 +1861,19 @@ function AppProsesGajiPage() {
                             </div>
                           </div>
 
-                          <div className="flex flex-col gap-2">
+                          <div className="flex flex-col gap-1 mt-1">
                             <Button
                               variant="outline"
                               size="sm"
-                              className="h-6 px-2 text-[10px] shadow-none border-teal-200 text-teal-700 bg-teal-50/30 hover:bg-teal-100"
+                              className="h-5 px-1.5 text-[9px] shadow-none border-teal-200 text-teal-700 bg-teal-50/30 hover:bg-teal-100"
                               onClick={() => handleAddCustomAllowance(emp.id)}
                             >
-                              <Plus className="w-3 h-3 mr-1" /> Penyesuaian
+                              <Plus className="w-2.5 h-2.5 mr-0.5" /> Penyesuaian
                             </Button>
                             <Button
                               variant="secondary"
                               size="sm"
-                              className="h-6 px-2 text-[10px] shadow-none border-slate-200 text-slate-700 hover:bg-slate-100 md:hidden"
+                              className="h-5 px-1.5 text-[9px] shadow-none border-slate-200 text-slate-700 hover:bg-slate-100 md:hidden"
                               onClick={() => openDetail(emp)}
                             >
                               Detail
@@ -1899,15 +1881,15 @@ function AppProsesGajiPage() {
                           </div>
                         </TableCell>
 
-                        <TableCell className="text-slate-600 text-sm font-medium">
+                        <TableCell className="text-slate-600 text-[11px] font-medium">
                           <div>{formatIDR(getPayrollBaseSalary(emp))}</div>
                           {Number(emp.salary_adjustment || 0) > 0 && (
-                            <div className="text-[10px] font-semibold text-emerald-600">
+                            <div className="text-[9px] font-semibold text-emerald-600">
                               +{formatIDR(emp.salary_adjustment)}
                             </div>
                           )}
                           {Number(emp.salary_increase_manual || 0) > 0 && (
-                            <div className="text-[10px] font-semibold text-amber-600">
+                            <div className="text-[9px] font-semibold text-amber-600">
                               +{formatIDR(emp.salary_increase_manual)}
                             </div>
                           )}
@@ -1921,19 +1903,19 @@ function AppProsesGajiPage() {
                           return (
                             <TableCell
                               key={alw.id}
-                              className="hidden md:table-cell text-center align-top pt-4"
+                              className="hidden md:table-cell text-center align-top pt-3"
                             >
                               {!isEligible ? (
-                                <span className="text-slate-200 text-sm font-medium">-</span>
+                                <span className="text-slate-200 text-[11px] font-medium">-</span>
                               ) : alw.metode === "fixed" ? (
-                                <span className="text-sm font-medium text-slate-700">
+                                <span className="text-[11px] font-medium text-slate-700">
                                   {formatIDR(alw.nominal_default)}
                                 </span>
                               ) : (
-                                <div className="flex flex-col items-center gap-1.5">
+                                <div className="flex flex-col items-center gap-1">
                                   <Input
                                     type={alw.metode === "manual" ? "text" : "number"}
-                                    className={`h-7 text-center text-xs shadow-none transition-all ${alw.metode === "manual" ? "w-24" : "w-16"} border-slate-200 focus-visible:ring-1 focus-visible:ring-emerald-400`}
+                                    className={`h-6 text-center text-[11px] shadow-none transition-all ${alw.metode === "manual" ? "w-22" : "w-14"} border-slate-200 focus-visible:ring-1 focus-visible:ring-emerald-400`}
                                     placeholder={
                                       alw.metode === "manual"
                                         ? "Rp"
@@ -1958,7 +1940,7 @@ function AppProsesGajiPage() {
                                     }}
                                   />
                                   {finalVal > 0 && (
-                                    <span className="text-[10px] text-emerald-600 font-semibold">
+                                    <span className="text-[9px] text-emerald-600 font-semibold">
                                       {formatIDR(finalVal)}
                                     </span>
                                   )}
@@ -1968,33 +1950,33 @@ function AppProsesGajiPage() {
                           );
                         })}
 
-                        <TableCell className="hidden md:table-cell align-top pt-3">
-                          <div className="space-y-1.5 max-h-28 overflow-y-auto p-0.5">
+                        <TableCell className="hidden md:table-cell align-top pt-2">
+                          <div className="space-y-1 max-h-24 overflow-y-auto p-0.5">
                             {emp.custom_allowances?.length === 0 ? (
-                              <span className="text-xs text-slate-300 block text-center mt-2">
+                              <span className="text-[10px] text-slate-300 block text-center mt-1">
                                 -
                               </span>
                             ) : (
                               emp.custom_allowances?.map((c: any) => (
                                 <div
                                   key={c.id}
-                                  className="flex items-center justify-between bg-white border border-slate-200 shadow-sm rounded-md px-2 py-1.5"
+                                  className="flex items-center justify-between bg-white border border-slate-200 shadow-sm rounded px-1.5 py-1"
                                 >
                                   <span
-                                    className="text-[11px] font-medium text-slate-600 truncate max-w-[90px]"
+                                    className="text-[10px] font-medium text-slate-600 truncate max-w-[80px]"
                                     title={c.nama}
                                   >
                                     {c.nama}
                                   </span>
-                                  <div className="flex items-center gap-2">
-                                    <span className="text-[11px] font-semibold text-slate-800">
+                                  <div className="flex items-center gap-1">
+                                    <span className="text-[10px] font-semibold text-slate-800">
                                       {formatIDR(c.nominal)}
                                     </span>
                                     <button
                                       onClick={() => handleRemoveCustomAllowance(emp.id, c.id)}
                                       className="text-slate-400 hover:text-rose-500 transition-colors"
                                     >
-                                      <Trash2 className="w-3.5 h-3.5" />
+                                      <Trash2 className="w-3 h-3" />
                                     </button>
                                   </div>
                                 </div>
@@ -2011,19 +1993,19 @@ function AppProsesGajiPage() {
                           return (
                             <TableCell
                               key={ded.id}
-                              className="hidden md:table-cell text-center align-top pt-4"
+                              className="hidden md:table-cell text-center align-top pt-3"
                             >
                               {!isEligible ? (
-                                <span className="text-slate-200 text-sm font-medium">-</span>
+                                <span className="text-slate-200 text-[11px] font-medium">-</span>
                               ) : ded.metode === "fixed" ? (
-                                <span className="text-sm font-medium text-rose-600/80">
+                                <span className="text-[11px] font-medium text-rose-600/80">
                                   {formatIDR(ded.nominal_default)}
                                 </span>
                               ) : (
-                                <div className="flex flex-col items-center gap-1.5">
+                                <div className="flex flex-col items-center gap-1">
                                   <Input
                                     type={ded.metode === "manual" ? "text" : "number"}
-                                    className={`h-7 text-center text-xs shadow-none transition-all ${ded.metode === "manual" ? "w-24" : "w-16"} border-slate-200 focus-visible:ring-1 focus-visible:ring-rose-400`}
+                                    className={`h-6 text-center text-[11px] shadow-none transition-all ${ded.metode === "manual" ? "w-22" : "w-14"} border-slate-200 focus-visible:ring-1 focus-visible:ring-rose-400`}
                                     placeholder={ded.metode === "manual" ? "Rp" : "Hari"}
                                     value={
                                       ded.metode === "manual"
@@ -2043,10 +2025,10 @@ function AppProsesGajiPage() {
                                   />
                                   {ded.metode === "per_day" &&
                                     Number(ded.nominal_default || 0) === 0 && (
-                                      <span className="text-[10px] text-slate-400">gaji/30</span>
+                                      <span className="text-[9px] text-slate-400">gaji/30</span>
                                     )}
                                   {finalVal > 0 && (
-                                    <span className="text-[10px] text-rose-500 font-semibold">
+                                    <span className="text-[9px] text-rose-500 font-semibold">
                                       {formatIDR(finalVal)}
                                     </span>
                                   )}
@@ -2059,9 +2041,9 @@ function AppProsesGajiPage() {
                         <TableCell
                           className={`font-bold text-right sticky right-0 ${hasEdits ? "bg-indigo-50/20 group-hover:bg-indigo-50/30" : "bg-white group-hover:bg-slate-50/95"} z-10 border-l border-slate-100 transition-colors align-middle`}
                         >
-                          <div className="flex items-center justify-end gap-2 text-base text-slate-900">
+                          <div className="flex items-center justify-end gap-1 text-xs text-slate-900">
                             {formatIDR(emp.grandTotal)}
-                            <ArrowRight className="w-4 h-4 text-slate-300" />
+                            <ArrowRight className="w-3 h-3 text-slate-300" />
                           </div>
                         </TableCell>
                       </TableRow>
@@ -2070,7 +2052,7 @@ function AppProsesGajiPage() {
                           colSpan={
                             (allowanceTypes || []).length + (deductionTypes || []).length + 5
                           }
-                          className="py-3 px-3 text-xs text-slate-600"
+                          className="py-2 px-2 text-[10px] text-slate-600"
                         >
                           <div className="grid gap-2">
                             <div className="flex flex-wrap items-center justify-between gap-2">
@@ -2102,19 +2084,19 @@ function AppProsesGajiPage() {
                                 {formatIDR(emp.grandTotal)}
                               </span>
                             </div>
-                            <div className="flex gap-2 flex-wrap">
+                            <div className="flex gap-1.5 flex-wrap">
                               <Button
                                 variant="outline"
                                 size="sm"
-                                className="h-7 px-2 text-[10px] shadow-none border-teal-200 text-teal-700 bg-teal-50/30 hover:bg-teal-100"
+                                className="h-6 px-1.5 text-[9px] shadow-none border-teal-200 text-teal-700 bg-teal-50/30 hover:bg-teal-100"
                                 onClick={() => handleAddCustomAllowance(emp.id)}
                               >
-                                <Plus className="w-3 h-3 mr-1" /> Penyesuaian
+                                <Plus className="w-2.5 h-2.5 mr-0.5" /> Penyesuaian
                               </Button>
                               <Button
                                 variant="secondary"
                                 size="sm"
-                                className="h-7 px-2 text-[10px] shadow-none border-slate-200 text-slate-700 hover:bg-slate-100"
+                                className="h-6 px-1.5 text-[9px] shadow-none border-slate-200 text-slate-700 hover:bg-slate-100"
                                 onClick={() => openDetail(emp)}
                               >
                                 Detail

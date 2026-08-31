@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { Fragment, useState, useEffect, useMemo, useRef, ChangeEvent } from "react";
+import { Fragment, useState, useEffect, useMemo, useRef, useCallback, ChangeEvent } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { PageHeader } from "@/components/page-header";
@@ -46,6 +46,26 @@ import {
   Download,
   Upload,
 } from "lucide-react";
+
+function useDebouncedCallback<T extends (...args: any[]) => void>(callback: T, delayMs: number) {
+  const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const callbackRef = useRef(callback);
+  callbackRef.current = callback;
+
+  useEffect(() => {
+    return () => {
+      if (timeoutRef.current) clearTimeout(timeoutRef.current);
+    };
+  }, []);
+
+  return useCallback(
+    (...args: Parameters<T>) => {
+      if (timeoutRef.current) clearTimeout(timeoutRef.current);
+      timeoutRef.current = setTimeout(() => callbackRef.current(...args), delayMs);
+    },
+    [delayMs],
+  );
+}
 
 const loadPayrollDraft = (periode: string) => {
   try {
@@ -221,11 +241,15 @@ function AppProsesGajiPage() {
     }
   }, [selectedBranchId]);
 
+  const debouncedSaveDraft = useDebouncedCallback((data: { periode: string; emps: any[] }) => {
+    savePayrollDraft(data.periode, data.emps);
+  }, 500);
+
   useEffect(() => {
     if (employees.length > 0) {
-      savePayrollDraft(periodeGaji, employees);
+      debouncedSaveDraft({ periode: periodeGaji, emps: employees });
     }
-  }, [employees, periodeGaji]);
+  }, [employees, periodeGaji, debouncedSaveDraft]);
 
   const hasLocalDraft = useMemo(() => {
     return employees.some((emp) => {
@@ -488,11 +512,6 @@ function AppProsesGajiPage() {
     });
   }, [employees, selectedBranchId, searchQuery, branches]);
 
-  const totalFilteredTHP = useMemo(
-    () => (filteredEmployees || []).reduce((sum, emp) => sum + Number(emp.grandTotal || 0), 0),
-    [filteredEmployees],
-  );
-
   const selectedBranchName = useMemo(() => {
     if (selectedBranchId === "all") return "Semua Cabang";
     return (
@@ -600,7 +619,7 @@ function AppProsesGajiPage() {
       totalPotongan,
       totalTHP,
     };
-  }, [filteredEmployees]);
+  }, [filteredEmployees, allowanceTypes, deductionTypes, listJabatan]);
 
   const buildPayrollItemComponents = (emp: any, payrollItemId: string) => {
     const allowances = [
@@ -1176,78 +1195,32 @@ function AppProsesGajiPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 border-b border-slate-200 pb-5">
-        <div className="space-y-1">
-          <div className="flex flex-wrap items-center gap-3">
-            <h1 className="text-2xl font-bold tracking-tight text-slate-900">Kalkulasi Payroll</h1>
-            {hasLocalDraft && (
-              <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-semibold bg-amber-50 text-amber-700 border border-amber-200 animate-pulse">
-                <span className="w-1.5 h-1.5 rounded-full bg-amber-500"></span>
-                Ada Draf Inputan
-              </span>
-            )}
+      {/* ── Page Header ── */}
+      <div className="rounded-2xl bg-gradient-to-br from-emerald-600 via-teal-600 to-teal-700 p-6 text-white shadow-lg shadow-emerald-500/15">
+        <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
+          <div className="space-y-1.5">
+            <div className="flex flex-wrap items-center gap-3">
+              <h1 className="text-2xl font-extrabold tracking-tight">Kalkulasi Payroll</h1>
+              {hasLocalDraft && (
+                <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-semibold bg-white/20 text-white border border-white/30 backdrop-blur-sm animate-pulse">
+                  <span className="w-1.5 h-1.5 rounded-full bg-white"></span>
+                  Ada Draf Inputan
+                </span>
+              )}
+            </div>
+            <p className="text-sm text-emerald-100/80 max-w-xl">
+              Tinjau dan sesuaikan komponen gaji bersih karyawan untuk periode berjalan.
+            </p>
           </div>
-          <p className="text-sm text-slate-500 max-w-2xl">
-            Tinjau dan sesuaikan komponen gaji bersih karyawan untuk periode berjalan.
-          </p>
-        </div>
-
-        {/* Kontrol Kanan: Filter Cabang + Tombol Eksekusi */}
-        <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:gap-3">
-            <div className="space-y-1 min-w-[180px]">
-              <Label className="text-xs text-slate-500">Periode Payroll</Label>
-              <Input
-                type="month"
-                value={periodeGaji}
-                onChange={(e) => setPeriodeGaji(e.target.value)}
-                disabled={isSaving}
-                className="h-9 w-full bg-white shadow-sm"
-              />
-            </div>
-            <div className="space-y-1 min-w-[180px]">
-              <Label className="text-xs text-slate-500">Cabang</Label>
-              <div className="flex items-center gap-2 bg-slate-50 border border-slate-200 rounded-lg px-2 py-1 shadow-sm">
-                <Store className="w-4 h-4 text-slate-500 ml-1" />
-                <Select value={selectedBranchId} onValueChange={setSelectedBranchId}>
-                  <SelectTrigger className="w-[180px] h-8 border-0 bg-transparent shadow-none focus:ring-0 text-sm font-medium">
-                    <SelectValue placeholder="Pilih Cabang" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">Semua Cabang</SelectItem>
-                    {branches.map((b: any) => (
-                      <SelectItem key={b.id} value={b.id}>
-                        {b.nama}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-            <div className="space-y-1 min-w-[220px]">
-              <Label className="text-xs text-slate-500">Cari karyawan</Label>
-              <div className="relative">
-                <SearchIcon className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-                <Input
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder="Nama, jabatan, atau cabang"
-                  className="h-9 pl-10"
-                />
-              </div>
-            </div>
-          </div>
-
           <div className="flex flex-wrap items-center gap-2">
             <Button
               variant="outline"
               onClick={handleExportCSV}
               disabled={isLoading || filteredEmployees.length === 0}
-              className="h-9 border-slate-200 text-slate-700 hover:bg-slate-50 hover:text-slate-800 shadow-sm transition-all duration-200"
+              className="h-9 border-white/25 text-white hover:bg-white/15 hover:text-white shadow-sm backdrop-blur-sm"
             >
-              <Download className="w-4 h-4 mr-2 text-slate-500" /> Ekspor CSV
+              <Download className="w-4 h-4 mr-2" /> Ekspor CSV
             </Button>
-
             <div className="relative">
               <input
                 type="file"
@@ -1259,28 +1232,26 @@ function AppProsesGajiPage() {
               <Button
                 variant="outline"
                 asChild
-                className="h-9 border-slate-200 text-slate-700 hover:bg-slate-50 hover:text-slate-800 shadow-sm cursor-pointer transition-all duration-200"
+                className="h-9 border-white/25 text-white hover:bg-white/15 hover:text-white shadow-sm cursor-pointer backdrop-blur-sm"
               >
                 <label htmlFor="csv-import-input" className="flex items-center">
-                  <Upload className="w-4 h-4 mr-2 text-slate-500" /> Impor CSV
+                  <Upload className="w-4 h-4 mr-2" /> Impor CSV
                 </label>
               </Button>
             </div>
-
             {hasLocalDraft && (
               <Button
                 variant="outline"
                 onClick={handleResetDraft}
-                className="h-9 border-rose-200 text-rose-700 hover:bg-rose-50 hover:text-rose-800 shadow-sm transition-all duration-200"
+                className="h-9 border-white/25 text-white hover:bg-white/15 hover:text-white shadow-sm backdrop-blur-sm"
               >
-                <RefreshCw className="w-4 h-4 mr-2 text-rose-500" /> Reset Draf
+                <RefreshCw className="w-4 h-4 mr-2" /> Reset Draf
               </Button>
             )}
-
             <Button
               onClick={() => setIsConfirmOpen(true)}
               disabled={isLoading || filteredEmployees.length === 0}
-              className="shadow-sm h-9 bg-slate-900 text-white hover:bg-slate-800 transition-all duration-200"
+              className="h-9 bg-white text-emerald-700 font-semibold hover:bg-emerald-50 shadow-md transition-all duration-200"
             >
               <Calculator className="w-4 h-4 mr-2" /> Eksekusi Payroll
             </Button>
@@ -1288,119 +1259,178 @@ function AppProsesGajiPage() {
         </div>
       </div>
 
-      {/* Summary Stats cards */}
+      {/* ── Filter Bar ── */}
+      <div className="flex flex-col gap-3 rounded-2xl border border-slate-200/80 bg-white p-4 shadow-sm sm:flex-row sm:items-end">
+        <div className="flex flex-1 flex-col gap-3 sm:flex-row sm:items-end sm:gap-3">
+          <div className="space-y-1 min-w-[170px]">
+            <Label className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">Periode</Label>
+            <Input
+              type="month"
+              value={periodeGaji}
+              onChange={(e) => setPeriodeGaji(e.target.value)}
+              disabled={isSaving}
+              className="h-9 w-full"
+            />
+          </div>
+          <div className="space-y-1 min-w-[170px]">
+            <Label className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">Cabang</Label>
+            <div className="flex items-center gap-2 bg-slate-50 border border-slate-200 rounded-lg px-2 py-1">
+              <Store className="w-4 h-4 text-emerald-500" />
+              <Select value={selectedBranchId} onValueChange={setSelectedBranchId}>
+                <SelectTrigger className="w-full h-8 border-0 bg-transparent shadow-none focus:ring-0 text-sm font-medium">
+                  <SelectValue placeholder="Pilih Cabang" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Semua Cabang</SelectItem>
+                  {branches.map((b: any) => (
+                    <SelectItem key={b.id} value={b.id}>{b.nama}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <div className="space-y-1 min-w-[220px]">
+            <Label className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">Cari Karyawan</Label>
+            <div className="relative">
+              <SearchIcon className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+              <Input
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Nama, jabatan, atau cabang"
+                className="h-9 pl-10"
+              />
+            </div>
+          </div>
+        </div>
+        {periodeGajiLabel && (
+          <p className="hidden sm:block text-xs text-slate-400 whitespace-nowrap">
+            Menampilkan periode <span className="font-semibold text-emerald-600">{periodeGajiLabel}</span>
+          </p>
+        )}
+      </div>
+
+      {/* ── Summary Stats ── */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        {/* Card 1: Total Karyawan */}
-        <div className="relative overflow-hidden bg-white border border-slate-100 rounded-xl p-5 shadow-sm hover:shadow-md transition-all duration-300 group hover:-translate-y-1">
-          <div className="absolute top-0 right-0 -mt-4 -mr-4 w-24 h-24 bg-blue-50 rounded-full transition-all duration-500 group-hover:scale-110 opacity-50 z-0"></div>
-          <div className="relative z-10 flex items-center justify-between">
+        {/* Karyawan */}
+        <div className="relative overflow-hidden bg-white border border-slate-200/60 rounded-2xl p-5 shadow-sm hover:shadow-md transition-all duration-300">
+          <div className="flex items-center justify-between">
             <div className="space-y-1">
-              <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
-                Karyawan Diproses
-              </span>
-              <h3 className="text-2xl font-bold text-slate-800">{stats.totalKaryawan} Orang</h3>
-              <p className="text-xs text-slate-400">Aktif & siap menerima gaji</p>
+              <span className="text-[11px] font-bold text-slate-400 uppercase tracking-widest">Karyawan Diproses</span>
+              <h3 className="text-2xl font-extrabold text-slate-800">{stats.totalKaryawan}<span className="text-sm font-semibold text-slate-400 ml-1">Orang</span></h3>
+              <p className="text-[11px] text-slate-400">Aktif & siap menerima gaji</p>
             </div>
-            <div className="p-3 bg-blue-50 text-blue-600 rounded-xl group-hover:bg-blue-100 group-hover:text-blue-700 transition-colors duration-300">
-              <Users className="w-5 h-5" />
+            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-sky-50 to-blue-50 border border-sky-100">
+              <Users className="h-5 w-5 text-sky-500" />
             </div>
+          </div>
+          <div className="mt-3 h-1 w-full rounded-full bg-slate-100 overflow-hidden">
+            <div className="h-full bg-gradient-to-r from-sky-400 to-blue-400 rounded-full" style={{ width: '100%' }}></div>
           </div>
         </div>
 
-        {/* Card 2: Total Gaji Pokok & Tunjangan */}
-        <div className="relative overflow-hidden bg-white border border-slate-100 rounded-xl p-5 shadow-sm hover:shadow-md transition-all duration-300 group hover:-translate-y-1">
-          <div className="absolute top-0 right-0 -mt-4 -mr-4 w-24 h-24 bg-emerald-50 rounded-full transition-all duration-500 group-hover:scale-110 opacity-50 z-0"></div>
-          <div className="relative z-10 flex items-center justify-between">
+        {/* Pendapatan */}
+        <div className="relative overflow-hidden bg-white border border-slate-200/60 rounded-2xl p-5 shadow-sm hover:shadow-md transition-all duration-300">
+          <div className="flex items-center justify-between">
             <div className="space-y-1">
-              <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
-                Total Pendapatan
-              </span>
-              <h3 className="text-2xl font-bold text-slate-800">
-                {formatIDR(stats.totalGajiPokok + stats.totalTunjangan)}
-              </h3>
-              <p className="text-xs text-emerald-600 font-medium">Gaji pokok + tunjangan</p>
+              <span className="text-[11px] font-bold text-slate-400 uppercase tracking-widest">Total Pendapatan</span>
+              <h3 className="text-xl font-extrabold text-slate-800 truncate">{formatIDR(stats.totalGajiPokok + stats.totalTunjangan)}</h3>
+              <p className="text-[11px] text-emerald-600 font-semibold">Gaji pokok + tunjangan</p>
             </div>
-            <div className="p-3 bg-emerald-50 text-emerald-600 rounded-xl group-hover:bg-emerald-100 group-hover:text-emerald-700 transition-colors duration-300">
-              <Coins className="w-5 h-5" />
+            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-emerald-50 to-teal-50 border border-emerald-100">
+              <Coins className="h-5 w-5 text-emerald-500" />
             </div>
+          </div>
+          <div className="mt-3 h-1 w-full rounded-full bg-slate-100 overflow-hidden">
+            <div className="h-full bg-gradient-to-r from-emerald-400 to-teal-400 rounded-full" style={{ width: '85%' }}></div>
           </div>
         </div>
 
-        {/* Card 3: Total Potongan */}
-        <div className="relative overflow-hidden bg-white border border-slate-100 rounded-xl p-5 shadow-sm hover:shadow-md transition-all duration-300 group hover:-translate-y-1">
-          <div className="absolute top-0 right-0 -mt-4 -mr-4 w-24 h-24 bg-rose-50 rounded-full transition-all duration-500 group-hover:scale-110 opacity-50 z-0"></div>
-          <div className="relative z-10 flex items-center justify-between">
+        {/* Potongan */}
+        <div className="relative overflow-hidden bg-white border border-slate-200/60 rounded-2xl p-5 shadow-sm hover:shadow-md transition-all duration-300">
+          <div className="flex items-center justify-between">
             <div className="space-y-1">
-              <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
-                Total Potongan
-              </span>
-              <h3 className="text-2xl font-bold text-slate-800">
-                {formatIDR(stats.totalPotongan)}
-              </h3>
-              <p className="text-xs text-rose-600 font-medium">Sanksi absen, telat & cuti</p>
+              <span className="text-[11px] font-bold text-slate-400 uppercase tracking-widest">Total Potongan</span>
+              <h3 className="text-xl font-extrabold text-slate-800 truncate">{formatIDR(stats.totalPotongan)}</h3>
+              <p className="text-[11px] text-rose-500 font-semibold">Sanksi absen, telat & cuti</p>
             </div>
-            <div className="p-3 bg-rose-50 text-rose-600 rounded-xl group-hover:bg-rose-100 group-hover:text-rose-700 transition-colors duration-300">
-              <Percent className="w-5 h-5" />
+            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-rose-50 to-pink-50 border border-rose-100">
+              <Percent className="h-5 w-5 text-rose-500" />
             </div>
+          </div>
+          <div className="mt-3 h-1 w-full rounded-full bg-slate-100 overflow-hidden">
+            <div className="h-full bg-gradient-to-r from-rose-400 to-pink-400 rounded-full" style={{ width: `${stats.totalGajiPokok > 0 ? Math.min((stats.totalPotongan / (stats.totalGajiPokok + stats.totalTunjangan)) * 100, 100) : 0}%` }}></div>
           </div>
         </div>
 
-        {/* Card 4: Total Bersih (THP) */}
-        <div className="relative overflow-hidden bg-gradient-to-br from-slate-900 via-indigo-950 to-slate-950 rounded-xl p-5 shadow-md hover:shadow-lg transition-all duration-300 group hover:-translate-y-1 text-white border border-slate-800">
-          <div className="absolute top-0 right-0 -mt-4 -mr-4 w-24 h-24 bg-white/10 rounded-full transition-all duration-500 group-hover:scale-110 opacity-50 z-0"></div>
+        {/* THP Bersih */}
+        <div className="relative overflow-hidden bg-gradient-to-br from-emerald-600 via-teal-600 to-cyan-600 rounded-2xl p-5 shadow-md hover:shadow-lg transition-all duration-300 text-white">
+          <div className="absolute top-0 right-0 -mt-6 -mr-6 w-24 h-24 bg-white/10 rounded-full"></div>
           <div className="relative z-10 flex items-center justify-between">
             <div className="space-y-1">
-              <span className="text-xs font-medium text-slate-300 uppercase tracking-wider">
-                Total Net Transfer
-              </span>
-              <h3 className="text-2xl font-black text-transparent bg-clip-text bg-gradient-to-r from-teal-200 via-white to-indigo-200">
-                {formatIDR(stats.totalTHP)}
-              </h3>
-              <p className="text-xs text-indigo-200 font-medium">Total Take Home Pay bersih</p>
+              <span className="text-[11px] font-bold text-emerald-100/80 uppercase tracking-widest">Total Net Transfer</span>
+              <h3 className="text-xl font-black text-white drop-shadow-sm truncate">{formatIDR(stats.totalTHP)}</h3>
+              <p className="text-[11px] text-emerald-100/80 font-semibold">Take Home Pay bersih</p>
             </div>
-            <div className="p-3 bg-white/10 text-white rounded-xl group-hover:bg-white/20 transition-colors duration-300">
-              <Wallet className="w-5 h-5" />
+            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-white/20 backdrop-blur-sm">
+              <Wallet className="h-5 w-5 text-white" />
             </div>
           </div>
         </div>
       </div>
 
       <Dialog open={isConfirmOpen} onOpenChange={setIsConfirmOpen}>
-        <DialogContent className="sm:max-w-[420px]">
+        <DialogContent className="sm:max-w-[440px] rounded-2xl">
           <DialogHeader>
-            <DialogTitle>Konfirmasi Pembuatan Draft</DialogTitle>
-            <DialogDescription>
-              Sistem akan merangkum seluruh kalkulasi dan menerbitkan slip gaji untuk{" "}
-              <strong className="text-slate-800">{filteredEmployees.length} karyawan</strong>
-              {selectedBranchId === "all" ? " di semua cabang" : ` di ${selectedBranchName}`}.
-            </DialogDescription>
+            <div className="flex items-center gap-3">
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-emerald-500 to-teal-500 text-white shadow-md shadow-emerald-500/20">
+                <Calculator className="h-5 w-5" />
+              </div>
+              <div>
+                <DialogTitle className="text-lg font-bold text-slate-900">Konfirmasi Eksekusi Payroll</DialogTitle>
+                <DialogDescription className="text-xs">
+                  Menerbitkan slip gaji untuk <strong className="text-slate-700">{filteredEmployees.length} karyawan</strong>
+                  {selectedBranchId === "all" ? " di semua cabang" : ` di ${selectedBranchName}`}
+                </DialogDescription>
+              </div>
+            </div>
           </DialogHeader>
-          <div className="space-y-4 py-4">
-            <div className="space-y-2">
-              <Label className="text-slate-700">Bulan Penggajian</Label>
-              <Input
-                type="month"
-                value={periodeGaji}
-                onChange={(e) => setPeriodeGaji(e.target.value)}
-                disabled={isSaving}
-                className="shadow-none focus-visible:ring-1"
-              />
-              {periodeGajiLabel && (
-                <p className="text-xs text-slate-500">
-                  Periode akan ditampilkan sebagai{" "}
-                  <span className="font-medium text-slate-700">{periodeGajiLabel}</span>.
-                </p>
-              )}
+          <div className="space-y-4 py-3">
+            <div className="rounded-xl border border-slate-200 bg-slate-50/50 p-4 space-y-3">
+              <div className="space-y-1.5">
+                <Label className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">Bulan Penggajian</Label>
+                <Input
+                  type="month"
+                  value={periodeGaji}
+                  onChange={(e) => setPeriodeGaji(e.target.value)}
+                  disabled={isSaving}
+                  className="shadow-none focus-visible:ring-emerald-400"
+                />
+                {periodeGajiLabel && (
+                  <p className="text-xs text-slate-500">
+                    Periode: <span className="font-semibold text-emerald-600">{periodeGajiLabel}</span>
+                  </p>
+                )}
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="rounded-lg bg-white border border-slate-100 p-2.5 text-center">
+                  <p className="text-[10px] font-bold text-slate-400 uppercase">Total Gaji Bersih</p>
+                  <p className="text-sm font-extrabold text-emerald-600 mt-0.5">{formatIDR(stats.totalTHP)}</p>
+                </div>
+                <div className="rounded-lg bg-white border border-slate-100 p-2.5 text-center">
+                  <p className="text-[10px] font-bold text-slate-400 uppercase">Karyawan</p>
+                  <p className="text-sm font-extrabold text-slate-800 mt-0.5">{filteredEmployees.length} Orang</p>
+                </div>
+              </div>
             </div>
           </div>
-          <div className="flex justify-end gap-2 pt-2 border-t mt-2">
-            <Button variant="ghost" onClick={() => setIsConfirmOpen(false)} disabled={isSaving}>
+          <div className="flex justify-end gap-2 pt-3 border-t border-slate-100">
+            <Button variant="ghost" onClick={() => setIsConfirmOpen(false)} disabled={isSaving} className="text-slate-500">
               Batalkan
             </Button>
             <Button
               onClick={executeSavePayroll}
               disabled={isSaving || !periodeGaji}
-              className="bg-slate-900 text-white hover:bg-slate-800"
+              className="bg-gradient-to-r from-emerald-500 to-teal-500 text-white hover:from-emerald-400 hover:to-teal-400 shadow-md shadow-emerald-500/20"
             >
               {isSaving ? (
                 <>
@@ -1423,24 +1453,32 @@ function AppProsesGajiPage() {
           }
         }}
       >
-        <DialogContent className="sm:max-w-[420px]">
+        <DialogContent className="sm:max-w-[420px] rounded-2xl">
           <DialogHeader>
-            <DialogTitle>Tambah Penyesuaian Khusus</DialogTitle>
-            <DialogDescription>
-              Tambahkan penyesuaian yang hanya berlaku untuk satu karyawan.
-            </DialogDescription>
+            <div className="flex items-center gap-3">
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-teal-500 to-cyan-500 text-white shadow-md shadow-teal-500/20">
+                <Plus className="h-5 w-5" />
+              </div>
+              <div>
+                <DialogTitle className="text-lg font-bold text-slate-900">Tambah Penyesuaian</DialogTitle>
+                <DialogDescription className="text-xs">
+                  Penyesuaian khusus untuk satu karyawan.
+                </DialogDescription>
+              </div>
+            </div>
           </DialogHeader>
-          <div className="space-y-4 py-4">
-            <div className="space-y-2">
-              <Label>Nama Penyesuaian</Label>
+          <div className="space-y-4 py-3">
+            <div className="space-y-1.5">
+              <Label className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">Nama Penyesuaian</Label>
               <Input
                 value={customAllowanceName}
                 onChange={(e) => setCustomAllowanceName(e.target.value)}
                 placeholder="Contoh: Lembur Minggu"
+                className="focus-visible:ring-teal-400"
               />
             </div>
-            <div className="space-y-2">
-              <Label>Nominal (Rp)</Label>
+            <div className="space-y-1.5">
+              <Label className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">Nominal (Rp)</Label>
               <Input
                 type="text"
                 value={formatNumberDots(customAllowanceNominal)}
@@ -1449,22 +1487,24 @@ function AppProsesGajiPage() {
                   setCustomAllowanceNominal(parsed === 0 ? "" : parsed);
                 }}
                 placeholder="500.000"
+                className="focus-visible:ring-teal-400"
               />
             </div>
           </div>
-          <div className="flex justify-end gap-2 pt-2 border-t mt-2">
+          <div className="flex justify-end gap-2 pt-3 border-t border-slate-100">
             <Button
               variant="ghost"
               onClick={() => {
                 setCustomAllowanceModalOpen(false);
                 setCustomAllowanceEmployeeId(null);
               }}
+              className="text-slate-500"
             >
               Batal
             </Button>
             <Button
               onClick={handleConfirmCustomAllowance}
-              className="bg-slate-900 text-white hover:bg-slate-800"
+              className="bg-gradient-to-r from-teal-500 to-cyan-500 text-white hover:from-teal-400 hover:to-cyan-400 shadow-md shadow-teal-500/20"
             >
               Tambah Penyesuaian
             </Button>
@@ -1476,85 +1516,68 @@ function AppProsesGajiPage() {
         open={isDetailOpen}
         onOpenChange={(open) => (!open ? closeDetail() : setIsDetailOpen(true))}
       >
-        <DialogContent className="sm:max-w-[460px] max-h-[90vh] overflow-y-auto rounded-2xl shadow-xl">
-          <DialogHeader className="border-b pb-3">
-            <DialogTitle className="text-lg font-bold text-slate-900">
-              Rincian Slip Gaji
-            </DialogTitle>
-            <DialogDescription>
-              Visualisasi rincian payroll berjalan untuk karyawan ini.
-            </DialogDescription>
-          </DialogHeader>
+        <DialogContent className="sm:max-w-[480px] max-h-[90vh] overflow-y-auto rounded-2xl shadow-2xl p-0">
           {detailEmp && (
             <>
-              <div className="space-y-4 py-2">
-                {/* Header info card */}
-                <div className="bg-slate-900 text-white rounded-2xl p-4 shadow-sm relative overflow-hidden">
-                  <div className="absolute top-0 right-0 -mt-4 -mr-4 w-20 h-20 bg-white/5 rounded-full z-0"></div>
-                  <div className="relative z-10">
-                    <h4 className="text-lg font-bold truncate">{detailEmp?.nama}</h4>
-                    <p className="text-xs text-slate-300 font-medium">
-                      {detailEmp?.jabatan || "Tidak ada posisi"}
-                    </p>
-                    <div className="mt-3 flex items-baseline justify-between border-t border-slate-800 pt-3">
-                      <span className="text-xs text-slate-400">Take Home Pay Bersih:</span>
-                      <span className="text-lg font-black text-emerald-400">
-                        {formatIDR(detailBreakdown?.gajiBersih || 0)}
-                      </span>
+              {/* ── Employee Header Card ── */}
+              <div className="bg-gradient-to-br from-emerald-600 via-teal-600 to-teal-700 text-white p-5 rounded-t-2xl relative overflow-hidden">
+                <div className="absolute top-0 right-0 -mt-4 -mr-4 w-24 h-24 bg-white/10 rounded-full z-0"></div>
+                <div className="relative z-10">
+                  <div className="flex items-center gap-3 mb-3">
+                    <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-white/20 backdrop-blur-sm text-lg font-bold">
+                      {detailEmp?.nama?.charAt(0) || '?'}
+                    </div>
+                    <div className="min-w-0">
+                      <h4 className="text-lg font-bold truncate">{detailEmp?.nama}</h4>
+                      <p className="text-xs text-emerald-100/80 font-medium">
+                        {detailEmp?.jabatan || "Tidak ada posisi"} • {getBranchName(detailEmp?.branch_id)}
+                      </p>
                     </div>
                   </div>
+                  <div className="flex items-baseline justify-between border-t border-white/20 pt-3">
+                    <span className="text-xs text-emerald-100/70">Take Home Pay Bersih</span>
+                    <span className="text-xl font-black text-white drop-shadow-sm">
+                      {formatIDR(detailBreakdown?.gajiBersih || 0)}
+                    </span>
+                  </div>
                 </div>
+              </div>
 
+              <div className="p-5 space-y-4">
                 {/* Quick breakdown metrics */}
                 <div className="grid grid-cols-3 gap-2">
-                  <div className="bg-slate-50 border border-slate-100 rounded-xl p-2.5 text-center">
-                    <span className="text-[10px] font-bold text-slate-400 block uppercase tracking-wider">
-                      Pokok
-                    </span>
-                    <span className="text-xs font-bold text-slate-800 block mt-1">
-                      {formatIDR(detailBreakdown?.gajiPokok || 0)}
-                    </span>
+                  <div className="bg-slate-50 border border-slate-100 rounded-xl p-3 text-center">
+                    <span className="text-[10px] font-bold text-slate-400 block uppercase tracking-wider">Pokok</span>
+                    <span className="text-xs font-bold text-slate-800 block mt-1">{formatIDR(detailBreakdown?.gajiPokok || 0)}</span>
                   </div>
-                  <div className="bg-emerald-50/60 border border-emerald-100/50 rounded-xl p-2.5 text-center">
-                    <span className="text-[10px] font-bold text-emerald-600 block uppercase tracking-wider">
-                      Tunjangan
-                    </span>
-                    <span className="text-xs font-bold text-emerald-700 block mt-1">
-                      +{formatIDR(detailBreakdown?.totalTunjangan || 0)}
-                    </span>
+                  <div className="bg-emerald-50/60 border border-emerald-100/50 rounded-xl p-3 text-center">
+                    <span className="text-[10px] font-bold text-emerald-600 block uppercase tracking-wider">Tunjangan</span>
+                    <span className="text-xs font-bold text-emerald-700 block mt-1">+{formatIDR(detailBreakdown?.totalTunjangan || 0)}</span>
                   </div>
-                  <div className="bg-rose-50/60 border border-rose-100/50 rounded-xl p-2.5 text-center">
-                    <span className="text-[10px] font-bold text-rose-600 block uppercase tracking-wider">
-                      Potongan
-                    </span>
-                    <span className="text-xs font-bold text-rose-700 block mt-1">
-                      -{formatIDR(detailBreakdown?.totalPotongan || 0)}
-                    </span>
+                  <div className="bg-rose-50/60 border border-rose-100/50 rounded-xl p-3 text-center">
+                    <span className="text-[10px] font-bold text-rose-600 block uppercase tracking-wider">Potongan</span>
+                    <span className="text-xs font-bold text-rose-700 block mt-1">-{formatIDR(detailBreakdown?.totalPotongan || 0)}</span>
                   </div>
                 </div>
 
                 {/* Visual Balance Bar */}
-                <div className="space-y-1">
+                <div className="space-y-1.5">
                   <div className="flex justify-between text-[10px] font-bold text-slate-400 tracking-wider">
                     <span>KOMPOSISI GAJI</span>
                     <span>TOTAL PENDAPATAN KOTOR</span>
                   </div>
-                  <div className="h-2.5 w-full bg-slate-100 rounded-full overflow-hidden flex">
+                  <div className="h-2 w-full bg-slate-100 rounded-full overflow-hidden flex">
                     {detailBreakdown &&
                     detailBreakdown.gajiPokok + detailBreakdown.totalTunjangan > 0 ? (
                       <>
                         <div
-                          className="bg-slate-700 h-full transition-all"
-                          style={{
-                            width: `${(detailBreakdown.gajiPokok / (detailBreakdown.gajiPokok + detailBreakdown.totalTunjangan)) * 100}%`,
-                          }}
+                          className="bg-gradient-to-r from-slate-500 to-slate-600 h-full transition-all rounded-l-full"
+                          style={{ width: `${(detailBreakdown.gajiPokok / (detailBreakdown.gajiPokok + detailBreakdown.totalTunjangan)) * 100}%` }}
                           title="Gaji Pokok"
                         ></div>
                         <div
-                          className="bg-emerald-500 h-full transition-all"
-                          style={{
-                            width: `${(detailBreakdown.totalTunjangan / (detailBreakdown.gajiPokok + detailBreakdown.totalTunjangan)) * 100}%`,
-                          }}
+                          className="bg-gradient-to-r from-emerald-400 to-teal-400 h-full transition-all rounded-r-full"
+                          style={{ width: `${(detailBreakdown.totalTunjangan / (detailBreakdown.gajiPokok + detailBreakdown.totalTunjangan)) * 100}%` }}
                           title="Tunjangan"
                         ></div>
                       </>
@@ -1573,21 +1596,16 @@ function AppProsesGajiPage() {
                         Jadwal Evaluasi Gaji
                       </div>
                       <p className="text-[11px] text-amber-700 leading-normal">
-                        Karyawan ini telah masuk jadwal penyesuaian gaji sejak{" "}
-                        {detailEmp.evaluation_info.nextDate}.
+                        Karyawan ini telah masuk jadwal penyesuaian gaji sejak {detailEmp.evaluation_info.nextDate}.
                       </p>
                       <div className="flex items-center gap-2 mt-2">
-                        <Label className="text-xs font-semibold text-amber-900 w-24">
-                          Nominal Naik
-                        </Label>
+                        <Label className="text-xs font-semibold text-amber-900 w-24">Nominal Naik</Label>
                         <Input
                           type="text"
                           className="h-8 text-right text-xs bg-white border-amber-300 focus-visible:ring-amber-500"
                           placeholder="Rp"
                           value={formatNumberDots(detailEmp?.salary_increase_manual)}
-                          onChange={(e) =>
-                            detailEmp && handleSalaryIncreaseChange(detailEmp.id, e.target.value)
-                          }
+                          onChange={(e) => detailEmp && handleSalaryIncreaseChange(detailEmp.id, e.target.value)}
                         />
                       </div>
                     </div>
@@ -1597,100 +1615,72 @@ function AppProsesGajiPage() {
                   <div className="border border-slate-100 rounded-xl p-3 bg-slate-50/50 space-y-1.5 text-xs text-slate-600">
                     <div className="flex justify-between">
                       <span>Gaji Pokok Karyawan:</span>
-                      <span className="font-semibold text-slate-800">
-                        {formatIDR(detailEmp?.gaji_pokok || 0)}
-                      </span>
+                      <span className="font-semibold text-slate-800">{formatIDR(detailEmp?.gaji_pokok || 0)}</span>
                     </div>
                     {Number(detailEmp?.salary_adjustment || 0) > 0 && (
                       <div className="flex justify-between text-emerald-600">
                         <span>Kenaikan Otomatis Berlaku:</span>
-                        <span className="font-semibold">
-                          +{formatIDR(detailEmp?.salary_adjustment || 0)}
-                        </span>
+                        <span className="font-semibold">+{formatIDR(detailEmp?.salary_adjustment || 0)}</span>
                       </div>
                     )}
                     {detailEmp?.jabatan_tunjangan > 0 && (
                       <div className="flex justify-between">
                         <span>Tunjangan Jabatan:</span>
-                        <span className="font-semibold text-slate-800">
-                          {formatIDR(detailEmp?.jabatan_tunjangan || 0)}
-                        </span>
+                        <span className="font-semibold text-slate-800">{formatIDR(detailEmp?.jabatan_tunjangan || 0)}</span>
                       </div>
                     )}
                   </div>
                 </div>
 
+                {/* Tunjangan Dinamis */}
                 <div className="space-y-2">
-                  <div className="text-xs font-bold text-slate-400 tracking-wider uppercase">
-                    Tunjangan Dinamis
+                  <div className="flex items-center gap-2">
+                    <div className="h-1 w-1 rounded-full bg-emerald-500"></div>
+                    <span className="text-xs font-bold text-slate-500 tracking-wider uppercase">Tunjangan Dinamis</span>
                   </div>
                   {(allowanceTypes || [])
                     .filter((alw) => checkIsEligible(alw.catatan, detailEmp?.jabatan ?? ""))
                     .map((alw) => (
                       <div
                         key={alw.id}
-                        className="flex items-center justify-between gap-2 rounded-xl border border-slate-100 bg-white px-3 py-2 shadow-sm hover:border-emerald-200 transition-colors"
+                        className="flex items-center justify-between gap-2 rounded-xl border border-slate-100 bg-white px-3 py-2.5 shadow-sm hover:border-emerald-200 transition-colors"
                       >
                         <div>
                           <div className="text-xs font-semibold text-slate-700">{alw.nama}</div>
                           <div className="text-[10px] text-slate-400 font-medium capitalize">
-                            {alw.metode === "fixed"
-                              ? "Tetap"
-                              : alw.metode === "per_day"
-                                ? "Per Hari"
-                                : alw.metode === "per_hour"
-                                  ? "Per Jam"
-                                  : "Nominal Bebas"}
+                            {alw.metode === "fixed" ? "Tetap" : alw.metode === "per_day" ? "Per Hari" : alw.metode === "per_hour" ? "Per Jam" : "Nominal Bebas"}
                           </div>
                         </div>
                         {alw.metode === "fixed" ? (
-                          <div className="text-xs font-semibold text-slate-700">
-                            {formatIDR(alw.nominal_default)}
-                          </div>
+                          <div className="text-xs font-semibold text-slate-700">{formatIDR(alw.nominal_default)}</div>
                         ) : (
                           <div className="flex items-center gap-2">
                             <Input
                               type={alw.metode === "manual" ? "text" : "number"}
                               className="h-8 w-24 text-right text-xs focus-visible:ring-emerald-400"
-                              placeholder={
-                                alw.metode === "manual"
-                                  ? "Rp"
-                                  : alw.metode === "per_day"
-                                    ? "Hari"
-                                    : "Jam"
-                              }
-                              value={
-                                alw.metode === "manual"
-                                  ? formatNumberDots(detailEmp?.component_inputs?.[alw.id])
-                                  : (detailEmp?.component_inputs?.[alw.id] ?? "")
-                              }
+                              placeholder={alw.metode === "manual" ? "Rp" : alw.metode === "per_day" ? "Hari" : "Jam"}
+                              value={alw.metode === "manual" ? formatNumberDots(detailEmp?.component_inputs?.[alw.id]) : (detailEmp?.component_inputs?.[alw.id] ?? "")}
                               onChange={(e) => {
                                 if (detailEmp) {
-                                  const val =
-                                    alw.metode === "manual"
-                                      ? parseNumberDots(e.target.value) === 0 &&
-                                        e.target.value === ""
-                                        ? ""
-                                        : String(parseNumberDots(e.target.value))
-                                      : e.target.value;
+                                  const val = alw.metode === "manual" ? parseNumberDots(e.target.value) === 0 && e.target.value === "" ? "" : String(parseNumberDots(e.target.value)) : e.target.value;
                                   handleInputChange(detailEmp.id, alw.id, val);
                                 }
                               }}
                             />
-                            {alw.metode !== "manual" &&
-                              getComponentCalculatedValue(alw, detailEmp) > 0 && (
-                                <div className="text-xs font-bold text-emerald-600 w-24 text-right">
-                                  {formatIDR(getComponentCalculatedValue(alw, detailEmp))}
-                                </div>
-                              )}
+                            {alw.metode !== "manual" && getComponentCalculatedValue(alw, detailEmp) > 0 && (
+                              <div className="text-xs font-bold text-emerald-600 w-24 text-right">{formatIDR(getComponentCalculatedValue(alw, detailEmp))}</div>
+                            )}
                           </div>
                         )}
                       </div>
                     ))}
                 </div>
+
+                {/* Potongan Dinamis */}
                 <div className="space-y-2">
-                  <div className="text-xs font-bold text-slate-400 tracking-wider uppercase">
-                    Potongan Dinamis
+                  <div className="flex items-center gap-2">
+                    <div className="h-1 w-1 rounded-full bg-rose-500"></div>
+                    <span className="text-xs font-bold text-slate-500 tracking-wider uppercase">Potongan Dinamis</span>
                   </div>
                   {(deductionTypes || [])
                     .filter((ded) => checkIsEligible(ded.catatan, detailEmp?.jabatan ?? ""))
@@ -1699,55 +1689,35 @@ function AppProsesGajiPage() {
                       return (
                         <div
                           key={ded.id}
-                          className="flex items-center justify-between gap-2 rounded-xl border border-slate-100 bg-white px-3 py-2 shadow-sm hover:border-rose-200 transition-colors"
+                          className="flex items-center justify-between gap-2 rounded-xl border border-slate-100 bg-white px-3 py-2.5 shadow-sm hover:border-rose-200 transition-colors"
                         >
                           <div>
                             <div className="text-xs font-semibold text-slate-700">{ded.nama}</div>
                             <div className="text-[10px] text-slate-400 font-medium capitalize">
-                              {ded.metode === "fixed"
-                                ? "Tetap"
-                                : ded.metode === "per_day"
-                                  ? "Per Hari"
-                                  : "Nominal Bebas"}
+                              {ded.metode === "fixed" ? "Tetap" : ded.metode === "per_day" ? "Per Hari" : "Nominal Bebas"}
                             </div>
                             {ded.metode === "per_day" && Number(ded.nominal_default || 0) === 0 && (
-                              <div className="text-[9px] text-slate-400">
-                                Gaji pokok / 30 x jumlah
-                              </div>
+                              <div className="text-[9px] text-slate-400">Gaji pokok / 30 x jumlah</div>
                             )}
                           </div>
                           {ded.metode === "fixed" ? (
-                            <div className="text-xs font-semibold text-rose-600">
-                              {formatIDR(ded.nominal_default)}
-                            </div>
+                            <div className="text-xs font-semibold text-rose-600">{formatIDR(ded.nominal_default)}</div>
                           ) : (
                             <div className="flex items-center gap-2">
                               <Input
                                 type={ded.metode === "manual" ? "text" : "number"}
                                 className="h-8 w-24 text-right text-xs focus-visible:ring-rose-400"
                                 placeholder={ded.metode === "manual" ? "Rp" : "Jumlah"}
-                                value={
-                                  ded.metode === "manual"
-                                    ? formatNumberDots(detailEmp?.component_inputs?.[ded.id])
-                                    : (detailEmp?.component_inputs?.[ded.id] ?? "")
-                                }
+                                value={ded.metode === "manual" ? formatNumberDots(detailEmp?.component_inputs?.[ded.id]) : (detailEmp?.component_inputs?.[ded.id] ?? "")}
                                 onChange={(e) => {
                                   if (detailEmp) {
-                                    const val =
-                                      ded.metode === "manual"
-                                        ? parseNumberDots(e.target.value) === 0 &&
-                                          e.target.value === ""
-                                          ? ""
-                                          : String(parseNumberDots(e.target.value))
-                                        : e.target.value;
+                                    const val = ded.metode === "manual" ? parseNumberDots(e.target.value) === 0 && e.target.value === "" ? "" : String(parseNumberDots(e.target.value)) : e.target.value;
                                     handleInputChange(detailEmp.id, ded.id, val);
                                   }
                                 }}
                               />
                               {finalVal > 0 && (
-                                <div className="w-24 text-right text-xs font-semibold text-rose-600">
-                                  {formatIDR(finalVal)}
-                                </div>
+                                <div className="w-24 text-right text-xs font-semibold text-rose-600">{formatIDR(finalVal)}</div>
                               )}
                             </div>
                           )}
@@ -1756,10 +1726,12 @@ function AppProsesGajiPage() {
                     })}
                 </div>
               </div>
-              <div className="flex justify-end gap-2 pt-2 border-t mt-2">
+
+              {/* Footer */}
+              <div className="flex justify-end gap-2 p-4 border-t border-slate-100 bg-slate-50/50 rounded-b-2xl">
                 <Button
                   onClick={closeDetail}
-                  className="bg-slate-900 text-white hover:bg-slate-800 w-full sm:w-auto rounded-xl"
+                  className="bg-gradient-to-r from-emerald-500 to-teal-500 text-white hover:from-emerald-400 hover:to-teal-400 shadow-md shadow-emerald-500/20 w-full sm:w-auto rounded-xl"
                 >
                   Selesai & Tutup
                 </Button>
@@ -1769,15 +1741,15 @@ function AppProsesGajiPage() {
         </DialogContent>
       </Dialog>
 
-      <div className="rounded-xl border border-slate-200 bg-white overflow-hidden shadow-sm">
+      <div className="rounded-2xl border border-slate-200/80 bg-white overflow-hidden shadow-sm">
         <div className="overflow-x-auto pb-4">
           <Table className="min-w-max">
             <TableHeader>
-              <TableRow className="hover:bg-transparent bg-slate-50/50">
+              <TableRow className="hover:bg-transparent bg-slate-50/70">
                 <TableHead className="sticky left-0 bg-slate-50/95 backdrop-blur z-20 w-64 border-r border-slate-200 shadow-[1px_0_0_0_rgba(0,0,0,0.05)]">
-                  <span className="text-slate-700 font-semibold">Informasi Karyawan</span>
+                  <span className="text-slate-700 font-bold text-xs uppercase tracking-wider">Informasi Karyawan</span>
                 </TableHead>
-                <TableHead className="font-semibold text-slate-700">Gaji Pokok</TableHead>
+                <TableHead className="font-bold text-xs text-slate-700 uppercase tracking-wider">Gaji Pokok</TableHead>
 
                 {(allowanceTypes || []).map((alw) => (
                   <TableHead
@@ -1820,7 +1792,7 @@ function AppProsesGajiPage() {
                   </TableHead>
                 ))}
 
-                <TableHead className="font-semibold text-right sticky right-0 bg-slate-50/95 backdrop-blur z-20 border-l border-slate-200 shadow-[-1px_0_0_0_rgba(0,0,0,0.05)] text-slate-900">
+                <TableHead className="font-bold text-xs text-slate-900 uppercase tracking-wider text-right sticky right-0 bg-slate-50/95 backdrop-blur z-20 border-l border-slate-200 shadow-[-1px_0_0_0_rgba(0,0,0,0.05)]">
                   Total Bersih
                 </TableHead>
               </TableRow>

@@ -635,6 +635,7 @@ function LaporanPage() {
         "Cabang",
         "Gaji Pokok",
         "Total Tunjangan",
+        "Gaji Sebelum Potongan",
         "Total Potongan",
         "Gaji Bersih (THP)",
         "Nama Bank",
@@ -653,6 +654,7 @@ function LaporanPage() {
         getBranchName(row.branch_id),
         row.gaji_pokok,
         row.total_tunjangan,
+        row.gaji_pokok + row.total_tunjangan,
         row.total_potongan,
         row.gaji_bersih,
         row.nama_bank,
@@ -1151,7 +1153,7 @@ function LaporanPage() {
                 {selectedBranchName} • {selectedMonthName} • {selectedYear}
               </p>
             </div>
-            <div className="grid grid-cols-2 gap-2 text-[11px] sm:grid-cols-4">
+            <div className="grid grid-cols-2 gap-2 text-[11px] sm:grid-cols-5">
               <div className="rounded-md bg-white/80 p-2">
                 <span className="block text-[10px] text-slate-500">Periode</span>
                 <span className="font-semibold text-slate-950">{totalPeriods}</span>
@@ -1163,6 +1165,12 @@ function LaporanPage() {
               <div className="rounded-md bg-white/80 p-2">
                 <span className="block text-[10px] text-slate-500">Total THP</span>
                 <span className="font-semibold text-emerald-800">{formatIDR(grandTotal.thp)}</span>
+              </div>
+              <div className="rounded-md bg-white/80 p-2">
+                <span className="block text-[10px] text-slate-500">Sebelum Potongan</span>
+                <span className="font-semibold text-blue-700">
+                  {formatIDR(grandTotal.gaji_pokok + grandTotal.tunjangan)}
+                </span>
               </div>
               <div className="rounded-md bg-white/80 p-2">
                 <span className="block text-[10px] text-slate-500">Tunjangan</span>
@@ -1181,11 +1189,12 @@ function LaporanPage() {
         ) : null}
 
         {/* Summary Cards */}
-        <div className="grid gap-2 md:grid-cols-4">
+        <div className="grid gap-2 md:grid-cols-5">
           {[
             { label: "Total THP", value: grandTotal.thp, tone: "text-emerald-700" },
             { label: "Gaji Pokok", value: grandTotal.gaji_pokok, tone: "text-slate-950" },
             { label: "Tunjangan", value: grandTotal.tunjangan, tone: "text-emerald-700" },
+            { label: "Sebelum Potongan", value: grandTotal.gaji_pokok + grandTotal.tunjangan, tone: "text-blue-700" },
             { label: "Potongan", value: grandTotal.potongan, tone: "text-rose-700" },
           ].map((item) => (
             <Card key={item.label} className="rounded-md shadow-sm">
@@ -1260,6 +1269,7 @@ function LaporanPage() {
                   <TableHead>Jabatan</TableHead>
                   <TableHead className="text-right">Gaji Pokok</TableHead>
                   <TableHead className="text-right">Tunjangan</TableHead>
+                  <TableHead className="text-right bg-blue-50/50">Sebelum Potongan</TableHead>
                   <TableHead className="text-right">Potongan</TableHead>
                   <TableHead className="text-right">THP</TableHead>
                   <TableHead>Komponen</TableHead>
@@ -1270,7 +1280,7 @@ function LaporanPage() {
               <TableBody>
                 {detailRows.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={11} className="h-16 text-center text-muted-foreground">
+                    <TableCell colSpan={12} className="h-16 text-center text-muted-foreground">
                       Tidak ada rincian gaji untuk filter ini.
                     </TableCell>
                   </TableRow>
@@ -1374,27 +1384,30 @@ function LaporanPage() {
               Akumulasi nilai payroll berdasarkan periode proses gaji
             </p>
           </div>
-          <Table>
-            <TableHeader className="bg-slate-50">
-              <TableRow>
-                <TableHead>Bulan</TableHead>
-                <TableHead className="text-right">Gaji Pokok</TableHead>
-                <TableHead className="text-right">Tunjangan</TableHead>
-                <TableHead className="text-right">Potongan</TableHead>
-                <TableHead className="text-right font-bold">Total THP</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {reportData?.map((row) => (
-                <TableRow key={row.id} className="odd:bg-white even:bg-slate-50/60">
-                  <TableCell>{formatBulan(row.periode)}</TableCell>
-                  <TableCell className="text-right">{formatIDR(row.sum_gaji_pokok)}</TableCell>
-                  <TableCell className="text-right">{formatIDR(row.sum_tunjangan)}</TableCell>
-                  <TableCell className="text-right">{formatIDR(row.sum_potongan)}</TableCell>
-                  <TableCell className="text-right font-bold">{formatIDR(row.sum_thp)}</TableCell>
+          <Table>              <TableHeader className="bg-slate-50">
+                <TableRow>
+                  <TableHead>Bulan</TableHead>
+                  <TableHead className="text-right">Gaji Pokok</TableHead>
+                  <TableHead className="text-right">Tunjangan</TableHead>
+                  <TableHead className="text-right bg-blue-50/50">Sebelum Potongan</TableHead>
+                  <TableHead className="text-right">Potongan</TableHead>
+                  <TableHead className="text-right font-bold">Total THP</TableHead>
                 </TableRow>
-              ))}
-            </TableBody>
+              </TableHeader>
+              <TableBody>
+                {reportData?.map((row) => (
+                  <TableRow key={row.id} className="odd:bg-white even:bg-slate-50/60">
+                    <TableCell>{formatBulan(row.periode)}</TableCell>
+                    <TableCell className="text-right">{formatIDR(row.sum_gaji_pokok)}</TableCell>
+                    <TableCell className="text-right">{formatIDR(row.sum_tunjangan)}</TableCell>
+                    <TableCell className="text-right font-semibold text-blue-700 bg-blue-50/30">
+                      {formatIDR(row.sum_gaji_pokok + row.sum_tunjangan)}
+                    </TableCell>
+                    <TableCell className="text-right">{formatIDR(row.sum_potongan)}</TableCell>
+                    <TableCell className="text-right font-bold text-emerald-700">{formatIDR(row.sum_thp)}</TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
           </Table>
         </div>
       </div>
@@ -1433,16 +1446,17 @@ function LaporanPage() {
           </div>
 
           {/* Summary Row */}
-          <div className="grid grid-cols-4 gap-3">
+          <div className="grid grid-cols-5 gap-2">
             {[
               { label: "Total THP", value: formatIDR(grandTotal.thp), color: "text-emerald-700" },
               { label: "Gaji Pokok", value: formatIDR(grandTotal.gaji_pokok), color: "text-slate-900" },
-              { label: "Tunjangan", value: formatIDR(grandTotal.tunjangan), color: "text-blue-700" },
+              { label: "Tunjangan", value: formatIDR(grandTotal.tunjangan), color: "text-emerald-600" },
+              { label: "Sebelum Potongan", value: formatIDR(grandTotal.gaji_pokok + grandTotal.tunjangan), color: "text-blue-700" },
               { label: "Potongan", value: formatIDR(grandTotal.potongan), color: "text-rose-700" },
             ].map((item) => (
               <div key={item.label} className="rounded border border-slate-200 bg-slate-50 p-2">
                 <p className="text-[9px] text-slate-500 uppercase font-medium">{item.label}</p>
-                <p className={`text-xs font-bold ${item.color}`}>{item.value}</p>
+                <p className={`text-[11px] font-bold ${item.color}`}>{item.value}</p>
               </div>
             ))}
           </div>
@@ -1542,6 +1556,7 @@ function LaporanPage() {
                   <TableHead>Jabatan</TableHead>
                   <TableHead className="text-right">Gaji Pokok</TableHead>
                   <TableHead className="text-right">Tunjangan</TableHead>
+                  <TableHead className="text-right bg-blue-50/50">Sebelum Potongan</TableHead>
                   <TableHead className="text-right">Potongan</TableHead>
                   <TableHead className="text-right">THP</TableHead>
                   <TableHead>Komponen</TableHead>
@@ -1551,7 +1566,7 @@ function LaporanPage() {
               <TableBody>
                 {detailRows.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={10} className="h-16 text-center text-muted-foreground">
+                    <TableCell colSpan={11} className="h-16 text-center text-muted-foreground">
                       Tidak ada rincian gaji untuk filter ini.
                     </TableCell>
                   </TableRow>
@@ -1566,8 +1581,11 @@ function LaporanPage() {
                       <TableCell>{row.jabatan}</TableCell>
                       <TableCell className="text-right">{formatIDR(row.gaji_pokok)}</TableCell>
                       <TableCell className="text-right">{formatIDR(row.total_tunjangan)}</TableCell>
+                      <TableCell className="text-right font-semibold text-blue-700 bg-blue-50/30">
+                        {formatIDR(row.gaji_pokok + row.total_tunjangan)}
+                      </TableCell>
                       <TableCell className="text-right">{formatIDR(row.total_potongan)}</TableCell>
-                      <TableCell className="text-right font-semibold">
+                      <TableCell className="text-right font-semibold text-emerald-700">
                         {formatIDR(row.gaji_bersih)}
                       </TableCell>
                       <TableCell>

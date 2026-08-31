@@ -1214,11 +1214,10 @@ function AppProsesGajiPage() {
           </div>
           <div className="flex flex-wrap items-center gap-1.5">
             <Button
-              variant="outline"
               onClick={handleExportCSV}
               size="sm"
               disabled={isLoading || filteredEmployees.length === 0}
-              className="h-8 border-white/25 text-white hover:bg-white/15 hover:text-white text-xs shadow-sm backdrop-blur-sm"
+              className="h-8 bg-white/20 text-white hover:bg-white/30 text-xs shadow-sm backdrop-blur-sm border border-white/30"
             >
               <Download className="w-3.5 h-3.5 mr-1" /> Ekspor CSV
             </Button>

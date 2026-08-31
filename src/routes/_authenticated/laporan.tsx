@@ -925,43 +925,45 @@ function LaporanPage() {
   };
 
   return (
-    <div className="flex flex-col gap-6 p-4 sm:p-6">
-      <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+    <div className="flex flex-col gap-4 p-3 sm:p-4">
+      <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
         <PageHeader
           title="Laporan Penggajian"
           description={`${selectedBranchName} • ${selectedMonthName} ${selectedYear}`}
         />
 
-        <div className="flex flex-wrap items-center gap-2 rounded-md border bg-card p-2 shadow-sm">
-          <Button onClick={handleDownload} variant="outline" disabled={isDownloading || isLoading}>
+        <div className="flex flex-wrap items-center gap-1.5 rounded-md border bg-card p-1.5 shadow-sm">
+          <Button onClick={handleDownload} variant="outline" size="sm" disabled={isDownloading || isLoading}>
             {isDownloading ? (
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" />
             ) : (
-              <Download className="mr-2 h-4 w-4" />
+              <Download className="mr-1 h-3.5 w-3.5" />
             )}
-            Download Laporan
+            <span className="text-xs">Download Laporan</span>
           </Button>
           <Button
             onClick={handleExportCSV}
             variant="outline"
+            size="sm"
             className="border-emerald-200 hover:bg-emerald-50 hover:text-emerald-700"
             disabled={isLoading || isDownloading}
           >
-            <FileSpreadsheet className="mr-2 h-4 w-4 text-emerald-600" />
-            Ekspor CSV
+            <FileSpreadsheet className="mr-1 h-3.5 w-3.5 text-emerald-600" />
+            <span className="text-xs">Ekspor CSV</span>
           </Button>
           <Button
             onClick={handleSendWhatsApp}
             variant="secondary"
+            size="sm"
             disabled={isLoading || isDownloading}
           >
-            <Send className="mr-2 h-4 w-4" /> Kirim WhatsApp
+            <Send className="mr-1 h-3.5 w-3.5" /> <span className="text-xs">Kirim WA</span>
           </Button>
           <Select
             value={selectedYear.toString()}
             onValueChange={(val) => setSelectedYear(Number(val))}
           >
-            <SelectTrigger className="w-[120px]">
+            <SelectTrigger className="w-[90px] h-8">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -975,13 +977,13 @@ function LaporanPage() {
         </div>
       </div>
 
-      <div className="grid gap-4 rounded-md border bg-card p-4 shadow-sm md:grid-cols-2">
-        <div className="flex flex-col gap-2">
-          <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+      <div className="grid gap-3 rounded-md border bg-card p-3 shadow-sm md:grid-cols-2">
+        <div className="flex flex-col gap-1.5">
+          <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
             Cabang
           </span>
           <Select value={selectedCabang} onValueChange={setSelectedCabang}>
-            <SelectTrigger className="w-full">
+            <SelectTrigger className="w-full h-8">
               <SelectValue placeholder="Semua Cabang" />
             </SelectTrigger>
             <SelectContent>
@@ -995,12 +997,12 @@ function LaporanPage() {
           </Select>
         </div>
 
-        <div className="flex flex-col gap-2">
-          <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+        <div className="flex flex-col gap-1.5">
+          <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
             Bulan
           </span>
           <Select value={selectedMonth} onValueChange={setSelectedMonth}>
-            <SelectTrigger className="w-full">
+            <SelectTrigger className="w-full h-8">
               <SelectValue placeholder="Semua Bulan" />
             </SelectTrigger>
             <SelectContent>
@@ -1017,34 +1019,34 @@ function LaporanPage() {
 
       {/* Visualisasi Data Section */}
       {!isLoading && detailRows.length > 0 && (
-        <div className="grid gap-6 md:grid-cols-2">
+        <div className="grid gap-4 md:grid-cols-2">
           <Card className="shadow-sm">
-            <CardHeader className="flex flex-row items-center justify-between pb-4">
-              <div className="space-y-0.5">
-                <CardTitle className="text-sm font-semibold text-slate-950">
+            <CardHeader className="flex flex-row items-center justify-between pb-2">
+              <div className="space-y-0">
+                <CardTitle className="text-xs font-semibold text-slate-950">
                   {selectedCabang === "all"
                     ? "Distribusi Gaji per Cabang"
                     : "Top Karyawan Berdasarkan Take Home Pay"}
                 </CardTitle>
-                <p className="text-xs text-muted-foreground">
+                <p className="text-[10px] text-muted-foreground">
                   Perbandingan total pembayaran bersih (rupiah)
                 </p>
               </div>
-              <BarChart3 className="h-4 w-4 text-emerald-600" />
+              <BarChart3 className="h-3.5 w-3.5 text-emerald-600" />
             </CardHeader>
-            <CardContent>
-              <div className="h-[260px] w-full">
+            <CardContent className="pt-0">
+              <div className="h-[200px] w-full">
                 <ResponsiveContainer width="100%" height="100%">
                   <BarChart
                     data={chartBranchData}
-                    margin={{ top: 10, right: 10, left: 10, bottom: 20 }}
+                    margin={{ top: 5, right: 5, left: 5, bottom: 15 }}
                   >
                     <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
                     <XAxis
                       dataKey="name"
                       tickLine={false}
                       axisLine={false}
-                      fontSize={11}
+                      fontSize={9}
                       tick={{ fill: "#64748b" }}
                       angle={-15}
                       textAnchor="end"
@@ -1052,7 +1054,7 @@ function LaporanPage() {
                     <YAxis
                       tickLine={false}
                       axisLine={false}
-                      fontSize={10}
+                      fontSize={8}
                       tick={{ fill: "#64748b" }}
                       tickFormatter={(val) => `Rp ${(val / 1000000).toFixed(1)}jt`}
                     />
@@ -1061,10 +1063,11 @@ function LaporanPage() {
                       contentStyle={{
                         background: "#ffffff",
                         border: "1px solid #e2e8f0",
-                        borderRadius: "8px",
+                        borderRadius: "6px",
+                        fontSize: "11px",
                       }}
                     />
-                    <Bar dataKey="Total Gaji" fill="#10b981" radius={[4, 4, 0, 0]} />
+                    <Bar dataKey="Total Gaji" fill="#10b981" radius={[3, 3, 0, 0]} />
                   </BarChart>
                 </ResponsiveContainer>
               </div>
@@ -1072,28 +1075,28 @@ function LaporanPage() {
           </Card>
 
           <Card className="shadow-sm">
-            <CardHeader className="flex flex-row items-center justify-between pb-4">
-              <div className="space-y-0.5">
-                <CardTitle className="text-sm font-semibold text-slate-950">
+            <CardHeader className="flex flex-row items-center justify-between pb-2">
+              <div className="space-y-0">
+                <CardTitle className="text-xs font-semibold text-slate-950">
                   Proporsi Komponen Biaya Payroll
                 </CardTitle>
-                <p className="text-xs text-muted-foreground">
+                <p className="text-[10px] text-muted-foreground">
                   Rasio perbandingan gaji pokok, tunjangan, dan potongan
                 </p>
               </div>
-              <TrendingUp className="h-4 w-4 text-emerald-600" />
+              <TrendingUp className="h-3.5 w-3.5 text-emerald-600" />
             </CardHeader>
-            <CardContent className="flex flex-col sm:flex-row items-center justify-center gap-6">
-              <div className="h-[200px] w-[200px] shrink-0">
+            <CardContent className="flex flex-col sm:flex-row items-center justify-center gap-4 pt-0">
+              <div className="h-[160px] w-[160px] shrink-0">
                 <ResponsiveContainer width="100%" height="100%">
                   <PieChart>
                     <Pie
                       data={chartComponentData}
                       cx="50%"
                       cy="50%"
-                      innerRadius={60}
-                      outerRadius={80}
-                      paddingAngle={4}
+                      innerRadius={45}
+                      outerRadius={65}
+                      paddingAngle={3}
                       dataKey="value"
                     >
                       {chartComponentData.map((entry, index) => (
@@ -1105,20 +1108,21 @@ function LaporanPage() {
                       contentStyle={{
                         background: "#ffffff",
                         border: "1px solid #e2e8f0",
-                        borderRadius: "8px",
+                        borderRadius: "6px",
+                        fontSize: "11px",
                       }}
                     />
                   </PieChart>
                 </ResponsiveContainer>
               </div>
-              <div className="flex flex-col gap-3 w-full sm:w-auto">
+              <div className="flex flex-col gap-2 w-full sm:w-auto">
                 {chartComponentData.map((item) => (
-                  <div key={item.name} className="flex items-center gap-3 text-xs">
+                  <div key={item.name} className="flex items-center gap-2 text-[11px]">
                     <div
-                      className="h-3 w-3 rounded-full shrink-0"
+                      className="h-2.5 w-2.5 rounded-full shrink-0"
                       style={{ backgroundColor: item.color }}
                     />
-                    <div className="grid gap-0.5">
+                    <div className="grid gap-0">
                       <span className="font-medium text-slate-700">{item.name}</span>
                       <span className="text-muted-foreground font-semibold">
                         {formatIDR(item.value)} (
@@ -1138,30 +1142,30 @@ function LaporanPage() {
         </div>
       )}
 
-      <div id="report-container" className="space-y-5 bg-white p-1">
-        <div className="rounded-md border border-emerald-100 bg-emerald-50/70 p-5 shadow-sm">
-          <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+      <div id="report-container" className="space-y-3 bg-white p-0.5">
+        <div className="rounded-md border border-emerald-100 bg-emerald-50/70 p-3 shadow-sm">
+          <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
             <div>
-              <h2 className="text-lg font-semibold text-slate-950">Ringkasan Penggajian</h2>
-              <p className="text-sm text-slate-600">
+              <h2 className="text-sm font-semibold text-slate-950">Ringkasan Penggajian</h2>
+              <p className="text-[11px] text-slate-600">
                 {selectedBranchName} • {selectedMonthName} • {selectedYear}
               </p>
             </div>
-            <div className="grid grid-cols-2 gap-3 text-sm sm:grid-cols-4">
-              <div className="rounded-md bg-white/80 p-3">
-                <span className="block text-xs text-slate-500">Periode</span>
+            <div className="grid grid-cols-2 gap-2 text-[11px] sm:grid-cols-4">
+              <div className="rounded-md bg-white/80 p-2">
+                <span className="block text-[10px] text-slate-500">Periode</span>
                 <span className="font-semibold text-slate-950">{totalPeriods}</span>
               </div>
-              <div className="rounded-md bg-white/80 p-3">
-                <span className="block text-xs text-slate-500">Karyawan</span>
+              <div className="rounded-md bg-white/80 p-2">
+                <span className="block text-[10px] text-slate-500">Karyawan</span>
                 <span className="font-semibold text-slate-950">{totalEmployees}</span>
               </div>
-              <div className="rounded-md bg-white/80 p-3">
-                <span className="block text-xs text-slate-500">Total THP</span>
+              <div className="rounded-md bg-white/80 p-2">
+                <span className="block text-[10px] text-slate-500">Total THP</span>
                 <span className="font-semibold text-emerald-800">{formatIDR(grandTotal.thp)}</span>
               </div>
-              <div className="rounded-md bg-white/80 p-3">
-                <span className="block text-xs text-slate-500">Tunjangan</span>
+              <div className="rounded-md bg-white/80 p-2">
+                <span className="block text-[10px] text-slate-500">Tunjangan</span>
                 <span className="font-semibold text-slate-950">
                   {formatIDR(grandTotal.tunjangan)}
                 </span>
@@ -1177,7 +1181,7 @@ function LaporanPage() {
         ) : null}
 
         {/* Summary Cards */}
-        <div className="grid gap-3 md:grid-cols-4">
+        <div className="grid gap-2 md:grid-cols-4">
           {[
             { label: "Total THP", value: grandTotal.thp, tone: "text-emerald-700" },
             { label: "Gaji Pokok", value: grandTotal.gaji_pokok, tone: "text-slate-950" },
@@ -1185,13 +1189,13 @@ function LaporanPage() {
             { label: "Potongan", value: grandTotal.potongan, tone: "text-rose-700" },
           ].map((item) => (
             <Card key={item.label} className="rounded-md shadow-sm">
-              <CardHeader className="pb-2">
-                <CardTitle className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              <CardHeader className="pb-1 pt-2 px-3">
+                <CardTitle className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
                   {item.label}
                 </CardTitle>
               </CardHeader>
-              <CardContent>
-                <div className={`text-xl font-bold ${item.tone}`}>{formatIDR(item.value)}</div>
+              <CardContent className="px-3 pb-2">
+                <div className={`text-sm font-bold ${item.tone}`}>{formatIDR(item.value)}</div>
               </CardContent>
             </Card>
           ))}
@@ -1199,9 +1203,9 @@ function LaporanPage() {
 
         {/* Ringkasan Per Karyawan */}
         <div className="overflow-hidden rounded-md border bg-white shadow-sm">
-          <div className="p-4 border-b border-slate-200">
-            <h3 className="text-sm font-semibold text-slate-950">Ringkasan Per Karyawan</h3>
-            <p className="text-xs text-muted-foreground">
+          <div className="px-3 py-2 border-b border-slate-200">
+            <h3 className="text-xs font-semibold text-slate-950">Ringkasan Per Karyawan</h3>
+            <p className="text-[10px] text-muted-foreground">
               Nama, Total Gaji, No. Rekening, Nama Bank
             </p>
           </div>
@@ -1217,7 +1221,7 @@ function LaporanPage() {
             <TableBody>
               {employeeSummaryList.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={4} className="h-24 text-center text-muted-foreground">
+                  <TableCell colSpan={4} className="h-16 text-center text-muted-foreground">
                     Tidak ada data karyawan untuk cabang ini.
                   </TableCell>
                 </TableRow>
@@ -1237,14 +1241,14 @@ function LaporanPage() {
 
         {/* Rincian Per Karyawan */}
         <div className="overflow-hidden rounded-md border bg-white shadow-sm">
-          <div className="flex flex-col gap-1 border-b border-slate-200 p-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex flex-col gap-1 border-b border-slate-200 px-3 py-2 sm:flex-row sm:items-center sm:justify-between">
             <div>
-              <h3 className="text-sm font-semibold text-slate-950">Rincian Gaji Per Karyawan</h3>
-              <p className="text-xs text-muted-foreground">
+              <h3 className="text-xs font-semibold text-slate-950">Rincian Gaji Per Karyawan</h3>
+              <p className="text-[10px] text-muted-foreground">
                 Periode, cabang, jabatan, komponen gaji, dan rekening pembayaran
               </p>
             </div>
-            <span className="text-xs text-muted-foreground">{detailRows.length} baris</span>
+            <span className="text-[10px] text-muted-foreground">{detailRows.length} baris</span>
           </div>
           <div className="overflow-x-auto">
             <Table>
@@ -1266,7 +1270,7 @@ function LaporanPage() {
               <TableBody>
                 {detailRows.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={11} className="h-24 text-center text-muted-foreground">
+                    <TableCell colSpan={11} className="h-16 text-center text-muted-foreground">
                       Tidak ada rincian gaji untuk filter ini.
                     </TableCell>
                   </TableRow>
@@ -1286,10 +1290,10 @@ function LaporanPage() {
                         {formatIDR(row.gaji_bersih)}
                       </TableCell>
                       <TableCell>
-                        <div className="min-w-[220px] space-y-1 text-xs leading-tight">
+                        <div className="min-w-[180px] space-y-0.5 text-[10px] leading-tight">
                           {row.allowances.length > 0 ? (
                             <div>
-                              <span className="font-semibold text-emerald-700">Tunjangan: </span>
+                              <span className="font-semibold text-emerald-700">T: </span>
                               {row.allowances
                                 .map(
                                   (item: ComponentItem) =>
@@ -1299,13 +1303,13 @@ function LaporanPage() {
                             </div>
                           ) : (
                             <div>
-                              <span className="font-semibold text-emerald-700">Tunjangan: </span>
+                              <span className="font-semibold text-emerald-700">T: </span>
                               {formatIDR(row.total_tunjangan)}
                             </div>
                           )}
                           {row.deductions.length > 0 ? (
                             <div>
-                              <span className="font-semibold text-rose-700">Potongan: </span>
+                              <span className="font-semibold text-rose-700">P: </span>
                               {row.deductions
                                 .map(
                                   (item: ComponentItem) =>
@@ -1315,7 +1319,7 @@ function LaporanPage() {
                             </div>
                           ) : (
                             <div>
-                              <span className="font-semibold text-rose-700">Potongan: </span>
+                              <span className="font-semibold text-rose-700">P: </span>
                               {formatIDR(row.total_potongan)}
                             </div>
                           )}
@@ -1323,17 +1327,16 @@ function LaporanPage() {
                             row.jumlah_absen > 0 ||
                             row.jumlah_telat > 0) && (
                             <div className="text-muted-foreground">
-                              Izin {row.jumlah_izin}, sakit/absen {row.jumlah_absen}, telat{" "}
-                              {row.jumlah_telat}
+                              Izin {row.jumlah_izin}, Absen {row.jumlah_absen}, Telat {row.jumlah_telat}
                             </div>
                           )}
                           {row.catatan && (
-                            <div className="text-muted-foreground">{row.catatan}</div>
+                            <div className="text-muted-foreground truncate max-w-[180px]">{row.catatan}</div>
                           )}
                         </div>
                       </TableCell>
                       <TableCell>
-                        <div className="text-xs leading-tight">
+                        <div className="text-[10px] leading-tight">
                           <div>{row.nomor_rekening}</div>
                           <div className="text-muted-foreground">{row.nama_bank}</div>
                         </div>
@@ -1343,14 +1346,14 @@ function LaporanPage() {
                           type="button"
                           size="sm"
                           variant="outline"
-                          className="h-8"
+                          className="h-7 w-7 p-0"
                           onClick={() => handleDownloadDetail(row)}
                           disabled={downloadingDetailId === row.id}
                         >
                           {downloadingDetailId === row.id ? (
-                            <Loader2 className="h-4 w-4 animate-spin" />
+                            <Loader2 className="h-3.5 w-3.5 animate-spin" />
                           ) : (
-                            <FileDown className="h-4 w-4" />
+                            <FileDown className="h-3.5 w-3.5" />
                           )}
                           <span className="sr-only">Unduh rincian gaji {row.nama}</span>
                         </Button>
@@ -1365,9 +1368,9 @@ function LaporanPage() {
 
         {/* Tabel Detail */}
         <div className="overflow-hidden rounded-md border bg-white shadow-sm">
-          <div className="border-b border-slate-200 p-4">
-            <h3 className="text-sm font-semibold text-slate-950">Rekap Bulanan</h3>
-            <p className="text-xs text-muted-foreground">
+          <div className="border-b border-slate-200 px-3 py-2">
+            <h3 className="text-xs font-semibold text-slate-950">Rekap Bulanan</h3>
+            <p className="text-[10px] text-muted-foreground">
               Akumulasi nilai payroll berdasarkan periode proses gaji
             </p>
           </div>
@@ -1400,23 +1403,23 @@ function LaporanPage() {
       {isDownloading && (
         <div
           id="pdf-export-container"
-          className="bg-white p-8 space-y-6 text-slate-950 font-sans"
+          className="bg-white p-6 space-y-4 text-slate-950 font-sans"
           style={{
             position: "absolute",
             left: "-9999px",
             top: "0",
-            width: "1200px",
+            width: "1100px",
           }}
         >
           {/* Header */}
-          <div className="flex items-center justify-between border-b-2 border-emerald-500 pb-4 mb-6">
+          <div className="flex items-center justify-between border-b-2 border-emerald-500 pb-3 mb-4">
             <div>
-              <h1 className="text-2xl font-bold text-slate-900">Laporan Penggajian Karyawan</h1>
-              <p className="text-sm text-slate-600">
+              <h1 className="text-xl font-bold text-slate-900">Laporan Penggajian Karyawan</h1>
+              <p className="text-[11px] text-slate-600">
                 {selectedBranchName} • {selectedMonthName} {selectedYear}
               </p>
             </div>
-            <div className="text-right text-xs text-slate-500">
+            <div className="text-right text-[10px] text-slate-500">
               <p>
                 Tanggal Unduh:{" "}
                 {new Date().toLocaleDateString("id-ID", {
@@ -1429,28 +1432,43 @@ function LaporanPage() {
             </div>
           </div>
 
+          {/* Summary Row */}
+          <div className="grid grid-cols-4 gap-3">
+            {[
+              { label: "Total THP", value: formatIDR(grandTotal.thp), color: "text-emerald-700" },
+              { label: "Gaji Pokok", value: formatIDR(grandTotal.gaji_pokok), color: "text-slate-900" },
+              { label: "Tunjangan", value: formatIDR(grandTotal.tunjangan), color: "text-blue-700" },
+              { label: "Potongan", value: formatIDR(grandTotal.potongan), color: "text-rose-700" },
+            ].map((item) => (
+              <div key={item.label} className="rounded border border-slate-200 bg-slate-50 p-2">
+                <p className="text-[9px] text-slate-500 uppercase font-medium">{item.label}</p>
+                <p className={`text-xs font-bold ${item.color}`}>{item.value}</p>
+              </div>
+            ))}
+          </div>
+
           {/* Grafik Section */}
-          <div className="grid grid-cols-2 gap-6">
+          <div className="grid grid-cols-2 gap-4">
             {/* Card 1: Distribusi Gaji */}
-            <div className="rounded-xl border bg-white p-6 shadow-sm">
-              <h3 className="text-sm font-semibold text-slate-950 mb-4">
+            <div className="rounded border border-slate-200 bg-white p-4">
+              <h3 className="text-[11px] font-semibold text-slate-950 mb-2">
                 {selectedCabang === "all"
                   ? "Distribusi Gaji per Cabang"
                   : "Top Karyawan Berdasarkan Take Home Pay"}
               </h3>
-              <div className="h-[250px] w-full">
+              <div className="h-[180px] w-full">
                 <BarChart
-                  width={500}
-                  height={240}
+                  width={480}
+                  height={170}
                   data={chartBranchData}
-                  margin={{ top: 10, right: 10, left: 10, bottom: 20 }}
+                  margin={{ top: 5, right: 5, left: 5, bottom: 15 }}
                 >
                   <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
                   <XAxis
                     dataKey="name"
                     tickLine={false}
                     axisLine={false}
-                    fontSize={10}
+                    fontSize={9}
                     tick={{ fill: "#64748b" }}
                     angle={-15}
                     textAnchor="end"
@@ -1458,30 +1476,30 @@ function LaporanPage() {
                   <YAxis
                     tickLine={false}
                     axisLine={false}
-                    fontSize={9}
+                    fontSize={8}
                     tick={{ fill: "#64748b" }}
                     tickFormatter={(val) => `Rp ${(val / 1000000).toFixed(1)}jt`}
                   />
-                  <Bar dataKey="Total Gaji" fill="#10b981" radius={[4, 4, 0, 0]} />
+                  <Bar dataKey="Total Gaji" fill="#10b981" radius={[3, 3, 0, 0]} />
                 </BarChart>
               </div>
             </div>
 
             {/* Card 2: Proporsi Komponen */}
-            <div className="rounded-xl border bg-white p-6 shadow-sm">
-              <h3 className="text-sm font-semibold text-slate-950 mb-4">
+            <div className="rounded border border-slate-200 bg-white p-4">
+              <h3 className="text-[11px] font-semibold text-slate-950 mb-2">
                 Proporsi Komponen Biaya Payroll
               </h3>
-              <div className="flex items-center gap-6 h-[240px]">
-                <div className="h-[200px] w-[200px] shrink-0">
-                  <PieChart width={200} height={200}>
+              <div className="flex items-center gap-4 h-[180px]">
+                <div className="h-[140px] w-[140px] shrink-0">
+                  <PieChart width={140} height={140}>
                     <Pie
                       data={chartComponentData}
                       cx="50%"
                       cy="50%"
-                      innerRadius={60}
-                      outerRadius={80}
-                      paddingAngle={4}
+                      innerRadius={40}
+                      outerRadius={55}
+                      paddingAngle={3}
                       dataKey="value"
                     >
                       {chartComponentData.map((entry, index) => (
@@ -1490,14 +1508,14 @@ function LaporanPage() {
                     </Pie>
                   </PieChart>
                 </div>
-                <div className="flex flex-col gap-3 justify-center">
+                <div className="flex flex-col gap-2 justify-center">
                   {chartComponentData.map((item) => (
-                    <div key={item.name} className="flex items-center gap-3 text-xs">
+                    <div key={item.name} className="flex items-center gap-2 text-[10px]">
                       <div
-                        className="h-3 w-3 rounded-full shrink-0"
+                        className="h-2.5 w-2.5 rounded-full shrink-0"
                         style={{ backgroundColor: item.color }}
                       />
-                      <div className="grid gap-0.5">
+                      <div className="grid gap-0">
                         <span className="font-medium text-slate-700">{item.name}</span>
                         <span className="text-slate-900 font-semibold">
                           {formatIDR(item.value)}
@@ -1511,9 +1529,9 @@ function LaporanPage() {
           </div>
 
           {/* Rincian Per Karyawan */}
-          <div className="overflow-hidden rounded-md border bg-white shadow-sm mt-6">
-            <div className="border-b border-slate-200 p-4 bg-slate-50">
-              <h3 className="text-sm font-semibold text-slate-950">Rincian Gaji Per Karyawan</h3>
+          <div className="overflow-hidden rounded border border-slate-200 bg-white">
+            <div className="border-b border-slate-200 px-3 py-2 bg-slate-50">
+              <h3 className="text-[11px] font-semibold text-slate-950">Rincian Gaji Per Karyawan</h3>
             </div>
             <Table>
               <TableHeader className="bg-slate-50">
@@ -1533,7 +1551,7 @@ function LaporanPage() {
               <TableBody>
                 {detailRows.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={10} className="h-24 text-center text-muted-foreground">
+                    <TableCell colSpan={10} className="h-16 text-center text-muted-foreground">
                       Tidak ada rincian gaji untuk filter ini.
                     </TableCell>
                   </TableRow>
@@ -1553,10 +1571,10 @@ function LaporanPage() {
                         {formatIDR(row.gaji_bersih)}
                       </TableCell>
                       <TableCell>
-                        <div className="min-w-[220px] space-y-1 text-xs leading-tight">
+                        <div className="min-w-[180px] space-y-0.5 text-[9px] leading-tight">
                           {row.allowances.length > 0 ? (
                             <div>
-                              <span className="font-semibold text-emerald-700">Tunjangan: </span>
+                              <span className="font-semibold text-emerald-700">T: </span>
                               {row.allowances
                                 .map(
                                   (item: ComponentItem) =>
@@ -1566,13 +1584,13 @@ function LaporanPage() {
                             </div>
                           ) : (
                             <div>
-                              <span className="font-semibold text-emerald-700">Tunjangan: </span>
+                              <span className="font-semibold text-emerald-700">T: </span>
                               {formatIDR(row.total_tunjangan)}
                             </div>
                           )}
                           {row.deductions.length > 0 ? (
                             <div>
-                              <span className="font-semibold text-rose-700">Potongan: </span>
+                              <span className="font-semibold text-rose-700">P: </span>
                               {row.deductions
                                 .map(
                                   (item: ComponentItem) =>
@@ -1582,7 +1600,7 @@ function LaporanPage() {
                             </div>
                           ) : (
                             <div>
-                              <span className="font-semibold text-rose-700">Potongan: </span>
+                              <span className="font-semibold text-rose-700">P: </span>
                               {formatIDR(row.total_potongan)}
                             </div>
                           )}
@@ -1590,17 +1608,16 @@ function LaporanPage() {
                             row.jumlah_absen > 0 ||
                             row.jumlah_telat > 0) && (
                             <div className="text-muted-foreground">
-                              Izin {row.jumlah_izin}, sakit/absen {row.jumlah_absen}, telat{" "}
-                              {row.jumlah_telat}
+                              Izin {row.jumlah_izin}, Absen {row.jumlah_absen}, Telat {row.jumlah_telat}
                             </div>
                           )}
                           {row.catatan && (
-                            <div className="text-muted-foreground">{row.catatan}</div>
+                            <div className="text-muted-foreground truncate max-w-[180px]">{row.catatan}</div>
                           )}
                         </div>
                       </TableCell>
                       <TableCell>
-                        <div className="text-xs leading-tight">
+                        <div className="text-[9px] leading-tight">
                           <div>{row.nomor_rekening}</div>
                           <div className="text-muted-foreground">{row.nama_bank}</div>
                         </div>

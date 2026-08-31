@@ -1,4 +1,4 @@
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth-context";
@@ -125,9 +125,12 @@ function LoginPage() {
               {loginSubmitting ? "Memverifikasi..." : "Masuk"}
             </Button>
 
-            <span className="login-mobile-toggle" onClick={() => setIsRightPanelActive(true)}>
-              Belum punya akun? <strong>Daftar di sini</strong>
-            </span>
+            <p className="login-desc" style={{ marginTop: "16px", marginBottom: 0 }}>
+              Belum punya akun?{' '}
+              <Link to="/register" className="text-emerald-600 font-semibold hover:underline">
+                Daftar di sini
+              </Link>
+            </p>
           </form>
         </div>
 
@@ -181,9 +184,12 @@ function LoginPage() {
               {signupSubmitting ? "Mendaftar..." : "Daftar Sekarang"}
             </Button>
 
-            <span className="login-mobile-toggle" onClick={() => setIsRightPanelActive(false)}>
-              Sudah punya akun? <strong>Masuk</strong>
-            </span>
+            <p className="login-desc" style={{ marginTop: "16px", marginBottom: 0 }}>
+              Sudah punya akun?{' '}
+              <Link to="/login" className="text-emerald-600 font-semibold hover:underline">
+                Masuk
+              </Link>
+            </p>
           </form>
         </div>
 

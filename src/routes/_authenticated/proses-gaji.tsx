@@ -1729,81 +1729,121 @@ function AppProsesGajiPage() {
       </Dialog>
 
       <div className="rounded-xl border border-slate-200/80 bg-white overflow-hidden shadow-sm">
-        <div className="overflow-x-auto pb-3">
+        {/* Table Header Info */}
+        <div className="flex items-center justify-between px-4 py-2.5 border-b border-slate-100 bg-gradient-to-r from-slate-50/80 to-white">
+          <div className="flex items-center gap-2">
+            <div className="h-1.5 w-1.5 rounded-full bg-emerald-500"></div>
+            <span className="text-[11px] font-bold text-slate-700 tracking-wide">Data Payroll</span>
+            <span className="text-[9px] text-slate-400 font-medium">({filteredEmployees.length} karyawan)</span>
+          </div>
+          <div className="flex items-center gap-3">
+            {hasLocalDraft && (
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[8px] font-semibold bg-indigo-50 text-indigo-600 border border-indigo-100">
+                <span className="w-1 h-1 rounded-full bg-indigo-500 animate-pulse"></span>
+                Draf aktif
+              </span>
+            )}
+          </div>
+        </div>
+
+        <div className="overflow-x-auto">
           <Table className="min-w-max">
             <TableHeader>
-              <TableRow className="hover:bg-transparent bg-slate-50/70">
-                <TableHead className="sticky left-0 bg-slate-50/95 backdrop-blur z-20 w-56 border-r border-slate-200 shadow-[1px_0_0_0_rgba(0,0,0,0.05)]">
-                  <span className="text-slate-700 font-bold text-[10px] uppercase tracking-wider">Informasi Karyawan</span>
-                </TableHead>
-                <TableHead className="font-bold text-[10px] text-slate-700 uppercase tracking-wider">Gaji Pokok</TableHead>
-
-                {(allowanceTypes || []).map((alw) => (
-                  <TableHead
-                    key={alw.id}
-                    className="hidden md:table-cell text-center min-w-[110px] border-t-2 border-t-emerald-400 bg-emerald-50/30"
-                  >
-                    <div className="font-medium text-slate-800 text-[10px]">{alw.nama}</div>
-                    <div className="text-[9px] font-medium text-emerald-600/70 uppercase tracking-wider mt-0">
-                      {alw.metode === "fixed"
-                        ? "Tetap"
-                        : alw.metode === "per_day"
-                          ? "Hari"
-                          : alw.metode === "per_hour"
-                            ? "Jam"
-                            : "Nominal"}
-                    </div>
-                  </TableHead>
-                ))}
-
-                <TableHead className="hidden md:table-cell text-center w-48 border-t-2 border-t-teal-400 bg-teal-50/30">
-                  <div className="font-medium text-slate-800 text-[10px]">Penyesuaian</div>
-                  <div className="text-[9px] font-medium text-teal-600/70 uppercase tracking-wider mt-0">
-                    Custom
+              <TableRow className="hover:bg-transparent">
+                {/* Karyawan - Sticky Left */}
+                <TableHead className="sticky left-0 bg-gradient-to-b from-slate-50 to-slate-50/95 backdrop-blur-sm z-20 w-52 border-r border-slate-200/60">
+                  <div className="flex items-center gap-1.5">
+                    <Users className="w-3 h-3 text-slate-400" />
+                    <span className="text-slate-600 font-bold text-[10px] uppercase tracking-wider">Karyawan</span>
                   </div>
                 </TableHead>
 
-                {(deductionTypes || []).map((ded) => (
+                {/* Gaji Pokok */}
+                <TableHead className="text-center min-w-[100px]">
+                  <div className="flex flex-col items-center gap-0">
+                    <span className="text-slate-600 font-bold text-[10px] uppercase tracking-wider">Gaji Pokok</span>
+                    <span className="text-[8px] text-slate-400 font-medium">BASE</span>
+                  </div>
+                </TableHead>
+
+                {/* Tunjangan Columns */}
+                {(allowanceTypes || []).map((alw) => (
                   <TableHead
-                    key={ded.id}
-                    className="hidden md:table-cell text-center min-w-[110px] border-t-2 border-t-rose-400 bg-rose-50/30"
+                    key={alw.id}
+                    className="hidden md:table-cell text-center min-w-[105px] border-t-[3px] border-t-emerald-400 bg-emerald-50/40"
                   >
-                    <div className="font-medium text-slate-800 text-[10px]">{ded.nama}</div>
-                    <div className="text-[9px] font-medium text-rose-600/70 uppercase tracking-wider mt-0">
-                      {ded.metode === "fixed"
-                        ? "Tetap"
-                        : ded.metode === "per_day"
-                          ? "Hari"
-                          : "Nominal"}
+                    <div className="flex flex-col items-center gap-0">
+                      <span className="font-bold text-[10px] text-emerald-700">{alw.nama}</span>
+                      <span className="text-[8px] font-medium text-emerald-500/70 uppercase">
+                        {alw.metode === "fixed" ? "TETAP" : alw.metode === "per_day" ? "PER HARI" : alw.metode === "per_hour" ? "PER JAM" : "NOMINAL"}
+                      </span>
                     </div>
                   </TableHead>
                 ))}
 
-                <TableHead className="font-bold text-[10px] text-slate-900 uppercase tracking-wider text-right sticky right-0 bg-slate-50/95 backdrop-blur z-20 border-l border-slate-200 shadow-[-1px_0_0_0_rgba(0,0,0,0.05)]">
-                  Total Bersih
+                {/* Penyesuaian Custom */}
+                <TableHead className="hidden md:table-cell text-center min-w-[140px] border-t-[3px] border-t-teal-400 bg-teal-50/40">
+                  <div className="flex flex-col items-center gap-0">
+                    <span className="font-bold text-[10px] text-teal-700">Penyesuaian</span>
+                    <span className="text-[8px] font-medium text-teal-500/70 uppercase">CUSTOM</span>
+                  </div>
+                </TableHead>
+
+                {/* Potongan Columns */}
+                {(deductionTypes || []).map((ded) => (
+                  <TableHead
+                    key={ded.id}
+                    className="hidden md:table-cell text-center min-w-[105px] border-t-[3px] border-t-rose-400 bg-rose-50/40"
+                  >
+                    <div className="flex flex-col items-center gap-0">
+                      <span className="font-bold text-[10px] text-rose-700">{ded.nama}</span>
+                      <span className="text-[8px] font-medium text-rose-500/70 uppercase">
+                        {ded.metode === "fixed" ? "TETAP" : ded.metode === "per_day" ? "PER HARI" : "NOMINAL"}
+                      </span>
+                    </div>
+                  </TableHead>
+                ))}
+
+                {/* Total Bersih - Sticky Right */}
+                <TableHead className="sticky right-0 bg-gradient-to-b from-emerald-50 to-emerald-50/95 backdrop-blur-sm z-20 min-w-[110px] border-l border-emerald-200/60">
+                  <div className="flex items-center justify-end gap-1.5">
+                    <Wallet className="w-3 h-3 text-emerald-500" />
+                    <span className="font-bold text-[10px] text-emerald-700 uppercase tracking-wider">Total Bersih</span>
+                  </div>
                 </TableHead>
               </TableRow>
             </TableHeader>
 
             <TableBody>
               {isLoading ? (
-                <TableRow>                    <TableCell
-                      colSpan={(allowanceTypes || []).length + (deductionTypes || []).length + 4}
-                      className="h-24 text-center"
-                    >
-                      <Loader2 className="mx-auto h-5 w-5 animate-spin text-slate-400" />
-                    </TableCell>
+                <TableRow>
+                  <TableCell
+                    colSpan={(allowanceTypes || []).length + (deductionTypes || []).length + 4}
+                    className="h-32 text-center"
+                  >
+                    <div className="flex flex-col items-center gap-2">
+                      <Loader2 className="h-6 w-6 animate-spin text-emerald-500" />
+                      <span className="text-[11px] text-slate-400">Memuat data karyawan...</span>
+                    </div>
+                  </TableCell>
                 </TableRow>
               ) : filteredEmployees.length === 0 ? (
-                <TableRow>                    <TableCell
-                      colSpan={(allowanceTypes || []).length + (deductionTypes || []).length + 4}
-                      className="h-24 text-center text-slate-500 text-xs"
-                    >
-                    Tidak ada karyawan di cabang ini.
+                <TableRow>
+                  <TableCell
+                    colSpan={(allowanceTypes || []).length + (deductionTypes || []).length + 4}
+                    className="h-32 text-center"
+                  >
+                    <div className="flex flex-col items-center gap-2">
+                      <div className="h-12 w-12 rounded-full bg-slate-100 flex items-center justify-center">
+                        <Users className="h-5 w-5 text-slate-300" />
+                      </div>
+                      <span className="text-xs text-slate-400">Tidak ada karyawan di cabang ini</span>
+                      <span className="text-[10px] text-slate-300">Coba ubah filter cabang atau periode</span>
+                    </div>
                   </TableCell>
                 </TableRow>
               ) : (
-                filteredEmployees.map((emp) => {
+                filteredEmployees.map((emp, idx) => {
                   const hasEdits =
                     (emp.component_inputs &&
                       Object.keys(emp.component_inputs).some(
@@ -1812,44 +1852,82 @@ function AppProsesGajiPage() {
                     (emp.custom_allowances && emp.custom_allowances.length > 0) ||
                     Number(emp.salary_increase_manual) > 0;
 
+                  const isEven = idx % 2 === 0;
+
                   return (
-                    <Fragment key={emp.id}>                      <TableRow
-                        className={`group ${hasEdits ? "bg-indigo-50/10 hover:bg-indigo-50/20" : "hover:bg-slate-50/50"} border-l-2 ${hasEdits ? "border-l-indigo-500" : "border-l-transparent"} transition-colors`
-                      }
+                    <Fragment key={emp.id}>
+                      <TableRow
+                        className={`group transition-all duration-150 ${
+                          hasEdits
+                            ? "bg-indigo-50/30 hover:bg-indigo-50/50 border-l-[3px] border-l-indigo-400"
+                            : isEven
+                              ? "bg-white hover:bg-slate-50/80 border-l-[3px] border-l-transparent"
+                              : "bg-slate-50/30 hover:bg-slate-50/60 border-l-[3px] border-l-transparent"
+                        }`}
                       >
+                        {/* ── Karyawan Info (Sticky) ── */}
                         <TableCell
-                          className={`sticky left-0 ${hasEdits ? "bg-indigo-50/20 group-hover:bg-indigo-50/30" : "bg-white group-hover:bg-slate-50/95"} z-10 space-y-1 border-r border-slate-100 transition-colors`}
+                          className={`sticky left-0 z-10 border-r border-slate-100/80 transition-colors ${
+                            hasEdits
+                              ? "bg-indigo-50/40 group-hover:bg-indigo-50/60"
+                              : isEven
+                                ? "bg-white group-hover:bg-slate-50/80"
+                                : "bg-slate-50/30 group-hover:bg-slate-50/60"
+                          }`}
                         >
-                          <div>
-                            <div className="flex items-center gap-1">
-                              <div className="font-semibold text-slate-900 text-xs">{emp.nama}</div>
-                              {hasEdits && (
-                                <span className="inline-flex items-center gap-0.5 px-1 py-0 rounded text-[8px] font-semibold bg-indigo-50 text-indigo-700 border border-indigo-100">
-                                  <span className="w-1 h-1 rounded-full bg-indigo-500 animate-pulse"></span>
-                                  Draf
-                                </span>
-                              )}
-                            </div>
-                            <div className="text-[10px] text-slate-500 leading-tight mt-0">
-                              {emp.jabatan ? emp.jabatan : "-"}
-                              <div className="text-[10px] text-slate-400 mt-0.5">
-                                {getBranchName(emp.branch_id)}
+                          <div className="py-1.5 px-1">
+                            <div className="flex items-center gap-1.5">
+                              <div className="relative">
+                                <div className={`h-7 w-7 rounded-lg flex items-center justify-center text-[10px] font-bold ${
+                                  hasEdits
+                                    ? "bg-indigo-100 text-indigo-700"
+                                    : "bg-gradient-to-br from-emerald-50 to-teal-50 text-emerald-700 border border-emerald-100/50"
+                                }`}
+                                >
+                                  {emp.nama?.charAt(0)?.toUpperCase() || '?'}
+                                </div>
+                                {hasEdits && (
+                                  <div className="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full bg-indigo-500 border border-white"></div>
+                                )}
                               </div>
+                              <div className="min-w-0 flex-1">
+                                <div className="flex items-center gap-1">
+                                  <span className="font-semibold text-slate-900 text-[11px] truncate">{emp.nama}</span>
+                                  {hasEdits && (
+                                    <span className="inline-flex items-center px-1 py-0 rounded text-[7px] font-bold bg-indigo-500 text-white">
+                                      DRAFT
+                                    </span>
+                                  )}
+                                </div>
+                                <div className="text-[9px] text-slate-500 truncate">
+                                  {emp.jabatan || '-'}
+                                </div>
+                                <div className="text-[8px] text-slate-400 truncate">
+                                  {getBranchName(emp.branch_id)}
+                                </div>
+                              </div>
+                            </div>
+
+                            {/* Info Tambahan */}
+                            <div className="mt-1.5 space-y-0.5">
                               {emp.jabatan_tunjangan > 0 && (
-                                <div className="text-[10px] text-teal-700 font-medium mt-0.5">
-                                  Tunj: {formatIDR(emp.jabatan_tunjangan)}
+                                <div className="flex items-center gap-1 text-[8px]">
+                                  <span className="text-teal-500">◆</span>
+                                  <span className="text-teal-600 font-medium">Tunj: {formatIDR(emp.jabatan_tunjangan)}</span>
                                 </div>
                               )}
                               {Number(emp.salary_adjustment || 0) > 0 && (
-                                <div className="text-[10px] text-emerald-700 font-medium mt-0.5">
-                                  +{formatIDR(emp.salary_adjustment)}
+                                <div className="flex items-center gap-1 text-[8px]">
+                                  <span className="text-emerald-500">▲</span>
+                                  <span className="text-emerald-600 font-medium">+{formatIDR(emp.salary_adjustment)}</span>
                                 </div>
                               )}
                               {emp.evaluation_info?.isDue && (
-                                <div className="mt-1 space-y-0.5 rounded border border-amber-200 bg-amber-50 p-1.5">
+                                <div className="mt-1 rounded-md border border-amber-200 bg-amber-50 p-1.5">
+                                  <div className="text-[8px] text-amber-600 font-semibold mb-0.5">⚠ Evaluasi Gaji</div>
                                   <Input
                                     type="text"
-                                    className="h-6 text-[10px] text-right bg-white"
+                                    className="h-6 text-[9px] text-right bg-white border-amber-200 focus-visible:ring-amber-400"
                                     placeholder="Kenaikan Rp"
                                     value={formatNumberDots(emp.salary_increase_manual)}
                                     onChange={(e) =>
@@ -1859,244 +1937,302 @@ function AppProsesGajiPage() {
                                 </div>
                               )}
                             </div>
-                          </div>
 
-                          <div className="flex flex-col gap-1 mt-1">
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              className="h-5 px-1.5 text-[9px] shadow-none border-teal-200 text-teal-700 bg-teal-50/30 hover:bg-teal-100"
-                              onClick={() => handleAddCustomAllowance(emp.id)}
-                            >
-                              <Plus className="w-2.5 h-2.5 mr-0.5" /> Penyesuaian
-                            </Button>
-                            <Button
-                              variant="secondary"
-                              size="sm"
-                              className="h-5 px-1.5 text-[9px] shadow-none border-slate-200 text-slate-700 hover:bg-slate-100 md:hidden"
-                              onClick={() => openDetail(emp)}
-                            >
-                              Detail
-                            </Button>
+                            {/* Action Buttons */}
+                            <div className="flex gap-1 mt-1.5">
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="h-5 px-1.5 text-[8px] shadow-none border-emerald-200 text-emerald-700 bg-emerald-50/50 hover:bg-emerald-100 transition-colors"
+                                onClick={() => handleAddCustomAllowance(emp.id)}
+                              >
+                                <Plus className="w-2.5 h-2.5 mr-0.5" /> +
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-5 px-1.5 text-[8px] shadow-none text-slate-500 hover:bg-slate-100 md:hidden"
+                                onClick={() => openDetail(emp)}
+                              >
+                                Detail
+                              </Button>
+                            </div>
                           </div>
                         </TableCell>
 
-                        <TableCell className="text-slate-600 text-[11px] font-medium">
-                          <div>{formatIDR(getPayrollBaseSalary(emp))}</div>
-                          {Number(emp.salary_adjustment || 0) > 0 && (
-                            <div className="text-[9px] font-semibold text-emerald-600">
-                              +{formatIDR(emp.salary_adjustment)}
+                        {/* ── Gaji Pokok ── */}
+                        <TableCell className="text-center align-middle">
+                          <div className="py-1.5">
+                            <div className="text-[11px] font-bold text-slate-800">
+                              {formatIDR(getPayrollBaseSalary(emp))}
                             </div>
-                          )}
-                          {Number(emp.salary_increase_manual || 0) > 0 && (
-                            <div className="text-[9px] font-semibold text-amber-600">
-                              +{formatIDR(emp.salary_increase_manual)}
-                            </div>
-                          )}
+                            {Number(emp.salary_adjustment || 0) > 0 && (
+                              <div className="text-[8px] font-semibold text-emerald-600 mt-0.5">
+                                +{formatIDR(emp.salary_adjustment)}
+                              </div>
+                            )}
+                            {Number(emp.salary_increase_manual || 0) > 0 && (
+                              <div className="text-[8px] font-semibold text-amber-600 mt-0.5">
+                                +{formatIDR(emp.salary_increase_manual)}
+                              </div>
+                            )}
+                          </div>
                         </TableCell>
 
+                        {/* ── Tunjangan Columns ── */}
                         {(allowanceTypes || []).map((alw) => {
                           const isEligible = checkIsEligible(alw.catatan, emp.jabatan);
                           const inputVal = emp.component_inputs?.[alw.id] ?? "";
                           const finalVal = getComponentCalculatedValue(alw, emp);
+                          const hasValue = finalVal > 0;
 
                           return (
                             <TableCell
                               key={alw.id}
-                              className="hidden md:table-cell text-center align-top pt-3"
+                              className="hidden md:table-cell text-center align-middle"
                             >
-                              {!isEligible ? (
-                                <span className="text-slate-200 text-[11px] font-medium">-</span>
-                              ) : alw.metode === "fixed" ? (
-                                <span className="text-[11px] font-medium text-slate-700">
-                                  {formatIDR(alw.nominal_default)}
-                                </span>
-                              ) : (
-                                <div className="flex flex-col items-center gap-1">
-                                  <Input
-                                    type={alw.metode === "manual" ? "text" : "number"}
-                                    className={`h-6 text-center text-[11px] shadow-none transition-all ${alw.metode === "manual" ? "w-22" : "w-14"} border-slate-200 focus-visible:ring-1 focus-visible:ring-emerald-400`}
-                                    placeholder={
-                                      alw.metode === "manual"
-                                        ? "Rp"
-                                        : alw.metode === "per_day"
-                                          ? "Hari"
-                                          : "Jam"
-                                    }
-                                    value={
-                                      alw.metode === "manual"
-                                        ? formatNumberDots(inputVal)
-                                        : inputVal
-                                    }
-                                    onChange={(e) => {
-                                      const val =
+                              <div className="py-1.5 px-1">
+                                {!isEligible ? (
+                                  <span className="text-slate-200 text-[10px]">—</span>
+                                ) : alw.metode === "fixed" ? (
+                                  <span className="text-[10px] font-semibold text-slate-600 bg-slate-50 px-1.5 py-0.5 rounded">
+                                    {formatIDR(alw.nominal_default)}
+                                  </span>
+                                ) : (
+                                  <div className="flex flex-col items-center gap-0.5">
+                                    <Input
+                                      type={alw.metode === "manual" ? "text" : "number"}
+                                      className={`h-[26px] text-center text-[10px] shadow-inner transition-all duration-150 ${
+                                        alw.metode === "manual" ? "w-[90px]" : "w-[56px]"
+                                      } ${
+                                        hasValue
+                                          ? "border-emerald-300 bg-emerald-50/50 focus-visible:ring-emerald-400"
+                                          : "border-slate-200 bg-slate-50/50 focus-visible:ring-emerald-400"
+                                      } rounded-md`}
+                                      placeholder={
                                         alw.metode === "manual"
-                                          ? parseNumberDots(e.target.value) === 0 &&
-                                            e.target.value === ""
-                                            ? ""
-                                            : String(parseNumberDots(e.target.value))
-                                          : e.target.value;
-                                      handleInputChange(emp.id, alw.id, val);
-                                    }}
-                                  />
-                                  {finalVal > 0 && (
-                                    <span className="text-[9px] text-emerald-600 font-semibold">
-                                      {formatIDR(finalVal)}
-                                    </span>
-                                  )}
-                                </div>
-                              )}
+                                          ? "Rp"
+                                          : alw.metode === "per_day"
+                                            ? "Hari"
+                                            : "Jam"
+                                      }
+                                      value={
+                                        alw.metode === "manual"
+                                          ? formatNumberDots(inputVal)
+                                          : inputVal
+                                      }
+                                      onChange={(e) => {
+                                        const val =
+                                          alw.metode === "manual"
+                                            ? parseNumberDots(e.target.value) === 0 &&
+                                              e.target.value === ""
+                                              ? ""
+                                              : String(parseNumberDots(e.target.value))
+                                            : e.target.value;
+                                        handleInputChange(emp.id, alw.id, val);
+                                      }}
+                                    />
+                                    {finalVal > 0 && (
+                                      <span className="text-[8px] text-emerald-600 font-bold bg-emerald-50 px-1.5 py-0 rounded-full">
+                                        {formatIDR(finalVal)}
+                                      </span>
+                                    )}
+                                  </div>
+                                )}
+                              </div>
                             </TableCell>
                           );
                         })}
 
-                        <TableCell className="hidden md:table-cell align-top pt-2">
-                          <div className="space-y-1 max-h-24 overflow-y-auto p-0.5">
-                            {emp.custom_allowances?.length === 0 ? (
-                              <span className="text-[10px] text-slate-300 block text-center mt-1">
-                                -
-                              </span>
-                            ) : (
-                              emp.custom_allowances?.map((c: any) => (
-                                <div
-                                  key={c.id}
-                                  className="flex items-center justify-between bg-white border border-slate-200 shadow-sm rounded px-1.5 py-1"
-                                >
-                                  <span
-                                    className="text-[10px] font-medium text-slate-600 truncate max-w-[80px]"
-                                    title={c.nama}
+                        {/* ── Penyesuaian Custom ── */}
+                        <TableCell className="hidden md:table-cell align-middle">
+                          <div className="py-1.5 px-1">
+                            <div className="space-y-1 max-h-20 overflow-y-auto">
+                              {emp.custom_allowances?.length === 0 ? (
+                                <span className="text-[9px] text-slate-300 block text-center">
+                                  —
+                                </span>
+                              ) : (
+                                emp.custom_allowances?.map((c: any) => (
+                                  <div
+                                    key={c.id}
+                                    className="flex items-center justify-between bg-teal-50/50 border border-teal-100/50 rounded-md px-1.5 py-1 group/custom"
                                   >
-                                    {c.nama}
-                                  </span>
-                                  <div className="flex items-center gap-1">
-                                    <span className="text-[10px] font-semibold text-slate-800">
-                                      {formatIDR(c.nominal)}
-                                    </span>
-                                    <button
-                                      onClick={() => handleRemoveCustomAllowance(emp.id, c.id)}
-                                      className="text-slate-400 hover:text-rose-500 transition-colors"
+                                    <span
+                                      className="text-[9px] font-medium text-teal-700 truncate max-w-[70px]"
+                                      title={c.nama}
                                     >
-                                      <Trash2 className="w-3 h-3" />
-                                    </button>
+                                      {c.nama}
+                                    </span>
+                                    <div className="flex items-center gap-1">
+                                      <span className="text-[9px] font-bold text-teal-800">
+                                        {formatIDR(c.nominal)}
+                                      </span>
+                                      <button
+                                        onClick={() => handleRemoveCustomAllowance(emp.id, c.id)}
+                                        className="text-slate-300 hover:text-rose-500 transition-colors opacity-0 group-hover/custom:opacity-100"
+                                      >
+                                        <Trash2 className="w-2.5 h-2.5" />
+                                      </button>
+                                    </div>
                                   </div>
-                                </div>
-                              ))
-                            )}
+                                ))
+                              )}
+                            </div>
                           </div>
                         </TableCell>
 
+                        {/* ── Potongan Columns ── */}
                         {(deductionTypes || []).map((ded) => {
                           const isEligible = checkIsEligible(ded.catatan, emp.jabatan);
                           const inputVal = emp.component_inputs?.[ded.id] ?? "";
                           const finalVal = getComponentCalculatedValue(ded, emp);
+                          const hasValue = finalVal > 0;
 
                           return (
                             <TableCell
                               key={ded.id}
-                              className="hidden md:table-cell text-center align-top pt-3"
+                              className="hidden md:table-cell text-center align-middle"
                             >
-                              {!isEligible ? (
-                                <span className="text-slate-200 text-[11px] font-medium">-</span>
-                              ) : ded.metode === "fixed" ? (
-                                <span className="text-[11px] font-medium text-rose-600/80">
-                                  {formatIDR(ded.nominal_default)}
-                                </span>
-                              ) : (
-                                <div className="flex flex-col items-center gap-1">
-                                  <Input
-                                    type={ded.metode === "manual" ? "text" : "number"}
-                                    className={`h-6 text-center text-[11px] shadow-none transition-all ${ded.metode === "manual" ? "w-22" : "w-14"} border-slate-200 focus-visible:ring-1 focus-visible:ring-rose-400`}
-                                    placeholder={ded.metode === "manual" ? "Rp" : "Hari"}
-                                    value={
-                                      ded.metode === "manual"
-                                        ? formatNumberDots(inputVal)
-                                        : inputVal
-                                    }
-                                    onChange={(e) => {
-                                      const val =
+                              <div className="py-1.5 px-1">
+                                {!isEligible ? (
+                                  <span className="text-slate-200 text-[10px]">—</span>
+                                ) : ded.metode === "fixed" ? (
+                                  <span className="text-[10px] font-semibold text-rose-600 bg-rose-50 px-1.5 py-0.5 rounded">
+                                    {formatIDR(ded.nominal_default)}
+                                  </span>
+                                ) : (
+                                  <div className="flex flex-col items-center gap-0.5">
+                                    <Input
+                                      type={ded.metode === "manual" ? "text" : "number"}
+                                      className={`h-[26px] text-center text-[10px] shadow-inner transition-all duration-150 ${
+                                        ded.metode === "manual" ? "w-[90px]" : "w-[56px]"
+                                      } ${
+                                        hasValue
+                                          ? "border-rose-300 bg-rose-50/50 focus-visible:ring-rose-400"
+                                          : "border-slate-200 bg-slate-50/50 focus-visible:ring-rose-400"
+                                      } rounded-md`}
+                                      placeholder={
+                                        ded.metode === "manual" ? "Rp" : "Hari"
+                                      }
+                                      value={
                                         ded.metode === "manual"
-                                          ? parseNumberDots(e.target.value) === 0 &&
-                                            e.target.value === ""
-                                            ? ""
-                                            : String(parseNumberDots(e.target.value))
-                                          : e.target.value;
-                                      handleInputChange(emp.id, ded.id, val);
-                                    }}
-                                  />
-                                  {ded.metode === "per_day" &&
-                                    Number(ded.nominal_default || 0) === 0 && (
-                                      <span className="text-[9px] text-slate-400">gaji/30</span>
+                                          ? formatNumberDots(inputVal)
+                                          : inputVal
+                                      }
+                                      onChange={(e) => {
+                                        const val =
+                                          ded.metode === "manual"
+                                            ? parseNumberDots(e.target.value) === 0 &&
+                                              e.target.value === ""
+                                              ? ""
+                                              : String(parseNumberDots(e.target.value))
+                                            : e.target.value;
+                                        handleInputChange(emp.id, ded.id, val);
+                                      }}
+                                    />
+                                    {ded.metode === "per_day" &&
+                                      Number(ded.nominal_default || 0) === 0 && (
+                                        <span className="text-[7px] text-slate-400 italic">gaji/30</span>
+                                      )}
+                                    {finalVal > 0 && (
+                                      <span className="text-[8px] text-rose-600 font-bold bg-rose-50 px-1.5 py-0 rounded-full">
+                                        {formatIDR(finalVal)}
+                                      </span>
                                     )}
-                                  {finalVal > 0 && (
-                                    <span className="text-[9px] text-rose-500 font-semibold">
-                                      {formatIDR(finalVal)}
-                                    </span>
-                                  )}
-                                </div>
-                              )}
+                                  </div>
+                                )}
+                              </div>
                             </TableCell>
                           );
                         })}
 
+                        {/* ── Total Bersih (Sticky Right) ── */}
                         <TableCell
-                          className={`font-bold text-right sticky right-0 ${hasEdits ? "bg-indigo-50/20 group-hover:bg-indigo-50/30" : "bg-white group-hover:bg-slate-50/95"} z-10 border-l border-slate-100 transition-colors align-middle`}
+                          className={`sticky right-0 z-10 border-l border-emerald-100/60 align-middle transition-colors ${
+                            hasEdits
+                              ? "bg-indigo-50/40 group-hover:bg-indigo-50/60"
+                              : isEven
+                                ? "bg-white group-hover:bg-emerald-50/30"
+                                : "bg-slate-50/30 group-hover:bg-emerald-50/30"
+                          }`}
                         >
-                          <div className="flex items-center justify-end gap-1 text-xs text-slate-900">
-                            {formatIDR(emp.grandTotal)}
-                            <ArrowRight className="w-3 h-3 text-slate-300" />
+                          <div className="py-1.5 px-2 text-right">
+                            <div className="text-[11px] font-extrabold text-emerald-700">
+                              {formatIDR(emp.grandTotal)}
+                            </div>
+                            <div className="flex items-center justify-end gap-0.5 mt-0.5">
+                              <span className="text-[8px] text-slate-400">THP</span>
+                              <ArrowRight className="w-2.5 h-2.5 text-emerald-300" />
+                            </div>
                           </div>
                         </TableCell>
                       </TableRow>
-                      <TableRow className="md:hidden bg-slate-50/60">
+
+                      {/* ── Mobile Card View ── */}
+                      <TableRow className="md:hidden">
                         <TableCell
-                          colSpan={
-                            (allowanceTypes || []).length + (deductionTypes || []).length + 5
-                          }
-                          className="py-2 px-2 text-[10px] text-slate-600"
+                          colSpan={(allowanceTypes || []).length + (deductionTypes || []).length + 5}
+                          className="p-0"
                         >
-                          <div className="grid gap-2">
-                            <div className="flex flex-wrap items-center justify-between gap-2">
-                              <span className="font-medium">Gaji Pokok Payroll</span>
-                              <span className="font-semibold">
-                                {formatIDR(getPayrollBaseSalary(emp))}
-                              </span>
+                          <div className={`mx-2 mb-2 rounded-lg border p-3 ${
+                            hasEdits
+                              ? "border-indigo-200 bg-indigo-50/30"
+                              : "border-slate-200 bg-white"
+                          }`}>
+                            {/* Mobile Header */}
+                            <div className="flex items-center justify-between mb-2">
+                              <div className="flex items-center gap-2">
+                                <div className="h-8 w-8 rounded-lg bg-gradient-to-br from-emerald-50 to-teal-50 flex items-center justify-center text-[11px] font-bold text-emerald-700 border border-emerald-100/50">
+                                  {emp.nama?.charAt(0)?.toUpperCase() || '?'}
+                                </div>
+                                <div>
+                                  <div className="text-[11px] font-bold text-slate-900">{emp.nama}</div>
+                                  <div className="text-[9px] text-slate-500">{emp.jabatan || '-'}</div>
+                                </div>
+                              </div>
+                              <div className="text-right">
+                                <div className="text-[11px] font-extrabold text-emerald-700">{formatIDR(emp.grandTotal)}</div>
+                                <div className="text-[8px] text-slate-400">THP</div>
+                              </div>
                             </div>
+
+                            {/* Mobile Breakdown */}
+                            <div className="grid grid-cols-3 gap-1.5 mb-2">
+                              <div className="bg-slate-50 rounded p-1.5 text-center">
+                                <div className="text-[8px] text-slate-400 font-medium">Pokok</div>
+                                <div className="text-[9px] font-bold text-slate-700">{formatIDR(getPayrollBaseSalary(emp))}</div>
+                              </div>
+                              <div className="bg-emerald-50/50 rounded p-1.5 text-center">
+                                <div className="text-[8px] text-emerald-500 font-medium">Tunjangan</div>
+                                <div className="text-[9px] font-bold text-emerald-700">+{formatIDR(getPayrollBreakdown(emp).totalTunjangan)}</div>
+                              </div>
+                              <div className="bg-rose-50/50 rounded p-1.5 text-center">
+                                <div className="text-[8px] text-rose-500 font-medium">Potongan</div>
+                                <div className="text-[9px] font-bold text-rose-700">-{formatIDR(getPayrollBreakdown(emp).totalPotongan)}</div>
+                              </div>
+                            </div>
+
                             {emp.evaluation_info?.isDue && (
-                              <div className="rounded-md border border-amber-200 bg-amber-50 px-2 py-1 text-[11px] text-amber-800">
-                                Sudah waktunya evaluasi gaji sejak {emp.evaluation_info.nextDate}.
+                              <div className="mb-2 rounded border border-amber-200 bg-amber-50 px-2 py-1.5 text-[9px] text-amber-800">
+                                ⚠ Evaluasi gaji sejak {emp.evaluation_info.nextDate}
                               </div>
                             )}
-                            <div className="flex flex-wrap items-center justify-between gap-2">
-                              <span className="font-medium">Total Tunjangan</span>
-                              <span className="font-semibold">
-                                {formatIDR(getPayrollBreakdown(emp).totalTunjangan)}
-                              </span>
-                            </div>
-                            <div className="flex flex-wrap items-center justify-between gap-2">
-                              <span className="font-medium">Total Potongan</span>
-                              <span className="font-semibold">
-                                {formatIDR(getPayrollBreakdown(emp).totalPotongan)}
-                              </span>
-                            </div>
-                            <div className="flex flex-wrap items-center justify-between gap-2">
-                              <span className="font-medium">Bersih</span>
-                              <span className="font-semibold text-slate-900">
-                                {formatIDR(emp.grandTotal)}
-                              </span>
-                            </div>
-                            <div className="flex gap-1.5 flex-wrap">
+
+                            {/* Mobile Actions */}
+                            <div className="flex gap-1.5">
                               <Button
                                 variant="outline"
                                 size="sm"
-                                className="h-6 px-1.5 text-[9px] shadow-none border-teal-200 text-teal-700 bg-teal-50/30 hover:bg-teal-100"
+                                className="h-6 px-2 text-[9px] shadow-none border-emerald-200 text-emerald-700 bg-emerald-50/50 hover:bg-emerald-100"
                                 onClick={() => handleAddCustomAllowance(emp.id)}
                               >
-                                <Plus className="w-2.5 h-2.5 mr-0.5" /> Penyesuaian
+                                <Plus className="w-3 h-3 mr-0.5" /> Penyesuaian
                               </Button>
                               <Button
-                                variant="secondary"
+                                variant="ghost"
                                 size="sm"
-                                className="h-6 px-1.5 text-[9px] shadow-none border-slate-200 text-slate-700 hover:bg-slate-100"
+                                className="h-6 px-2 text-[9px] shadow-none text-slate-500 hover:bg-slate-100"
                                 onClick={() => openDetail(emp)}
                               >
                                 Detail
@@ -2112,6 +2248,38 @@ function AppProsesGajiPage() {
             </TableBody>
           </Table>
         </div>
+
+        {/* Table Footer Summary */}
+        {filteredEmployees.length > 0 && (
+          <div className="border-t border-slate-200 bg-gradient-to-r from-slate-50 to-white px-4 py-2.5">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-4">
+                <span className="text-[10px] text-slate-500">
+                  Total: <span className="font-bold text-slate-700">{filteredEmployees.length}</span> karyawan
+                </span>
+                {hasLocalDraft && (
+                  <span className="text-[9px] text-indigo-500 font-medium">
+                    ● Draf tersimpan otomatis
+                  </span>
+                )}
+              </div>
+              <div className="flex items-center gap-4">
+                <span className="text-[10px] text-slate-500">
+                  Gaji Pokok: <span className="font-semibold text-slate-700">{formatIDR(stats.totalGajiPokok)}</span>
+                </span>
+                <span className="text-[10px] text-slate-500">
+                  Tunjangan: <span className="font-semibold text-emerald-600">{formatIDR(stats.totalTunjangan)}</span>
+                </span>
+                <span className="text-[10px] text-slate-500">
+                  Potongan: <span className="font-semibold text-rose-600">{formatIDR(stats.totalPotongan)}</span>
+                </span>
+                <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full">
+                  Net Transfer: {formatIDR(stats.totalTHP)}
+                </span>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

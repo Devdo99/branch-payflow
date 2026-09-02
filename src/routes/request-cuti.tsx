@@ -1,7 +1,8 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { JENIS_CUTI, getJenisCuti, getStatusCuti, BULAN_PANJANG, formatTanggalHR, toISODate } from "@/lib/hr";
+import { JENIS_CUTI, getJenisCuti, getStatusCuti, BULAN_PANJANG, HARI_PENDEK, formatTanggalHR, toISODate, getDaysInMonth } from "@/lib/hr";
+import { toCanvas } from "html-to-image";
 import { getKuotaLabel, maskPhone } from "@/lib/cuti-request";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -33,6 +34,8 @@ import {
   XCircle,
   Info,
   RotateCcw,
+  Download,
+  Printer,
 } from "lucide-react";
 import {
   AlertDialog,
@@ -288,6 +291,264 @@ function CalendarGrid({
   });
 }
 
+/**
+ * Poster kalender cuti bergaya admin — inline style agar bisa di-capture ke PNG.
+ */
+function KalenderPosterPublik({
+  bulan,
+  tahun,
+  month,
+  items,
+}: {
+  bulan: string;
+  tahun: number;
+  month: number;
+  items: CutiPreviewItem[];
+}) {
+  const todayKey = toISODate(new Date());
+  const daysInMonth = getDaysInMonth(tahun, month);
+
+  // Build grid
+  const firstDay = new Date(tahun, month, 1);
+  const startWeekday = (firstDay.getDay() + 6) % 7;
+  const grid: (number | null)[] = [];
+  for (let i = 0; i < startWeekday; i++) grid.push(null);
+  for (let d = 1; d <= daysInMonth; d++) grid.push(d);
+  while (grid.length % 7 !== 0) grid.push(null);
+
+  const byDate = useMemo(() => {
+    const map: Record<string, CutiPreviewItem[]> = {};
+    items.forEach((it) => {
+      const s = new Date(it.tanggal_mulai + "T00:00:00");
+      const e = new Date(it.tanggal_selesai + "T00:00:00");
+      for (let d = new Date(s); d <= e; d.setDate(d.getDate() + 1)) {
+        const key = d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
+        const mStart = tahun + "-" + String(month + 1).padStart(2, "0") + "-01";
+        const mEnd = tahun + "-" + String(month + 1).padStart(2, "0") + "-" + String(daysInMonth).padStart(2, "0");
+        if (key >= mStart && key <= mEnd) {
+          if (!map[key]) map[key] = [];
+          const nama = it.nama || "-";
+          if (!map[key].some((x) => x.nama === nama && x.jenis === it.jenis)) {
+            map[key].push(it);
+          }
+        }
+      }
+    });
+    return map;
+  }, [items, tahun, month, daysInMonth]);
+
+  const totalDisetujui = items.filter((it) => it.status === "disetujui").length;
+  const orangSet = new Set(items.map((it) => it.nama));
+
+  const headerCell = (h: string) => (
+    <div
+      key={h}
+      style={{
+        textAlign: "center",
+        fontSize: 13,
+        fontWeight: 700,
+        color: h === "Min" ? "#e11d48" : "#64748b",
+        padding: "8px 0",
+        textTransform: "uppercase",
+        letterSpacing: 1,
+      }}
+    >
+      {h}
+    </div>
+  );
+
+  const cell = (day: number, i: number) => {
+    const dateKey = `${tahun}-${String(month + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+    const isToday = dateKey === todayKey;
+    const isSunday = i % 7 === 6;
+    const dayCuti = byDate[dateKey] || [];
+    return (
+      <div
+        key={i}
+        style={{
+          minHeight: 80,
+          borderRadius: 8,
+          border: isToday
+            ? "2px solid #10b981"
+            : isSunday
+              ? "1px solid #ffe4e6"
+              : "1px solid #e2e8f0",
+          background: isToday ? "#ecfdf5" : isSunday ? "#fff1f2" : "#ffffff",
+          padding: 5,
+          overflow: "hidden",
+        }}
+      >
+        <div
+          style={{
+            fontSize: 12,
+            fontWeight: 700,
+            color: isToday ? "#047857" : "#334155",
+            marginBottom: 3,
+          }}
+        >
+          {day}
+        </div>
+        <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+          {dayCuti.slice(0, 3).map((c, ci) => {
+            const jc = getJenisCuti(c.jenis);
+            return (
+              <div
+                key={ci}
+                style={{
+                  borderRadius: 5,
+                  background: `${jc.color}1F`,
+                  color: "#0f172a",
+                  fontSize: 10,
+                  fontWeight: 600,
+                  padding: "2px 5px",
+                  whiteSpace: "nowrap",
+                  overflow: "hidden",
+                  textOverflow: "ellipsis",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 3,
+                }}
+              >
+                <span
+                  style={{
+                    width: 6,
+                    height: 6,
+                    borderRadius: 999,
+                    background: jc.color,
+                    display: "inline-block",
+                    flexShrink: 0,
+                  }}
+                />
+                <span style={{ overflow: "hidden", textOverflow: "ellipsis" }}>{c.nama}</span>
+              </div>
+            );
+          })}
+          {dayCuti.length > 3 && (
+            <div style={{ fontSize: 9, color: "#94a3b8", fontWeight: 700, paddingLeft: 2 }}>
+              +{dayCuti.length - 3} lainnya
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  };
+
+  return (
+    <div
+      style={{
+        width: 1080,
+        background: "#ffffff",
+        fontFamily: "Arial, Helvetica, sans-serif",
+        color: "#0f172a",
+      }}
+    >
+      {/* Header */}
+      <div
+        style={{
+          background: "linear-gradient(135deg,#047857,#0d9488)",
+          padding: "26px 36px",
+          color: "#ffffff",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+        }}
+      >
+        <div>
+          <div style={{ fontSize: 25, fontWeight: 800, letterSpacing: 0.5 }}>
+            JADWAL CUTI KARYAWAN
+          </div>
+          <div style={{ fontSize: 14, marginTop: 4, opacity: 0.9 }}>
+            {bulan} {tahun}
+          </div>
+        </div>
+        <div style={{ textAlign: "right", fontSize: 13, opacity: 0.92, lineHeight: 1.7 }}>
+          Total: {items.length} catatan cuti
+          <br />
+          Disetujui: {totalDisetujui} • {orangSet.size} karyawan
+        </div>
+      </div>
+
+      {/* Legenda */}
+      <div
+        style={{
+          display: "flex",
+          flexWrap: "wrap",
+          gap: 14,
+          padding: "12px 36px",
+          borderBottom: "2px solid #e2e8f0",
+        }}
+      >
+        {JENIS_CUTI.map((j) => (
+          <span
+            key={j.value}
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 6,
+              fontSize: 12,
+              color: "#334155",
+            }}
+          >
+            <span
+              style={{
+                width: 10,
+                height: 10,
+                borderRadius: 999,
+                background: j.color,
+                display: "inline-block",
+              }}
+            />
+            {j.label}
+          </span>
+        ))}
+      </div>
+
+      {/* Grid */}
+      <div style={{ padding: "16px 36px 20px" }}>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 6 }}>
+          {HARI_PENDEK.map(headerCell)}
+          {grid.map((day, i) =>
+            day === null ? (
+              <div
+                key={i}
+                style={{
+                  minHeight: 80,
+                  borderRadius: 8,
+                  background: "#f8fafc",
+                  border: "1px solid #f1f5f9",
+                }}
+              />
+            ) : (
+              cell(day, i)
+            ),
+          )}
+        </div>
+      </div>
+
+      {/* Footer */}
+      <div
+        style={{
+          padding: "12px 36px",
+          borderTop: "2px solid #e2e8f0",
+          display: "flex",
+          justifyContent: "space-between",
+          fontSize: 11,
+          color: "#94a3b8",
+        }}
+      >
+        <span>Dibuat dari sistem PayFlow HR</span>
+        <span>
+          {new Date().toLocaleDateString("id-ID", {
+            day: "numeric",
+            month: "long",
+            year: "numeric",
+          })}
+        </span>
+      </div>
+    </div>
+  );
+}
+
 function RequestCutiPage() {
   const [step, setStep] = useState<"phone" | "form" | "done">("phone");
 
@@ -319,6 +580,63 @@ function RequestCutiPage() {
 
   // Employee leave preview data (all staff)
   const [cutiPreview, setCutiPreview] = useState<CutiPreviewItem[]>([]);
+
+  // Poster kalender (html-to-image)
+  const posterRef = useRef<HTMLDivElement>(null);
+  const [posterData, setPosterData] = useState<string | null>(null);
+  const [posterBuilding, setPosterBuilding] = useState(false);
+
+  const buildPoster = useCallback(async () => {
+    if (!posterRef.current) return;
+    setPosterBuilding(true);
+    try {
+      if (document.fonts?.ready) await document.fonts.ready;
+      const canvas = await toCanvas(posterRef.current, {
+        pixelRatio: 2,
+        backgroundColor: "#ffffff",
+        cacheBust: true,
+        style: {
+          position: "static",
+          left: "auto",
+          top: "auto",
+          transform: "none",
+          opacity: "1",
+        },
+      });
+      if (!canvas.width || !canvas.height) throw new Error("Canvas kosong");
+      setPosterData(canvas.toDataURL("image/png"));
+    } catch (err) {
+      console.error("Gagal membuat gambar kalender:", err);
+      setPosterData(null);
+    } finally {
+      setPosterBuilding(false);
+    }
+  }, []);
+
+  // Rebuild poster when cutiPreview or month changes
+  useEffect(() => {
+    if (step !== "form" || cutiPreview.length === 0) return;
+    setPosterData(null);
+    let rafId = 0;
+    let rafId2 = 0;
+    rafId = requestAnimationFrame(() => {
+      rafId2 = requestAnimationFrame(() => {
+        buildPoster();
+      });
+    });
+    return () => {
+      cancelAnimationFrame(rafId);
+      cancelAnimationFrame(rafId2);
+    };
+  }, [step, cutiPreview, calMonth, calYear, buildPoster]);
+
+  const downloadPoster = () => {
+    if (!posterData) return;
+    const link = document.createElement("a");
+    link.download = `Jadwal_Cuti_${BULAN_PANJANG[calMonth]}_${calYear}.png`;
+    link.href = posterData;
+    link.click();
+  };
 
   const tanggalTerpakai = useMemo(() => {
     return [...tglTerpilih].sort();
@@ -666,16 +984,29 @@ function RequestCutiPage() {
                       <ChevronRight className="h-3.5 w-3.5" />
                     </button>
                   </div>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setCalMonth(new Date().getMonth());
-                      setCalYear(new Date().getFullYear());
-                    }}
-                    className="rounded-lg border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-[11px] font-semibold text-emerald-700 transition-colors hover:bg-emerald-100"
-                  >
-                    Bulan Ini
-                  </button>
+                  <div className="flex items-center gap-1.5">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setCalMonth(new Date().getMonth());
+                        setCalYear(new Date().getFullYear());
+                      }}
+                      className="rounded-lg border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-[11px] font-semibold text-emerald-700 transition-colors hover:bg-emerald-100"
+                    >
+                      Bulan Ini
+                    </button>
+                    {cutiPreview.length > 0 && (
+                      <button
+                        type="button"
+                        onClick={downloadPoster}
+                        disabled={posterBuilding || !posterData}
+                        className="flex items-center gap-1 rounded-lg border border-sky-200 bg-sky-50 px-2.5 py-1 text-[11px] font-semibold text-sky-700 transition-colors hover:bg-sky-100 disabled:opacity-40"
+                      >
+                        <Download className="h-3 w-3" />
+                        {posterBuilding ? "Membuat..." : "Download Poster"}
+                      </button>
+                    )}
+                  </div>
                 </div>
 
                 <div className="grid grid-cols-7 gap-1.5">
@@ -826,6 +1157,27 @@ function RequestCutiPage() {
                   {isSubmitting ? "Mengirim..." : "Kirim Permohonan"}
                 </Button>
               </div>
+            </div>
+          )}
+
+          {/* Poster tersembunyi untuk di-capture jadi gambar */}
+          {step === "form" && (
+            <div
+              ref={posterRef}
+              aria-hidden
+              style={{
+                position: "fixed",
+                top: 0,
+                left: "-9999px",
+                width: 1080,
+              }}
+            >
+              <KalenderPosterPublik
+                bulan={BULAN_PANJANG[calMonth]}
+                tahun={calYear}
+                month={calMonth}
+                items={cutiPreview}
+              />
             </div>
           )}
 

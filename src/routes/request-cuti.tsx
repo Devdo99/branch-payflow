@@ -76,7 +76,8 @@ type CutiPreviewItem = {
   tanggal_mulai: string;
   tanggal_selesai: string;
   status: string;
-  employees?: { nama?: string | null } | null;
+  nama?: string | null;
+  branch_id?: string | null;
 };
 
 function DayDetailBody({
@@ -130,7 +131,7 @@ function DayDetailBody({
                 <span className={"h-3 w-3 shrink-0 rounded-full " + jc.dot} />
                 <div className="flex-1 min-w-0">
                   <p className={"text-sm font-semibold truncate " + nameClass}>
-                    {isOwn ? "\uD83D\uDC64 Anda" : (c.employees?.nama || "-")}
+                    {isOwn ? "\uD83D\uDC64 Anda" : (c.nama || "-")}
                   </p>
                   <p className="text-[11px] text-slate-400">
                     {jc.label}
@@ -197,7 +198,7 @@ function CalendarGrid({
   cutiPreview.forEach((c) => {
     const s = new Date(c.tanggal_mulai + "T00:00:00");
     const e = new Date(c.tanggal_selesai + "T00:00:00");
-    const nama = c.employees?.nama || "-";
+    const nama = c.nama || "-";
     for (let d2 = new Date(s); d2 <= e; d2.setDate(d2.getDate() + 1)) {
       const key = d2.getFullYear() + "-" + String(d2.getMonth() + 1).padStart(2, "0") + "-" + String(d2.getDate()).padStart(2, "0");
       if (key >= mStart && key <= mEnd) {
@@ -353,12 +354,11 @@ function RequestCutiPage() {
       }
       setEmployee(data[0]);
       if (data[0].branch_id) {
-        const { data: br } = await supabase
-          .from("branches")
-          .select("nama, kuota_cuti_hari_kerja, kuota_cuti_akhir_pekan")
-          .eq("id", data[0].branch_id)
-          .single();
-        setBranchInfo(br || null);
+        // Use SECURITY DEFINER RPC to bypass RLS on branches table
+        const { data: br } = await supabase.rpc("get_branch_info", {
+          p_branch_id: data[0].branch_id,
+        });
+        setBranchInfo(br?.[0] || null);
       } else {
         setBranchInfo(null);
       }
@@ -367,14 +367,9 @@ function RequestCutiPage() {
       setCalYear(new Date().getFullYear());
       setStep("form");
       // Fetch ALL staff leave for calendar preview
+      // Uses SECURITY DEFINER RPC to bypass RLS (anon key cannot read cuti directly)
       try {
-        const { data: leaveData } = await supabase
-          .from("cuti")
-          .select(
-            "id, employee_id, jenis, tanggal_mulai, tanggal_selesai, status, tanggal_list, employees ( nama, branch_id )",
-          )
-          .in("status", ["diajukan", "disetujui"])
-          .order("tanggal_mulai", { ascending: false });
+        const { data: leaveData } = await supabase.rpc("get_cuti_preview");
         setCutiPreview((leaveData as CutiPreviewItem[]) || []);
       } catch {
         setCutiPreview([]);

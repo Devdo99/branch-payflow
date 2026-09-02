@@ -886,6 +886,24 @@ export type Database = {
         };
         Returns: boolean;
       };
+      get_branch_info: {
+        Args: { p_branch_id: string };
+        Returns: { nama: string; kuota_cuti_hari_kerja: number; kuota_cuti_akhir_pekan: number }[];
+      };
+      get_cuti_preview: {
+        Args: Record<string, never>;
+        Returns: {
+          id: string;
+          employee_id: string;
+          jenis: string;
+          tanggal_mulai: string;
+          tanggal_selesai: string;
+          status: string;
+          tanggal_list: unknown;
+          nama: string;
+          branch_id: string | null;
+        }[];
+      };
       cek_kuota_cuti: {
         Args: {
           p_mulai: string;

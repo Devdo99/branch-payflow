@@ -648,3 +648,64 @@
   }
 }
 
+/* ===== PRINT STYLES — Kalender Cuti ===== */
+@media print {
+  /* Sembunyikan semua kecuali area kalender */
+  body > *:not(.print-area) {
+    display: none !important;
+  }
+  .print-area {
+    display: block !important;
+    position: static !important;
+    width: 100% !important;
+    max-width: none !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    background: white !important;
+  }
+  .print-area .min-h-screen,
+  .print-area .min-h-\[52px\] {
+    min-height: 0 !important;
+  }
+  /* Header kalender */
+  .print-area .rounded-2xl {
+    border-radius: 0 !important;
+    border: none !important;
+    box-shadow: none !important;
+  }
+  /* Ukuran font lebih besar untuk cetak */
+  .print-area .text-\[10px\] {
+    font-size: 9pt !important;
+  }
+  .print-area .text-\[9px\] {
+    font-size: 7pt !important;
+  }
+  .print-area .text-\[11px\] {
+    font-size: 8pt !important;
+  }
+  /* Grid kalender lebar penuh */
+  .print-area .grid-cols-7 {
+    gap: 0 !important;
+  }
+  .print-area .grid-cols-7 > div {
+    border: 0.5px solid #cbd5e1 !important;
+    padding: 3px !important;
+  }
+  /* Legenda */
+  .print-area .gap-x-3 {
+    margin-top: 8px !important;
+    border-top: 1px solid #e2e8f0 !important;
+    padding-top: 6px !important;
+  }
+  /* Sembunyikan tombol navigasi & interaktif */
+  .print-area button,
+  .print-area [role='combobox'] {
+    display: none !important;
+  }
+  /* Sembunyikan elemen yang tidak perlu dicetak */
+  .print-area .space-y-1\.5 > Label,
+  .print-area .space-y-1\.5 > .text-xs.uppercase {
+    display: none !important;
+  }
+}
+

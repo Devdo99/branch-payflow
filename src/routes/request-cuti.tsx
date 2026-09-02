@@ -943,6 +943,7 @@ function RequestCutiPage() {
                 </Select>
               </div>
 
+              <div className="print-area">
               <Label className="text-xs font-semibold uppercase tracking-wider text-slate-500">
                 Klik tanggal untuk memilih cuti Anda
               </Label>
@@ -996,15 +997,24 @@ function RequestCutiPage() {
                       Bulan Ini
                     </button>
                     {cutiPreview.length > 0 && (
-                      <button
-                        type="button"
-                        onClick={downloadPoster}
-                        disabled={posterBuilding || !posterData}
-                        className="flex items-center gap-1 rounded-lg border border-sky-200 bg-sky-50 px-2.5 py-1 text-[11px] font-semibold text-sky-700 transition-colors hover:bg-sky-100 disabled:opacity-40"
-                      >
-                        <Download className="h-3 w-3" />
-                        {posterBuilding ? "Membuat..." : "Download Poster"}
-                      </button>
+                      <>
+                        <button
+                          type="button"
+                          onClick={() => window.print()}
+                          className="flex items-center gap-1 rounded-lg border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-[11px] font-semibold text-emerald-700 transition-colors hover:bg-emerald-100"
+                        >
+                          <Printer className="h-3 w-3" /> Cetak
+                        </button>
+                        <button
+                          type="button"
+                          onClick={downloadPoster}
+                          disabled={posterBuilding || !posterData}
+                          className="flex items-center gap-1 rounded-lg border border-sky-200 bg-sky-50 px-2.5 py-1 text-[11px] font-semibold text-sky-700 transition-colors hover:bg-sky-100 disabled:opacity-40"
+                        >
+                          <Download className="h-3 w-3" />
+                          {posterBuilding ? "Membuat..." : "Poster"}
+                        </button>
+                      </>
                     )}
                   </div>
                 </div>
@@ -1116,6 +1126,7 @@ function RequestCutiPage() {
                   </div>
                 </div>
               )}
+              </div>
 
               <div className="space-y-1.5">
                 <Label className="text-xs font-semibold uppercase tracking-wider text-slate-500">
